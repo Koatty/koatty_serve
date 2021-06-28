@@ -1,0 +1,75 @@
+{
+    "name": "koatty_serve",
+    "version": "1.0.1",
+    "description": "Provide http1/2, websocket, gRPC server for Koatty.",
+    "scripts": {
+        "build": "del-cli --force dist && tsc",
+        "eslint": "eslint --ext .ts,.js ./",
+        "prepublishOnly": "npm test && npm run build",
+        "release": "standard-version",
+        "test": "npm run eslint && npm run build && jest --passWithNoTests",
+        "test:cov": "jest --collectCoverage --detectOpenHandles",
+        "version": "conventional-changelog -p angular -i CHANGELOG.md -s"
+    },
+    "main": "./dist/index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/thinkkoa/koatty_serve.git"
+    },
+    "keywords": [
+        "IOC",
+        "koatty",
+        "thinkkoa"
+    ],
+    "engines": {
+        "node": ">10.0.0"
+    },
+    "author": {
+        "name": "richenlin",
+        "email": "richenlin@gmail.com"
+    },
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/thinkkoa/koatty_serve/issues"
+    },
+    "homepage": "https://github.com/thinkkoa/koatty_serve",
+    "maintainers": [
+        {
+            "name": "richenlin",
+            "email": "richenlin@gmail.com"
+        }
+    ],
+    "devDependencies": {
+        "@commitlint/cli": "^12.x.x",
+        "@commitlint/config-conventional": "^12.x.x",
+        "@types/cls-hooked": "^4.x.x",
+        "@types/koa": "^2.x.x",
+        "@types/node": "^12.x.x",
+        "@typescript-eslint/eslint-plugin": "^4.x.x",
+        "@typescript-eslint/parser": "^4.x.x",
+        "conventional-changelog-cli": "^2.x.x",
+        "del-cli": "^3.x.x",
+        "eslint": "^7.x.x",
+        "eslint-plugin-jest": "^24.x.x",
+        "husky": "^6.x.x",
+        "jest": "^27.x.x",
+        "jest-html-reporters": "^2.x.x",
+        "koatty_cacheable": "^1.x.x",
+        "koatty_schedule": "^1.x.x",
+        "standard-version": "^9.x.x",
+        "ts-jest": "^27.x.x",
+        "ts-node": "^10.x.x",
+        "typescript": "^4.x.x"
+    },
+    "dependencies": {
+        "@godaddy/terminus": "^4.9.0",
+        "koatty": "^3.x.x",
+        "koatty_trace": "^1.x.x",
+        "tslib": "^2.3.0"
+    },
+    "husky": {
+        "hooks": {
+            "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+        }
+    }
+}
