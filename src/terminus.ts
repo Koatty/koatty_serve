@@ -3,13 +3,14 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2021-06-28 17:55:17
+ * @LastEditTime: 2021-06-29 16:48:45
  */
 import { createTerminus, TerminusOptions } from "@godaddy/terminus";
 import EventEmitter from "events";
 import { Server } from "http";
 import { Http2SecureServer } from "http2";
-import { Helper, Logger } from "koatty";
+import { DefaultLogger as Logger } from "koatty_logger";
+import * as Helper from "koatty_lib";
 
 /** @type {*} */
 const defaultTerminusOptions = {

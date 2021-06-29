@@ -3,10 +3,10 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:47:26
- * @LastEditTime: 2021-06-28 17:55:45
+ * @LastEditTime: 2021-06-29 16:45:23
  */
-import { Koatty } from "koatty";
 import { TraceServerSetup } from "koatty_trace";
+import { Application } from "koatty_container";
 import { Http } from "./http";
 import { Http2 } from "./http2";
 // export
@@ -57,7 +57,7 @@ export interface Server {
  * @param {() => void} listenCallback
  * @returns {*}  
  */
-export function Serve(mode: SERVE_MODE, app: Koatty, options: ListeningOptions,
+export function Serve(mode: SERVE_MODE, app: Application, options: ListeningOptions,
     listenCallback: () => void) {
     const openTrace = app.config("open_trace") ?? false;
     if (openTrace) {

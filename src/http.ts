@@ -3,14 +3,14 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-06-28 16:25:30
+ * @LastEditTime: 2021-06-29 16:46:49
  */
 import { createServer } from "http";
-import { Koatty, Logger } from "koatty";
+import { Application } from "koatty_container";
 import { TraceBinding } from "koatty_trace";
 import { ListeningOptions, Server } from "./index";
 import { CreateTerminus } from "./terminus";
-
+import { DefaultLogger as Logger } from "koatty_logger";
 /**
  *
  *
@@ -18,10 +18,10 @@ import { CreateTerminus } from "./terminus";
  * @class Http
  */
 export class Http implements Server {
-    app: Koatty;
+    app: Application;
     options: ListeningOptions;
 
-    constructor(app: Koatty, options: ListeningOptions) {
+    constructor(app: Application, options: ListeningOptions) {
         this.app = app;
         this.options = options;
     }
@@ -34,7 +34,7 @@ export class Http implements Server {
      * @memberof Http
      */
     Start(openTrace: boolean, listenCallback: () => void) {
-        Logger.Debug("think", "Protocol: HTTP/1.1");
+        Logger.Debug("Protocol: HTTP/1.1");
         const server = createServer((req, res) => {
             TraceBinding(this.app, req, res, openTrace);
         });
