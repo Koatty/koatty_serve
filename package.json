@@ -1,6 +1,6 @@
 {
     "name": "koatty_serve",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Provide http1/2, websocket, gRPC server for Koatty.",
     "scripts": {
         "build": "del-cli --force dist && tsc",

@@ -3,10 +3,10 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-06-29 16:46:49
+ * @LastEditTime: 2021-07-12 16:29:26
  */
 import { createServer } from "http";
-import { Application } from "koatty_container";
+import { Koatty } from "koatty_core";
 import { TraceBinding } from "koatty_trace";
 import { ListeningOptions, Server } from "./index";
 import { CreateTerminus } from "./terminus";
@@ -18,10 +18,10 @@ import { DefaultLogger as Logger } from "koatty_logger";
  * @class Http
  */
 export class Http implements Server {
-    app: Application;
+    app: Koatty;
     options: ListeningOptions;
 
-    constructor(app: Application, options: ListeningOptions) {
+    constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
     }
