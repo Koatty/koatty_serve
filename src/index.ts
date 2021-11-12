@@ -3,73 +3,56 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:47:26
- * @LastEditTime: 2021-07-12 16:28:53
+ * @LastEditTime: 2021-11-12 11:58:41
  */
-import { Koatty } from "koatty_core";
+import { Koatty, ListeningOptions } from "koatty_core";
 import { TraceServerSetup } from "koatty_trace";
-import { Http } from "./http";
-import { Http2 } from "./http2";
+import { GrpcServer } from "./grpc/grpc";
+import { HttpServer } from "./http/http";
+import { Http2Server } from "./http/http2";
+import * as Helper from "koatty_lib";
+import { HttpsServer } from "./http/https";
+import { WsServer } from "./websocket/ws";
 // export
+export * from "./http/http";
+export * from "./http/http2";
+export * from "./grpc/grpc";
 export * from "./terminus";
-/**
- *
- *
- * @export
- * @enum {number}
- */
-export enum SERVE_MODE {
-    "HTTP" = "http",
-    "HTTP2" = "http2",
-    "WEBSOCKET" = "websocket",
-    "RPC" = "rpc"
-}
-
-/**
- * listening options
- *
- * @interface ListeningOptions
- */
-export interface ListeningOptions {
-    hostname: string;
-    port: number;
-    listenUrl: string;
-    key?: string;
-    cert?: string;
-}
-
-/**
- * interface Server
- *
- * @export
- * @interface Server
- */
-export interface Server {
-    Start: (openTrace: boolean, listenCallback: () => void) => void;
-}
 
 /**
  * Start Server
  *
  * @export
- * @param {SERVE_MODE} mode
  * @param {Koatty} app
  * @param {ListeningOptions} options
  * @param {() => void} listenCallback
  * @returns {*}  
  */
-export function Serve(mode: SERVE_MODE, app: Koatty, options: ListeningOptions,
+export function Serve(app: Koatty, options: ListeningOptions,
     listenCallback: () => void) {
     const openTrace = app.config("open_trace") || false;
     if (openTrace) {
         TraceServerSetup(app);
     }
-    switch (mode) {
-        case SERVE_MODE.HTTP2:
-            return new Http2(app, options).Start(openTrace, listenCallback);
+    let server;
+    switch (options.protocol) {
+        case "https":
+            server = new HttpsServer(app, options);
             break;
-        case SERVE_MODE.HTTP:
+        case "http2":
+            server = new Http2Server(app, options);
+            break;
+        case "grpc":
+            server = new GrpcServer(app, options);
+            break;
+        case "ws":
+        case "wss":
+            server = new WsServer(app, options);
+            break;
+        case "http":
         default:
-            return new Http(app, options).Start(openTrace, listenCallback);
-            break;
+            server = new HttpServer(app, options);
     }
+    Helper.define(app, "server", server);
+    return server.Start(openTrace, listenCallback);
 }

@@ -1,13 +1,13 @@
 {
     "name": "koatty_serve",
-    "version": "1.0.6",
+    "version": "1.2.1",
     "description": "Provide http1/2, websocket, gRPC server for Koatty.",
     "scripts": {
         "build": "del-cli --force dist && tsc",
         "eslint": "eslint --ext .ts,.js ./",
         "prepublishOnly": "npm test && npm run build",
         "release": "standard-version",
-        "test": "npm run eslint && npm run build && jest --passWithNoTests",
+        "test": "npm run eslint && jest --passWithNoTests",
         "test:cov": "jest --collectCoverage --detectOpenHandles",
         "version": "conventional-changelog -p angular -i CHANGELOG.md -s"
     },
@@ -45,6 +45,7 @@
         "@types/cls-hooked": "^4.x.x",
         "@types/koa": "^2.x.x",
         "@types/node": "^12.x.x",
+        "@types/ws": "^8.2.0",
         "@typescript-eslint/eslint-plugin": "^4.x.x",
         "@typescript-eslint/parser": "^4.x.x",
         "conventional-changelog-cli": "^2.x.x",
@@ -63,11 +64,14 @@
     },
     "dependencies": {
         "@godaddy/terminus": "^4.9.0",
+        "@grpc/grpc-js": "^1.4.4",
         "koatty_container": "^1.x.x",
+        "koatty_core": "^1.x.x",
         "koatty_lib": "^1.x.x",
         "koatty_logger": "^1.x.x",
         "koatty_trace": "^1.x.x",
-        "tslib": "^2.3.0"
+        "tslib": "^2.3.1",
+        "ws": "^8.2.3"
     },
     "husky": {
         "hooks": {

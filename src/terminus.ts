@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2021-06-29 16:48:45
+ * @LastEditTime: 2021-11-11 12:01:02
  */
 import { createTerminus, TerminusOptions } from "@godaddy/terminus";
 import EventEmitter from "events";
@@ -71,7 +71,7 @@ const asyncEvent = async function (event: EventEmitter, eventName: string) {
  *
  * @returns {*}  
  */
-function onSignal() {
+export function onSignal() {
     Logger.Info('Server is starting cleanup');
     return asyncEvent(process, 'beforeExit');
 }
@@ -81,8 +81,8 @@ function onSignal() {
  *
  * @returns {*}  
  */
-function onShutdown() {
+export function onShutdown() {
     Logger.Info('Cleanup finished, server is shutting down');
     // todo Log report
-    return Promise.resolve();
+    return asyncEvent(process, 'exit');
 }
