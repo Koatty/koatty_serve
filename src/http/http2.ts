@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-11-12 14:12:29
+ * @LastEditTime: 2021-11-12 18:38:07
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
 import { HttpStatusCode, TraceBinding } from "koatty_trace";
@@ -26,14 +26,6 @@ export class Http2Server implements KoattyServer {
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-        const opt: SecureServerOptions = {
-            allowHTTP1: true,
-            key: this.options.ext.key,
-            cert: this.options.ext.cert,
-        }
-        this.server = createSecureServer(opt, (req, res) => {
-            TraceBinding(this.app, req, res, this.options.trace);
-        });
     }
 
     /**
@@ -45,6 +37,14 @@ export class Http2Server implements KoattyServer {
      */
     Start(openTrace: boolean, listenCallback: () => void) {
         Logger.Debug("Protocol: HTTP/2");
+        const opt: SecureServerOptions = {
+            allowHTTP1: true,
+            key: this.options.ext.key,
+            cert: this.options.ext.cert,
+        }
+        this.server = createSecureServer(opt, (req, res) => {
+            TraceBinding(this.app, req, res, openTrace);
+        });
         // Terminus
         CreateTerminus(this.server);
         this.server.listen({

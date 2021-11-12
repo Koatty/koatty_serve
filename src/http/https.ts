@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2021-11-12 14:17:39
+ * @LastEditTime: 2021-11-12 18:38:12
  */
 import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
@@ -26,13 +26,6 @@ export class HttpsServer implements KoattyServer {
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-        const opt: ServerOptions = {
-            key: this.options.ext.key,
-            cert: this.options.ext.cert,
-        }
-        this.server = createServer(opt, (req, res) => {
-            TraceBinding(this.app, req, res, this.options.trace);
-        });
     }
 
     /**
@@ -44,6 +37,13 @@ export class HttpsServer implements KoattyServer {
      */
     Start(openTrace: boolean, listenCallback: () => void) {
         Logger.Debug("Protocol: HTTPS/1.1");
+        const opt: ServerOptions = {
+            key: this.options.ext.key,
+            cert: this.options.ext.cert,
+        }
+        this.server = createServer(opt, (req, res) => {
+            TraceBinding(this.app, req, res, openTrace);
+        });
         // Terminus
         CreateTerminus(this.server);
         this.server.listen({
