@@ -3,14 +3,13 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:47:26
- * @LastEditTime: 2021-11-12 11:58:41
+ * @LastEditTime: 2021-11-18 11:52:46
  */
-import { Koatty, ListeningOptions } from "koatty_core";
-import { TraceServerSetup } from "koatty_trace";
+import fs from "fs";
+import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
 import { GrpcServer } from "./grpc/grpc";
 import { HttpServer } from "./http/http";
 import { Http2Server } from "./http/http2";
-import * as Helper from "koatty_lib";
 import { HttpsServer } from "./http/https";
 import { WsServer } from "./websocket/ws";
 // export
@@ -20,39 +19,59 @@ export * from "./grpc/grpc";
 export * from "./terminus";
 
 /**
- * Start Server
+ * Create Server
  *
  * @export
  * @param {Koatty} app
- * @param {ListeningOptions} options
- * @param {() => void} listenCallback
- * @returns {*}  
+ * @param {string} [protocol]
+ * @returns {*}  {KoattyServer}
  */
-export function Serve(app: Koatty, options: ListeningOptions,
-    listenCallback: () => void) {
-    const openTrace = app.config("open_trace") || false;
-    if (openTrace) {
-        TraceServerSetup(app);
+export function Serve(app: Koatty, protocol?: string): KoattyServer {
+    const port = process.env.PORT || process.env.APP_PORT ||
+        app.config('app_port') || 3000;
+    const hostname = process.env.IP ||
+        process.env.HOSTNAME?.replace(/-/g, '.') || app.config('app_host') || 'localhost';
+    const options: ListeningOptions = {
+        hostname: hostname,
+        port: port,
+        protocol: protocol,
+        ext: {
+            key: "",
+            cert: "",
+            protoFile: "",
+        }
     }
-    let server;
+    const pm = new Set(["https", "http2", "wss"])
+    if (pm.has(protocol)) {
+        const keyFile = app.config("key_file") ?? "";
+        const crtFile = app.config("crt_file") ?? "";
+        options.ext.key = fs.readFileSync(keyFile).toString();
+        options.ext.cert = fs.readFileSync(crtFile).toString();
+    }
+    if (protocol === "https" || protocol === "http2") {
+        options.port = options.port == 80 ? 443 : options.port;
+    }
+    if (protocol === "grpc") {
+        const proto = app.config("protoFile", "router");
+        options.ext.protoFile = proto;
+    }
+
     switch (options.protocol) {
         case "https":
-            server = new HttpsServer(app, options);
+            return new HttpsServer(app, options);
             break;
         case "http2":
-            server = new Http2Server(app, options);
+            return new Http2Server(app, options);
             break;
         case "grpc":
-            server = new GrpcServer(app, options);
+            return new GrpcServer(app, options);
             break;
         case "ws":
         case "wss":
-            server = new WsServer(app, options);
+            return new WsServer(app, options);
             break;
         case "http":
         default:
-            server = new HttpServer(app, options);
+            return new HttpServer(app, options);
     }
-    Helper.define(app, "server", server);
-    return server.Start(openTrace, listenCallback);
 }

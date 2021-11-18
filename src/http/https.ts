@@ -3,13 +3,14 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2021-11-12 18:38:12
+ * @LastEditTime: 2021-11-18 12:48:45
  */
 import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
-import { HttpStatusCode, TraceBinding } from "koatty_trace";
+import { HttpStatusCode } from "koatty_exception";
 import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
+import { listenCallback } from "../callback";
 export { Server } from "https";
 /**
  *
@@ -22,28 +23,37 @@ export class HttpsServer implements KoattyServer {
     options: ListeningOptions;
     server: Server;
     status: HttpStatusCode;
+    callback: () => void;
 
+    /**
+     * Creates an instance of HttpsServer.
+     * @param {Koatty} app
+     * @param {ListeningOptions} options
+     * @memberof HttpsServer
+     */
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-    }
-
-    /**
-     *
-     *
-     * @param {boolean} openTrace
-     * @param {() => void} listenCallback
-     * @memberof Https
-     */
-    Start(openTrace: boolean, listenCallback: () => void) {
-        Logger.Debug("Protocol: HTTPS/1.1");
+        this.callback = listenCallback(app, options);
         const opt: ServerOptions = {
             key: this.options.ext.key,
             cert: this.options.ext.cert,
         }
         this.server = createServer(opt, (req, res) => {
-            TraceBinding(this.app, req, res, openTrace);
+            app.callback()(req, res);
         });
+    }
+
+    /**
+     * Start Server
+     *
+     * @param {boolean} openTrace
+     * @param {() => void} listenCallback
+     * @memberof Https
+     */
+    Start(listenCallback: () => void) {
+        Logger.Debug("Protocol: HTTPS/1.1");
+        listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.server);
         this.server.listen({

@@ -3,13 +3,14 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-11-12 18:38:07
+ * @LastEditTime: 2021-11-18 12:48:36
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { HttpStatusCode, TraceBinding } from "koatty_trace";
+import { HttpStatusCode } from "koatty_exception";
 import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
+import { listenCallback } from "../callback";
 export { Http2SecureServer as SecureServer } from "http2";
 /**
  *
@@ -22,29 +23,31 @@ export class Http2Server implements KoattyServer {
     options: ListeningOptions;
     server: Http2SecureServer;
     status: HttpStatusCode;
+    callback: () => void;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-    }
-
-    /**
-     * Start
-     *
-     * @param {boolean} openTrace
-     * @param {() => void} listenCallback
-     * @memberof Http2Server
-     */
-    Start(openTrace: boolean, listenCallback: () => void) {
-        Logger.Debug("Protocol: HTTP/2");
+        this.callback = listenCallback(app, options);
         const opt: SecureServerOptions = {
             allowHTTP1: true,
             key: this.options.ext.key,
             cert: this.options.ext.cert,
         }
         this.server = createSecureServer(opt, (req, res) => {
-            TraceBinding(this.app, req, res, openTrace);
+            app.callback()(req, res);
         });
+    }
+
+    /**
+     * Start Server
+     *
+     * @param {() => void} listenCallback
+     * @memberof Http2Server
+     */
+    Start(listenCallback: () => void) {
+        Logger.Debug("Protocol: HTTP/2");
+        listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.server);
         this.server.listen({
