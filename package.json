@@ -1,12 +1,13 @@
 {
     "name": "koatty_serve",
-    "version": "1.3.6",
+    "version": "1.3.8",
     "description": "Provide http1/2, websocket, gRPC server for Koatty.",
     "scripts": {
         "build": "del-cli --force dist && tsc",
         "eslint": "eslint --ext .ts,.js ./",
         "prepublishOnly": "npm test && npm run build",
         "release": "npm run prepublishOnly && standard-version",
+        "pub": "git push --follow-tags origin main && npm publish",
         "test": "npm run eslint && jest --passWithNoTests",
         "test:cov": "jest --collectCoverage --detectOpenHandles",
         "version": "conventional-changelog -p angular -i CHANGELOG.md -s"
@@ -28,7 +29,7 @@
         "name": "richenlin",
         "email": "richenlin@gmail.com"
     },
-    "license": "MIT",
+    "license": "BSD-3-Clause",
     "bugs": {
         "url": "https://github.com/koatty/koatty_serve/issues"
     },
@@ -44,14 +45,14 @@
         "@babel/plugin-proposal-decorators": "^7.x.x",
         "@babel/preset-env": "^7.x.x",
         "@babel/preset-typescript": "^7.x.x",
-        "@commitlint/cli": "^15.x.x",
+        "@commitlint/cli": "^12.x.x",
         "@commitlint/config-conventional": "^15.x.x",
+        "@types/jest": "^27.x.x",
         "@types/koa": "^2.x.x",
-        "@types/koa__router": "^8.x.x",
         "@types/node": "^16.x.x",
-        "@types/ws": "^8.x.x",
-        "@typescript-eslint/eslint-plugin": "^5.x.0",
-        "@typescript-eslint/parser": "^5.x.0",
+        "@types/ws": "^8.2.0",
+        "@typescript-eslint/eslint-plugin": "^5.x.x",
+        "@typescript-eslint/parser": "^5.x.x",
         "conventional-changelog-cli": "^2.x.x",
         "del-cli": "^4.x.x",
         "eslint": "^8.x.x",
