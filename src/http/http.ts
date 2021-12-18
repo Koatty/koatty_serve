@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-11-18 12:48:25
+ * @LastEditTime: 2021-12-18 23:43:06
  */
 import { createServer, Server } from "http";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
@@ -11,7 +11,6 @@ import { HttpStatusCode } from "koatty_exception";
 import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { listenCallback } from "../callback";
-export { Server } from "http";
 /**
  *
  *
@@ -21,7 +20,7 @@ export { Server } from "http";
 export class HttpServer implements KoattyServer {
     app: Koatty;
     options: ListeningOptions;
-    server: Server;
+    readonly server: Server;
     status: HttpStatusCode;
     callback: () => void;
 

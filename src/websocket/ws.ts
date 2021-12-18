@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2021-11-18 23:17:04
+ * @LastEditTime: 2021-12-18 23:44:03
  */
 import { URL } from "url";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -27,11 +27,11 @@ export interface WebSocketServerOptions extends ListeningOptions {
 export class WsServer implements KoattyServer {
     app: Koatty;
     options: WebSocketServerOptions;
-    server: WebSocketServer;
-    httpServer: HttpServer | HttpsServer;
+    readonly server: WebSocketServer;
     status: HttpStatusCode;
     socket: any;
     callback: () => void;
+    private httpServer: HttpServer | HttpsServer;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;

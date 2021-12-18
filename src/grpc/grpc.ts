@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2021-11-18 18:19:33
+ * @LastEditTime: 2021-12-18 23:42:56
  */
 import { ChannelOptions, Server, ServerCredentials, ServiceDefinition, UntypedHandleCall } from "@grpc/grpc-js";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
@@ -44,7 +44,7 @@ export interface GrpcServerOptions extends ListeningOptions {
 export class GrpcServer implements KoattyServer {
     app: Koatty;
     options: GrpcServerOptions;
-    server: Server;
+    readonly server: Server;
     status: GrpcStatusCode;
     callback: () => void;
 

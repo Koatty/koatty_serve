@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-11-18 12:48:36
+ * @LastEditTime: 2021-12-18 23:43:16
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
 import { HttpStatusCode } from "koatty_exception";
@@ -11,7 +11,6 @@ import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
 import { listenCallback } from "../callback";
-export { Http2SecureServer as SecureServer } from "http2";
 /**
  *
  *
@@ -21,7 +20,7 @@ export { Http2SecureServer as SecureServer } from "http2";
 export class Http2Server implements KoattyServer {
     app: Koatty;
     options: ListeningOptions;
-    server: Http2SecureServer;
+    readonly server: Http2SecureServer;
     status: HttpStatusCode;
     callback: () => void;
 
