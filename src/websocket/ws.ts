@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2021-12-18 23:44:03
+ * @LastEditTime: 2021-12-21 11:49:33
  */
 import { URL } from "url";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -93,7 +93,7 @@ export class WsServer implements KoattyServer {
      * @memberof WsServer
      */
     Start(listenCallback: () => void) {
-        Logger.Debug(`Protocol: ${this.options.protocol.toUpperCase()}`);
+        Logger.Log('think', '', `Protocol: ${this.options.protocol.toUpperCase()}`);
         listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.httpServer);

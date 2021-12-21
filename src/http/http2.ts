@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2021-12-18 23:43:16
+ * @LastEditTime: 2021-12-21 11:49:20
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
 import { HttpStatusCode } from "koatty_exception";
@@ -45,7 +45,7 @@ export class Http2Server implements KoattyServer {
      * @memberof Http2Server
      */
     Start(listenCallback: () => void) {
-        Logger.Debug("Protocol: HTTP/2");
+        Logger.Log('think', '', "Protocol: HTTP/2");
         listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.server);

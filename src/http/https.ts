@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2021-12-18 23:43:23
+ * @LastEditTime: 2021-12-21 11:49:28
  */
 import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
@@ -51,7 +51,7 @@ export class HttpsServer implements KoattyServer {
      * @memberof Https
      */
     Start(listenCallback: () => void) {
-        Logger.Debug("Protocol: HTTPS/1.1");
+        Logger.Log('think', '', "Protocol: HTTPS/1.1");
         listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.server);

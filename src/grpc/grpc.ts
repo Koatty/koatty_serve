@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2021-12-18 23:42:56
+ * @LastEditTime: 2021-12-21 11:49:03
  */
 import { ChannelOptions, Server, ServerCredentials, ServiceDefinition, UntypedHandleCall } from "@grpc/grpc-js";
 import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
@@ -64,7 +64,7 @@ export class GrpcServer implements KoattyServer {
      * @memberof Grpc
      */
     Start(listenCallback: () => void) {
-        Logger.Debug("Protocol: gRPC");
+        Logger.Log('think', '', "Protocol: gRPC");
         listenCallback = listenCallback || this.callback;
         // Register gRPC Service
         const impls: Map<string, ServiceImplementation> = this.app.router.ListRouter();
