@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2021-12-21 11:49:33
+ * @LastEditTime: 2022-02-16 10:17:50
  */
 import { URL } from "url";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -78,7 +78,7 @@ export class WsServer implements KoattyServer {
         if (router.has(pathname)) {
             socket.on('message', async function message(data) {
                 const fn = router.get(pathname);
-                fn && fn(socket, req, data);
+                fn?.(socket, req, data);
             });
         } else {
             socket.close();
