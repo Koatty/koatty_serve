@@ -3,15 +3,14 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2021-12-21 11:49:03
+ * @LastEditTime: 2022-02-23 14:48:46
  */
-import { ChannelOptions, Server, ServerCredentials, ServiceDefinition, UntypedHandleCall } from "@grpc/grpc-js";
-import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
+import { onSignal } from "../terminus";
 import { GrpcStatusCode } from "koatty_exception";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { listenCallback } from "../callback";
-import { onSignal } from "../terminus";
-
+import { Koatty, KoattyServer } from "koatty_core";
+import { ChannelOptions, Server, ServerCredentials, ServiceDefinition, UntypedHandleCall } from "@grpc/grpc-js";
+import { ListeningOptions } from "../index";
 /**
  * ServiceImplementation
  *
@@ -46,12 +45,10 @@ export class GrpcServer implements KoattyServer {
     options: GrpcServerOptions;
     readonly server: Server;
     status: GrpcStatusCode;
-    callback: () => void;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-        this.callback = listenCallback(app, options);
         options.ext = options.ext || {};
         this.options.channelOptions = Object.assign(this.options.channelOptions || {}, options.ext);
         this.server = new Server(this.options.channelOptions);
@@ -65,7 +62,6 @@ export class GrpcServer implements KoattyServer {
      */
     Start(listenCallback: () => void) {
         Logger.Log('think', '', "Protocol: gRPC");
-        listenCallback = listenCallback || this.callback;
         // Register gRPC Service
         const impls: Map<string, ServiceImplementation> = this.app.router.ListRouter();
         for (const value of impls.values()) {

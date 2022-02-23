@@ -3,18 +3,17 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-02-16 10:17:50
+ * @LastEditTime: 2022-02-23 14:11:35
  */
 import { URL } from "url";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Koatty, KoattyServer, ListeningOptions } from 'koatty_core';
+import { Koatty, KoattyServer } from 'koatty_core';
 import { HttpStatusCode } from "koatty_exception";
 import WebSocket, { ServerOptions, WebSocketServer } from 'ws';
 import { CreateTerminus, onSignal } from "../terminus";
 import { Server as HttpServer, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
-import { listenCallback } from "../callback";
-
+import { ListeningOptions } from "../index";
 export interface WebSocketServerOptions extends ListeningOptions {
     wsOptions?: ServerOptions;
 }
@@ -30,13 +29,11 @@ export class WsServer implements KoattyServer {
     readonly server: WebSocketServer;
     status: HttpStatusCode;
     socket: any;
-    callback: () => void;
     private httpServer: HttpServer | HttpsServer;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-        this.callback = listenCallback(app, options);
         options.ext = options.ext || {};
         this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
 
@@ -94,7 +91,6 @@ export class WsServer implements KoattyServer {
      */
     Start(listenCallback: () => void) {
         Logger.Log('think', '', `Protocol: ${this.options.protocol.toUpperCase()}`);
-        listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.httpServer);
         this.httpServer.listen({

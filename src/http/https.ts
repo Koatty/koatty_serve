@@ -3,14 +3,15 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2021-12-21 11:49:28
+ * @LastEditTime: 2022-02-23 14:10:31
  */
 import { createServer, Server, ServerOptions } from "https";
-import { Koatty, KoattyServer, ListeningOptions } from "koatty_core";
+import { Koatty, KoattyServer } from "koatty_core";
 import { HttpStatusCode } from "koatty_exception";
 import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { listenCallback } from "../callback";
+import { ListeningOptions } from "../index";
+
 /**
  *
  *
@@ -22,7 +23,6 @@ export class HttpsServer implements KoattyServer {
     options: ListeningOptions;
     readonly server: Server;
     status: HttpStatusCode;
-    callback: () => void;
 
     /**
      * Creates an instance of HttpsServer.
@@ -33,7 +33,6 @@ export class HttpsServer implements KoattyServer {
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
         this.options = options;
-        this.callback = listenCallback(app, options);
         const opt: ServerOptions = {
             key: this.options.ext.key,
             cert: this.options.ext.cert,
@@ -52,7 +51,6 @@ export class HttpsServer implements KoattyServer {
      */
     Start(listenCallback: () => void) {
         Logger.Log('think', '', "Protocol: HTTPS/1.1");
-        listenCallback = listenCallback || this.callback;
         // Terminus
         CreateTerminus(this.server);
         this.server.listen({
