@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2021-11-11 12:01:02
+ * @LastEditTime: 2022-02-23 10:33:14
  */
 import { createTerminus, TerminusOptions } from "@godaddy/terminus";
 import EventEmitter from "events";
@@ -32,21 +32,23 @@ const defaultTerminusOptions = {
 export function CreateTerminus(server: Server | Http2SecureServer, options?: TerminusOptions): void {
     createTerminus(server, { ...defaultTerminusOptions, ...options });
 }
-
+// processEvent
+type processEvent = "beforeExit" | "exit" | NodeJS.Signals;
 /**
  * Bind event to the process
  *
  * @param {EventEmitter} event
- * @param {string} eventName
+ * @param {string} originEventName
+ * @param {string} [targetEventName]
  */
-export function BindProcessEvent(event: EventEmitter, eventName: string) {
-    const ls: any[] = event.listeners(eventName);
+export function BindProcessEvent(event: EventEmitter, originEventName: string, targetEventName: processEvent = "beforeExit") {
+    const ls: Function[] = event.listeners(originEventName);
     for (const func of ls) {
         if (Helper.isFunction(func)) {
-            process.addListener("beforeExit", func);
+            process.addListener(<any>targetEventName, func);
         }
     }
-    return event.removeAllListeners(eventName);
+    return event.removeAllListeners(originEventName);
 }
 
 /**
