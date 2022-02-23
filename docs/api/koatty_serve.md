@@ -16,7 +16,7 @@
 
 |  Function | Description |
 |  --- | --- |
-|  [BindProcessEvent(event, eventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
+|  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
 |  [CreateTerminus(server, options)](./koatty_serve.createterminus.md) | Create terminus event |
 |  [onShutdown()](./koatty_serve.onshutdown.md) | called right before exiting |
 |  [onSignal()](./koatty_serve.onsignal.md) | cleanup function, returning a promise (used to be onSigterm) |
