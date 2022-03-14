@@ -9,7 +9,7 @@ Start Server
 <b>Signature:</b>
 
 ```typescript
-Start(listenCallback: () => void): void;
+Start(listenCallback: () => void): Http2SecureServer;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ Start(listenCallback: () => void): void;
 
 <b>Returns:</b>
 
-void
+Http2SecureServer
 

@@ -24,15 +24,14 @@ export declare class Http2Server implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.http2server.app.md) |  | Koatty |  |
-|  [callback](./koatty_serve.http2server.callback.md) |  | () =&gt; void |  |
-|  [options](./koatty_serve.http2server.options.md) |  | ListeningOptions |  |
+|  [options](./koatty_serve.http2server.options.md) |  | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
 |  [server](./koatty_serve.http2server.server.md) |  | Http2SecureServer |  |
-|  [status](./koatty_serve.http2server.status.md) |  | HttpStatusCode |  |
+|  [status](./koatty_serve.http2server.status.md) |  | number |  |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [Start(listenCallback)](./koatty_serve.http2server.start.md) |  | Start Server |
-|  [Stop()](./koatty_serve.http2server.stop.md) |  | Stop Server |
+|  [Stop(callback)](./koatty_serve.http2server.stop.md) |  | Stop Server |
 

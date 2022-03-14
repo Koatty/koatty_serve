@@ -22,10 +22,9 @@ export declare class GrpcServer implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.grpcserver.app.md) |  | Koatty |  |
-|  [callback](./koatty_serve.grpcserver.callback.md) |  | () =&gt; void |  |
 |  [options](./koatty_serve.grpcserver.options.md) |  | [GrpcServerOptions](./koatty_serve.grpcserveroptions.md) |  |
 |  [server](./koatty_serve.grpcserver.server.md) |  | Server |  |
-|  [status](./koatty_serve.grpcserver.status.md) |  | GrpcStatusCode |  |
+|  [status](./koatty_serve.grpcserver.status.md) |  | number |  |
 
 ## Methods
 
@@ -33,5 +32,5 @@ export declare class GrpcServer implements KoattyServer
 |  --- | --- | --- |
 |  [RegisterService(impl)](./koatty_serve.grpcserver.registerservice.md) |  | RegisterService |
 |  [Start(listenCallback)](./koatty_serve.grpcserver.start.md) |  | Start Server |
-|  [Stop()](./koatty_serve.grpcserver.stop.md) |  | Stop Server |
+|  [Stop(callback)](./koatty_serve.grpcserver.stop.md) |  | Stop Server |
 

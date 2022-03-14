@@ -11,7 +11,7 @@
 ```typescript
 export interface GrpcServerOptions extends ListeningOptions 
 ```
-<b>Extends:</b> ListeningOptions
+<b>Extends:</b> [ListeningOptions](./koatty_serve.listeningoptions.md)
 
 ## Properties
 

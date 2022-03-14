@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-status: GrpcStatusCode;
+status: number;
 ```

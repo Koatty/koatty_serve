@@ -24,15 +24,14 @@ export declare class HttpServer implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.httpserver.app.md) |  | Koatty |  |
-|  [callback](./koatty_serve.httpserver.callback.md) |  | () =&gt; void |  |
-|  [options](./koatty_serve.httpserver.options.md) |  | ListeningOptions |  |
+|  [options](./koatty_serve.httpserver.options.md) |  | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
 |  [server](./koatty_serve.httpserver.server.md) |  | Server |  |
-|  [status](./koatty_serve.httpserver.status.md) |  | HttpStatusCode |  |
+|  [status](./koatty_serve.httpserver.status.md) |  | number |  |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [Start(listenCallback)](./koatty_serve.httpserver.start.md) |  | Start Server |
-|  [Stop()](./koatty_serve.httpserver.stop.md) |  | Stop Server |
+|  [Stop(callback)](./koatty_serve.httpserver.stop.md) |  | Stop Server |
 

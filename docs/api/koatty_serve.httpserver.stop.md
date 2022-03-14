@@ -9,8 +9,15 @@ Stop Server
 <b>Signature:</b>
 
 ```typescript
-Stop(): void;
+Stop(callback?: () => void): void;
 ```
+
+## Parameters
+
+|  Parameter | Type | Description |
+|  --- | --- | --- |
+|  callback | () =&gt; void |  |
+
 <b>Returns:</b>
 
 void

@@ -17,5 +17,5 @@ constructor(app: Koatty, options: ListeningOptions);
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  app | Koatty |  |
-|  options | ListeningOptions |  |
+|  options | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
 

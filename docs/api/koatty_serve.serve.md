@@ -10,7 +10,7 @@ Create Server
 <b>Signature:</b>
 
 ```typescript
-export declare function Serve(app: Koatty, protocol?: string): KoattyServer;
+export declare function Serve(app: Koatty, opt?: ListeningOptions): KoattyServer;
 ```
 
 ## Parameters
@@ -18,7 +18,7 @@ export declare function Serve(app: Koatty, protocol?: string): KoattyServer;
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  app | Koatty |  |
-|  protocol | string |  |
+|  opt | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
 
 <b>Returns:</b>
 
