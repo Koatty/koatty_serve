@@ -81,7 +81,7 @@
     },
     "dependencies": {
         "@godaddy/terminus": "^4.10.2",
-        "@grpc/grpc-js": "^1.5.5",
+        "@grpc/grpc-js": "^1.5.7",
         "koatty_core": "^1.x.x",
         "koatty_lib": "^1.x.x",
         "koatty_logger": "^1.x.x",

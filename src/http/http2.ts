@@ -3,10 +3,9 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2022-02-23 14:11:09
+ * @LastEditTime: 2022-03-14 10:53:39
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { HttpStatusCode } from "koatty_exception";
 import { CreateTerminus, onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from "koatty_core";
@@ -21,7 +20,7 @@ export class Http2Server implements KoattyServer {
     app: Koatty;
     options: ListeningOptions;
     readonly server: Http2SecureServer;
-    status: HttpStatusCode;
+    status: number;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
@@ -43,10 +42,9 @@ export class Http2Server implements KoattyServer {
      * @memberof Http2Server
      */
     Start(listenCallback: () => void) {
-        Logger.Log('think', '', "Protocol: HTTP/2");
         // Terminus
         CreateTerminus(this.server);
-        this.server.listen({
+        return this.server.listen({
             port: this.options.port,
             host: this.options.hostname,
         }, listenCallback).on("clientError", (err: any, sock: any) => {
@@ -59,9 +57,10 @@ export class Http2Server implements KoattyServer {
      * Stop Server
      *
      */
-    Stop() {
+    Stop(callback?: () => void) {
         onSignal();
         this.server.close((err?: Error) => {
+            callback && callback();
             Logger.Error(err);
         });
     }

@@ -3,13 +3,15 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2022-02-23 14:48:46
+ * @LastEditTime: 2022-03-14 14:05:24
  */
 import { onSignal } from "../terminus";
-import { GrpcStatusCode } from "koatty_exception";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from "koatty_core";
-import { ChannelOptions, Server, ServerCredentials, ServiceDefinition, UntypedHandleCall } from "@grpc/grpc-js";
+import {
+    ChannelOptions, Server, ServerCredentials,
+    ServiceDefinition, UntypedHandleCall
+} from "@grpc/grpc-js";
 import { ListeningOptions } from "../index";
 /**
  * ServiceImplementation
@@ -44,7 +46,7 @@ export class GrpcServer implements KoattyServer {
     app: Koatty;
     options: GrpcServerOptions;
     readonly server: Server;
-    status: GrpcStatusCode;
+    status: number;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
@@ -60,13 +62,7 @@ export class GrpcServer implements KoattyServer {
      * @param {() => void} listenCallback
      * @memberof Grpc
      */
-    Start(listenCallback: () => void) {
-        Logger.Log('think', '', "Protocol: gRPC");
-        // Register gRPC Service
-        const impls: Map<string, ServiceImplementation> = this.app.router.ListRouter();
-        for (const value of impls.values()) {
-            this.RegisterService(value);
-        }
+    Start(listenCallback: () => void): Server {
         const creds = ServerCredentials.createInsecure();
         // key: this.options.ext.key,
         // cert: this.options.ext.cert,
@@ -74,22 +70,25 @@ export class GrpcServer implements KoattyServer {
         //     Buffer.from(this.options.ext.cert),
         //     [],
         // );
+        process.on("beforeExit", (code: number) => {
+            this.Stop();
+        });
         this.server.bindAsync(`${this.options.hostname}:${this.options.port}`, creds, () => {
             this.server.start();
             listenCallback();
         });
-        process.on("beforeExit", (code: number) => {
-            this.Stop();
-        });
+
+        return this.server;
     }
 
     /**
      * Stop Server
      *
      */
-    Stop() {
+    Stop(callback?: () => void) {
         onSignal();
         this.server.tryShutdown((err?: Error) => {
+            callback && callback();
             Logger.Error(err);
         });
     }

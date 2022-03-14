@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:47:26
- * @LastEditTime: 2022-02-23 14:49:45
+ * @LastEditTime: 2022-03-14 10:56:43
  */
 import fs from "fs";
 import { Koatty, KoattyServer } from "koatty_core";
@@ -14,8 +14,10 @@ import { HttpsServer } from "./http/https";
 import { WsServer } from "./websocket/ws";
 // export
 export * from "./http/http";
+export * from "./http/https";
 export * from "./http/http2";
 export * from "./grpc/grpc";
+export * from "./websocket/ws";
 export * from "./terminus";
 // KoattyProtocol
 export type KoattyProtocol = 'http' | 'https' | 'http2' | 'grpc' | 'ws' | 'wss';

@@ -3,17 +3,16 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-02-23 14:11:35
+ * @LastEditTime: 2022-03-14 10:54:01
  */
-import { URL } from "url";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
-import { HttpStatusCode } from "koatty_exception";
-import WebSocket, { ServerOptions, WebSocketServer } from 'ws';
+import { ServerOptions, WebSocketServer } from 'ws';
 import { CreateTerminus, onSignal } from "../terminus";
 import { Server as HttpServer, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { ListeningOptions } from "../index";
+import { Helper } from "koatty_lib";
 export interface WebSocketServerOptions extends ListeningOptions {
     wsOptions?: ServerOptions;
 }
@@ -27,9 +26,9 @@ export class WsServer implements KoattyServer {
     app: Koatty;
     options: WebSocketServerOptions;
     readonly server: WebSocketServer;
-    status: HttpStatusCode;
+    status: number;
     socket: any;
-    private httpServer: HttpServer | HttpsServer;
+    readonly httpServer: HttpServer | HttpsServer;
 
     constructor(app: Koatty, options: ListeningOptions) {
         this.app = app;
@@ -37,6 +36,7 @@ export class WsServer implements KoattyServer {
         options.ext = options.ext || {};
         this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
 
+        this.server = new WebSocketServer(this.options.wsOptions);
         if (this.options.protocol == "wss") {
             const opt: httpsServerOptions = {
                 key: this.options.ext.key,
@@ -45,40 +45,6 @@ export class WsServer implements KoattyServer {
             this.httpServer = httpsCreateServer(opt);
         } else {
             this.httpServer = createServer();
-        }
-
-        const wss = new WebSocketServer(this.options.wsOptions);
-        wss.on("connection", (socket: WebSocket, req: any) => {
-            this.onConnection(socket, req);
-        });
-
-        this.httpServer.on('upgrade', function upgrade(request: any, socket: any, head: any) {
-            wss.handleUpgrade(request, socket, head, function done(ws) {
-                wss.emit('connection', ws, request);
-            });
-        });
-        this.server = wss;
-    }
-
-    /**
-     * 
-     *
-     * @param {WebSocket} socket
-     * @param {*} req
-     * @memberof WsServer
-     */
-    private onConnection(socket: WebSocket, req: any) {
-        const baseURL = req.headers.origin || 'ws://127.0.0.1:3000';
-        const { pathname } = new URL(req.url, baseURL);
-        const router: Map<string, Function> = this.app.router.ListRouter();
-
-        if (router.has(pathname)) {
-            socket.on('message', async function message(data) {
-                const fn = router.get(pathname);
-                fn?.(socket, req, data);
-            });
-        } else {
-            socket.close();
         }
     }
 
@@ -90,13 +56,22 @@ export class WsServer implements KoattyServer {
      * @memberof WsServer
      */
     Start(listenCallback: () => void) {
-        Logger.Log('think', '', `Protocol: ${this.options.protocol.toUpperCase()}`);
         // Terminus
         CreateTerminus(this.httpServer);
-        this.httpServer.listen({
+        return this.httpServer.listen({
             port: this.options.port,
             host: this.options.hostname,
-        }, listenCallback).on("clientError", (err: any, sock: any) => {
+        }, listenCallback).on('upgrade', (request: any, socket: any, head: any) => {
+            this.server.handleUpgrade(request, socket, head, (client, req) => {
+                client.on('message', (data) => {
+                    Helper.define(req, "data", data, true);
+                    this.app.callback(this.options.protocol)(req, client);
+                }).on("error", (err) => {
+                    Logger.Error(err);
+                    client.close();
+                });
+            });
+        }).on("clientError", (err: any, sock: any) => {
             // Logger.error("Bad request, HTTP parse error");
             sock.end('400 Bad Request\r\n\r\n');
         });
@@ -106,9 +81,10 @@ export class WsServer implements KoattyServer {
      * Stop Server
      *
      */
-    Stop() {
+    Stop(callback?: () => void) {
         onSignal();
         this.server.close((err?: Error) => {
+            callback && callback();
             Logger.Error(err);
         });
     }
