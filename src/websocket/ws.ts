@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-03-14 10:54:01
+ * @LastEditTime: 2022-03-15 17:38:15
  */
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
@@ -14,7 +14,7 @@ import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions
 import { ListeningOptions } from "../index";
 import { Helper } from "koatty_lib";
 export interface WebSocketServerOptions extends ListeningOptions {
-    wsOptions?: ServerOptions;
+  wsOptions?: ServerOptions;
 }
 /**
  *
@@ -23,69 +23,69 @@ export interface WebSocketServerOptions extends ListeningOptions {
  * @class Http
  */
 export class WsServer implements KoattyServer {
-    app: Koatty;
-    options: WebSocketServerOptions;
-    readonly server: WebSocketServer;
-    status: number;
-    socket: any;
-    readonly httpServer: HttpServer | HttpsServer;
+  app: Koatty;
+  options: WebSocketServerOptions;
+  readonly server: WebSocketServer;
+  status: number;
+  socket: any;
+  readonly httpServer: HttpServer | HttpsServer;
 
-    constructor(app: Koatty, options: ListeningOptions) {
-        this.app = app;
-        this.options = options;
-        options.ext = options.ext || {};
-        this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
+  constructor(app: Koatty, options: ListeningOptions) {
+    this.app = app;
+    this.options = options;
+    options.ext = options.ext || {};
+    this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
 
-        this.server = new WebSocketServer(this.options.wsOptions);
-        if (this.options.protocol == "wss") {
-            const opt: httpsServerOptions = {
-                key: this.options.ext.key,
-                cert: this.options.ext.cert,
-            }
-            this.httpServer = httpsCreateServer(opt);
-        } else {
-            this.httpServer = createServer();
-        }
+    this.server = new WebSocketServer(this.options.wsOptions);
+    if (this.options.protocol == "wss") {
+      const opt: httpsServerOptions = {
+        key: this.options.ext.key,
+        cert: this.options.ext.cert,
+      }
+      this.httpServer = httpsCreateServer(opt);
+    } else {
+      this.httpServer = createServer();
     }
+  }
 
-    /**
-     * Start Server
-     *
-     * @param {() => void} listenCallback
-     * @returns {*}  
-     * @memberof WsServer
-     */
-    Start(listenCallback: () => void) {
-        // Terminus
-        CreateTerminus(this.httpServer);
-        return this.httpServer.listen({
-            port: this.options.port,
-            host: this.options.hostname,
-        }, listenCallback).on('upgrade', (request: any, socket: any, head: any) => {
-            this.server.handleUpgrade(request, socket, head, (client, req) => {
-                client.on('message', (data) => {
-                    Helper.define(req, "data", data, true);
-                    this.app.callback(this.options.protocol)(req, client);
-                }).on("error", (err) => {
-                    Logger.Error(err);
-                    client.close();
-                });
-            });
-        }).on("clientError", (err: any, sock: any) => {
-            // Logger.error("Bad request, HTTP parse error");
-            sock.end('400 Bad Request\r\n\r\n');
+  /**
+   * Start Server
+   *
+   * @param {() => void} listenCallback
+   * @returns {*}  
+   * @memberof WsServer
+   */
+  Start(listenCallback: () => void) {
+    // Terminus
+    CreateTerminus(this.httpServer);
+    return this.httpServer.listen({
+      port: this.options.port,
+      host: this.options.hostname,
+    }, listenCallback).on('upgrade', (request: any, socket: any, head: any) => {
+      this.server.handleUpgrade(request, socket, head, (client, req) => {
+        client.on('message', (data) => {
+          Helper.define(req, "data", data, true);
+          this.app.callback(this.options.protocol)(req, client);
+        }).on("error", (err) => {
+          Logger.Error(err);
+          client.close();
         });
-    }
+      });
+    }).on("clientError", (err: any, sock: any) => {
+      // Logger.error("Bad request, HTTP parse error");
+      sock.end('400 Bad Request\r\n\r\n');
+    });
+  }
 
-    /**
-     * Stop Server
-     *
-     */
-    Stop(callback?: () => void) {
-        onSignal();
-        this.server.close((err?: Error) => {
-            callback && callback();
-            Logger.Error(err);
-        });
-    }
+  /**
+   * Stop Server
+   *
+   */
+  Stop(callback?: () => void) {
+    onSignal();
+    this.server.close((err?: Error) => {
+      callback && callback();
+      Logger.Error(err);
+    });
+  }
 }

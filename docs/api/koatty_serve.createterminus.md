@@ -18,7 +18,7 @@ export declare function CreateTerminus(server: Server | Http2SecureServer, optio
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  server | Server \| Http2SecureServer |  |
-|  options | TerminusOptions |  |
+|  options | TerminusOptions | <i>(Optional)</i> |
 
 <b>Returns:</b>
 

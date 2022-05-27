@@ -16,7 +16,7 @@ Stop(callback?: () => void): void;
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  callback | () =&gt; void |  |
+|  callback | () =&gt; void | <i>(Optional)</i> |
 
 <b>Returns:</b>
 

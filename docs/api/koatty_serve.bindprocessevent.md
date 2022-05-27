@@ -18,7 +18,7 @@ export declare function BindProcessEvent(event: EventEmitter, originEventName: s
 |  --- | --- | --- |
 |  event | EventEmitter |  |
 |  originEventName | string |  |
-|  targetEventName | processEvent |  |
+|  targetEventName | processEvent | <i>(Optional)</i> |
 
 <b>Returns:</b>
 

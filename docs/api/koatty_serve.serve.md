@@ -18,7 +18,7 @@ export declare function Serve(app: Koatty, opt?: ListeningOptions): KoattyServer
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  app | Koatty |  |
-|  opt | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
+|  opt | [ListeningOptions](./koatty_serve.listeningoptions.md) | <i>(Optional)</i> |
 
 <b>Returns:</b>
 
