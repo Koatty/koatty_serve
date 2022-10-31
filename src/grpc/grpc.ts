@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2022-03-15 17:39:42
+ * @LastEditTime: 2022-10-29 11:28:15
  */
 import { onSignal } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -46,10 +46,13 @@ export class GrpcServer implements KoattyServer {
   app: Koatty;
   options: GrpcServerOptions;
   readonly server: Server;
+  readonly protocol: string;
   status: number;
+  listenCallback?: () => void;
 
   constructor(app: Koatty, options: ListeningOptions) {
     this.app = app;
+    this.protocol = options.protocol;
     this.options = options;
     options.ext = options.ext || {};
     this.options.channelOptions = Object.assign(this.options.channelOptions || {}, options.ext);
@@ -62,7 +65,8 @@ export class GrpcServer implements KoattyServer {
    * @param {() => void} listenCallback
    * @memberof Grpc
    */
-  Start(listenCallback: () => void): Server {
+  Start(listenCallback?: () => void): Server {
+    listenCallback = listenCallback ? listenCallback : this.listenCallback;
     const creds = ServerCredentials.createInsecure();
     // key: this.options.ext.key,
     // cert: this.options.ext.cert,

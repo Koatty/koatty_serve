@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-03-15 17:38:15
+ * @LastEditTime: 2022-10-29 11:30:01
  */
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
@@ -26,12 +26,15 @@ export class WsServer implements KoattyServer {
   app: Koatty;
   options: WebSocketServerOptions;
   readonly server: WebSocketServer;
+  readonly protocol: string;
   status: number;
   socket: any;
+  listenCallback?: () => void;
   readonly httpServer: HttpServer | HttpsServer;
 
   constructor(app: Koatty, options: ListeningOptions) {
     this.app = app;
+    this.protocol = options.protocol;
     this.options = options;
     options.ext = options.ext || {};
     this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
@@ -55,7 +58,8 @@ export class WsServer implements KoattyServer {
    * @returns {*}  
    * @memberof WsServer
    */
-  Start(listenCallback: () => void) {
+  Start(listenCallback?: () => void) {
+    listenCallback = listenCallback ? listenCallback : this.listenCallback;
     // Terminus
     CreateTerminus(this.httpServer);
     return this.httpServer.listen({
