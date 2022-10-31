@@ -1,6 +1,6 @@
 {
     "name": "koatty_serve",
-    "version": "1.4.11",
+    "version": "1.4.12",
     "description": "Provide http1/2, websocket, gRPC server for Koatty.",
     "scripts": {
         "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
@@ -75,12 +75,12 @@
     },
     "dependencies": {
         "@godaddy/terminus": "^4.11.2",
-        "@grpc/grpc-js": "^1.6.12",
+        "@grpc/grpc-js": "^1.7.3",
         "koatty_core": "^1.x.x",
         "koatty_lib": "^1.x.x",
         "koatty_logger": "^1.x.x",
         "tslib": "^2.4.0",
-        "ws": "^8.8.1"
+        "ws": "^8.10.0"
     },
     "peerDependencies": {
         "koatty_core": "^1.x.x",
