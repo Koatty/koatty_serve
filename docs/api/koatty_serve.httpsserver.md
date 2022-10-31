@@ -24,7 +24,9 @@ export declare class HttpsServer implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.httpsserver.app.md) |  | Koatty |  |
+|  [listenCallback?](./koatty_serve.httpsserver.listencallback.md) |  | () =&gt; void | <i>(Optional)</i> |
 |  [options](./koatty_serve.httpsserver.options.md) |  | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
+|  [protocol](./koatty_serve.httpsserver.protocol.md) |  | string |  |
 |  [server](./koatty_serve.httpsserver.server.md) |  | Server |  |
 |  [status](./koatty_serve.httpsserver.status.md) |  | number |  |
 

@@ -9,14 +9,14 @@ Start Server
 <b>Signature:</b>
 
 ```typescript
-Start(listenCallback: () => void): Server;
+Start(listenCallback?: () => void): Server;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  listenCallback | () =&gt; void |  Grpc |
+|  listenCallback | () =&gt; void | <i>(Optional)</i>  Grpc |
 
 <b>Returns:</b>
 

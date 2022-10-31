@@ -24,7 +24,9 @@ export declare class Http2Server implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.http2server.app.md) |  | Koatty |  |
+|  [listenCallback?](./koatty_serve.http2server.listencallback.md) |  | () =&gt; void | <i>(Optional)</i> |
 |  [options](./koatty_serve.http2server.options.md) |  | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
+|  [protocol](./koatty_serve.http2server.protocol.md) |  | string |  |
 |  [server](./koatty_serve.http2server.server.md) |  | Http2SecureServer |  |
 |  [status](./koatty_serve.http2server.status.md) |  | number |  |
 

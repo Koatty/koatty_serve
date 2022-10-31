@@ -7,5 +7,5 @@
 <b>Signature:</b>
 
 ```typescript
-export declare type KoattyProtocol = 'http' | 'https' | 'http2' | 'grpc' | 'ws' | 'wss';
+export declare type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
 ```

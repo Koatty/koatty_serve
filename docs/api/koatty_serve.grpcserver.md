@@ -22,7 +22,9 @@ export declare class GrpcServer implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.grpcserver.app.md) |  | Koatty |  |
+|  [listenCallback?](./koatty_serve.grpcserver.listencallback.md) |  | () =&gt; void | <i>(Optional)</i> |
 |  [options](./koatty_serve.grpcserver.options.md) |  | [GrpcServerOptions](./koatty_serve.grpcserveroptions.md) |  |
+|  [protocol](./koatty_serve.grpcserver.protocol.md) |  | string |  |
 |  [server](./koatty_serve.grpcserver.server.md) |  | Server |  |
 |  [status](./koatty_serve.grpcserver.status.md) |  | number |  |
 

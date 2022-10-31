@@ -25,7 +25,9 @@ export declare class WsServer implements KoattyServer
 |  --- | --- | --- | --- |
 |  [app](./koatty_serve.wsserver.app.md) |  | Koatty |  |
 |  [httpServer](./koatty_serve.wsserver.httpserver.md) |  | HttpServer \| HttpsServer |  |
+|  [listenCallback?](./koatty_serve.wsserver.listencallback.md) |  | () =&gt; void | <i>(Optional)</i> |
 |  [options](./koatty_serve.wsserver.options.md) |  | [WebSocketServerOptions](./koatty_serve.websocketserveroptions.md) |  |
+|  [protocol](./koatty_serve.wsserver.protocol.md) |  | string |  |
 |  [server](./koatty_serve.wsserver.server.md) |  | WebSocketServer |  |
 |  [socket](./koatty_serve.wsserver.socket.md) |  | any |  |
 |  [status](./koatty_serve.wsserver.status.md) |  | number |  |

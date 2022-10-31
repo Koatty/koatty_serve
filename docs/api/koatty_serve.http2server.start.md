@@ -9,14 +9,14 @@ Start Server
 <b>Signature:</b>
 
 ```typescript
-Start(listenCallback: () => void): Http2SecureServer;
+Start(listenCallback?: () => void): Http2SecureServer;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  listenCallback | () =&gt; void |  Http2Server |
+|  listenCallback | () =&gt; void | <i>(Optional)</i>  Http2Server |
 
 <b>Returns:</b>
 
