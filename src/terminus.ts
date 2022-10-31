@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2022-03-15 17:38:30
+ * @LastEditTime: 2022-10-31 15:34:11
  */
 import { createTerminus, TerminusOptions } from "@godaddy/terminus";
 import EventEmitter from "events";
@@ -15,7 +15,7 @@ import * as Helper from "koatty_lib";
 /** @type {*} */
 const defaultTerminusOptions = {
   // cleanup options
-  timeout: 2000,                   // [optional = 1000] number of milliseconds before forceful exiting
+  timeout: 10000,                   // [optional = 1000] number of milliseconds before forceful exiting
   onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
   onShutdown,                      // [optional] called right before exiting
   // both
