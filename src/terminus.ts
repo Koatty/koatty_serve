@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2022-11-16 16:11:29
+ * @LastEditTime: 2022-11-16 17:41:03
  */
 import EventEmitter from "events";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -12,7 +12,7 @@ import { KoattyServer } from "koatty_core";
 
 /** @type {*} */
 const terminusOptions = {
-  signals: ["SIGINT", "SIGTERM", "SIGKILL"],
+  signals: ["SIGINT", "SIGTERM"],
   // cleanup options
   timeout: 60000,                   // [optional = 1000] number of milliseconds before forceful exiting
   onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
