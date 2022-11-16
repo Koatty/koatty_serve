@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.1](https://github.com/koatty/koatty_serve/compare/v1.5.0...v1.5.1) (2022-11-16)
+
+
+### Bug Fixes
+
+* remove SIGKILL ([19ba943](https://github.com/koatty/koatty_serve/commit/19ba943a3727baef8f9d35c16221191499794552))
+
 ## [1.5.0](https://github.com/koatty/koatty_serve/compare/v1.4.12...v1.5.0) (2022-11-16)
 
 
