@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/koatty/koatty_serve/compare/v1.4.12...v1.5.0) (2022-11-16)
+
+
+### Bug Fixes
+
+* timeout ([d50110b](https://github.com/koatty/koatty_serve/commit/d50110badf03f45b49098f096b927e08e62e3192))
+* trminus ([d4af2f2](https://github.com/koatty/koatty_serve/commit/d4af2f2a7c9bf5b59c059117c08196c9c15414e3))
+
 ### [1.4.12](https://github.com/koatty/koatty_serve/compare/v1.4.11...v1.4.12) (2022-10-31)
 
 ### [1.4.11](https://github.com/koatty/koatty_serve/compare/v1.4.10...v1.4.11) (2022-09-05)
