@@ -3,24 +3,26 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2022-10-31 15:34:11
+ * @LastEditTime: 2022-11-16 16:11:29
  */
-import { createTerminus, TerminusOptions } from "@godaddy/terminus";
 import EventEmitter from "events";
-import { Server } from "http";
-import { Http2SecureServer } from "http2";
 import { DefaultLogger as Logger } from "koatty_logger";
 import * as Helper from "koatty_lib";
+import { KoattyServer } from "koatty_core";
 
 /** @type {*} */
-const defaultTerminusOptions = {
+const terminusOptions = {
+  signals: ["SIGINT", "SIGTERM", "SIGKILL"],
   // cleanup options
-  timeout: 10000,                   // [optional = 1000] number of milliseconds before forceful exiting
+  timeout: 60000,                   // [optional = 1000] number of milliseconds before forceful exiting
   onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
-  onShutdown,                      // [optional] called right before exiting
-  // both
-  logger: Logger.Error                           // [optional] logger function to be called with errors. Example logger call: ('error happened during shutdown', error). See terminus.js for more details.
 };
+
+export interface TerminusOptions {
+  timeout: number;
+  signals?: string[];
+  onSignal?: (event: string, server: KoattyServer, forceTimeout: number) => Promise<any>;
+}
 
 /**
  * Create terminus event
@@ -29,8 +31,13 @@ const defaultTerminusOptions = {
  * @param {(Server | Http2SecureServer)} server
  * @param {TerminusOptions} [options]
  */
-export function CreateTerminus(server: Server | Http2SecureServer, options?: TerminusOptions): void {
-  createTerminus(server, { ...defaultTerminusOptions, ...options });
+export function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void {
+  const opt = { ...terminusOptions, ...options };
+  for (const event of opt.signals) {
+    process.on(event, () => {
+      opt.onSignal(event, server, opt.timeout);
+    })
+  }
 }
 // processEvent
 type processEvent = "beforeExit" | "exit" | NodeJS.Signals;
@@ -73,18 +80,22 @@ const asyncEvent = async function (event: EventEmitter, eventName: string) {
  *
  * @returns {*}  
  */
-export function onSignal() {
-  Logger.Info('Server is starting cleanup');
-  return asyncEvent(process, 'beforeExit');
-}
+async function onSignal(event: string, server: KoattyServer, forceTimeout: number) {
+  Logger.Warn(`Received kill signal (${event}), shutting down...`);
+  server.status = 503;
+  await asyncEvent(process, 'beforeExit');
+  // Don't bother with graceful shutdown in development
+  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
+    return process.exit(0);
+  }
 
-/**
- * called right before exiting
- *
- * @returns {*}  
- */
-export function onShutdown() {
-  Logger.Info('Cleanup finished, server is shutting down');
-  // todo Log report
-  return asyncEvent(process, 'exit');
+  setTimeout(() => {
+    Logger.Error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, forceTimeout);
+
+  server.Stop(() => {
+    Logger.Warn('Closed out remaining connections');
+    process.exit(0);
+  });
 }

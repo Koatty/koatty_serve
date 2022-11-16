@@ -12,6 +12,7 @@
         "prepublishOnly": "npm test && npm run build",
         "prerelease": "npm test && npm run build",
         "release": "standard-version",
+        "release:minor": "npm run release -- --release-as minor",
         "test": "npm run eslint && jest --passWithNoTests"
     },
     "main": "./dist/index.js",
@@ -74,13 +75,12 @@
         "typescript": "^4.x.x"
     },
     "dependencies": {
-        "@godaddy/terminus": "^4.11.2",
         "@grpc/grpc-js": "^1.7.3",
         "koatty_core": "^1.x.x",
         "koatty_lib": "^1.x.x",
         "koatty_logger": "^1.x.x",
         "tslib": "^2.4.0",
-        "ws": "^8.10.0"
+        "ws": "^8.11.0"
     },
     "peerDependencies": {
         "koatty_core": "^1.x.x",

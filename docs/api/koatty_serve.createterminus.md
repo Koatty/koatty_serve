@@ -10,15 +10,15 @@ Create terminus event
 <b>Signature:</b>
 
 ```typescript
-export declare function CreateTerminus(server: Server | Http2SecureServer, options?: TerminusOptions): void;
+export declare function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  server | Server \| Http2SecureServer |  |
-|  options | TerminusOptions | <i>(Optional)</i> |
+|  server | KoattyServer |  |
+|  options | [TerminusOptions](./koatty_serve.terminusoptions.md) | <i>(Optional)</i> |
 
 <b>Returns:</b>
 

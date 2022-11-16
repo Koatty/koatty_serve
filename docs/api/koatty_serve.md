@@ -20,8 +20,6 @@
 |  --- | --- |
 |  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
 |  [CreateTerminus(server, options)](./koatty_serve.createterminus.md) | Create terminus event |
-|  [onShutdown()](./koatty_serve.onshutdown.md) | called right before exiting |
-|  [onSignal()](./koatty_serve.onsignal.md) | cleanup function, returning a promise (used to be onSigterm) |
 |  [Serve(app, opt)](./koatty_serve.serve.md) | Create Server |
 
 ## Interfaces
@@ -30,6 +28,7 @@
 |  --- | --- |
 |  [GrpcServerOptions](./koatty_serve.grpcserveroptions.md) |   GrpcServerOptions  {<!-- -->ListeningOptions<!-- -->} |
 |  [ListeningOptions](./koatty_serve.listeningoptions.md) | listening options ListeningOptions |
+|  [TerminusOptions](./koatty_serve.terminusoptions.md) |  |
 |  [WebSocketServerOptions](./koatty_serve.websocketserveroptions.md) |  |
 
 ## Type Aliases

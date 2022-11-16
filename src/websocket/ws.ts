@@ -3,12 +3,12 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-10-29 11:30:01
+ * @LastEditTime: 2022-11-16 16:05:42
  */
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer } from 'ws';
-import { CreateTerminus, onSignal } from "../terminus";
+import { CreateTerminus } from "../terminus";
 import { Server as HttpServer, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { ListeningOptions } from "../index";
@@ -49,6 +49,7 @@ export class WsServer implements KoattyServer {
     } else {
       this.httpServer = createServer();
     }
+    CreateTerminus(this);
   }
 
   /**
@@ -60,8 +61,6 @@ export class WsServer implements KoattyServer {
    */
   Start(listenCallback?: () => void) {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
-    // Terminus
-    CreateTerminus(this.httpServer);
     return this.httpServer.listen({
       port: this.options.port,
       host: this.options.hostname,
@@ -86,7 +85,6 @@ export class WsServer implements KoattyServer {
    *
    */
   Stop(callback?: () => void) {
-    onSignal();
     this.server.close((err?: Error) => {
       callback && callback();
       Logger.Error(err);

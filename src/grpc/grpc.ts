@@ -3,9 +3,9 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2022-10-29 11:28:15
+ * @LastEditTime: 2022-11-16 16:04:40
  */
-import { onSignal } from "../terminus";
+import { CreateTerminus } from "../terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from "koatty_core";
 import {
@@ -57,6 +57,7 @@ export class GrpcServer implements KoattyServer {
     options.ext = options.ext || {};
     this.options.channelOptions = Object.assign(this.options.channelOptions || {}, options.ext);
     this.server = new Server(this.options.channelOptions);
+    CreateTerminus(this);
   }
 
   /**
@@ -74,9 +75,6 @@ export class GrpcServer implements KoattyServer {
     //     Buffer.from(this.options.ext.cert),
     //     [],
     // );
-    process.on("beforeExit", (code: number) => {
-      this.Stop();
-    });
     this.server.bindAsync(`${this.options.hostname}:${this.options.port}`, creds, () => {
       this.server.start();
       listenCallback();
@@ -90,7 +88,6 @@ export class GrpcServer implements KoattyServer {
    *
    */
   Stop(callback?: () => void) {
-    onSignal();
     this.server.tryShutdown((err?: Error) => {
       callback?.();
       Logger.Error(err);
