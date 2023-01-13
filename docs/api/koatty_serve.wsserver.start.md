@@ -9,7 +9,7 @@ Start Server
 <b>Signature:</b>
 
 ```typescript
-Start(listenCallback?: () => void): HttpServer<typeof import("http").IncomingMessage, typeof import("http").ServerResponse> | HttpsServer<typeof import("http").IncomingMessage, typeof import("http").ServerResponse>;
+Start(listenCallback?: () => void): HttpServer<typeof IncomingMessage, typeof ServerResponse>;
 ```
 
 ## Parameters
@@ -20,7 +20,7 @@ Start(listenCallback?: () => void): HttpServer<typeof import("http").IncomingMes
 
 <b>Returns:</b>
 
-HttpServer&lt;typeof import("http").IncomingMessage, typeof import("http").ServerResponse&gt; \| HttpsServer&lt;typeof import("http").IncomingMessage, typeof import("http").ServerResponse&gt;
+HttpServer&lt;typeof IncomingMessage, typeof ServerResponse&gt;
 
 {<!-- -->\*<!-- -->}  WsServer
 

@@ -3,13 +3,13 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2022-11-16 16:05:42
+ * @LastEditTime: 2023-01-13 16:05:07
  */
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer } from 'ws';
 import { CreateTerminus } from "../terminus";
-import { Server as HttpServer, createServer } from "http";
+import { Server as HttpServer, IncomingMessage, ServerResponse, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { ListeningOptions } from "../index";
 import { Helper } from "koatty_lib";
@@ -59,7 +59,7 @@ export class WsServer implements KoattyServer {
    * @returns {*}  
    * @memberof WsServer
    */
-  Start(listenCallback?: () => void) {
+  Start(listenCallback?: () => void): HttpServer<typeof IncomingMessage, typeof ServerResponse> {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.httpServer.listen({
       port: this.options.port,
