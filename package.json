@@ -1,90 +1,91 @@
 {
-    "name": "koatty_serve",
-    "version": "1.5.1",
-    "description": "Provide http1/2, websocket, gRPC server for Koatty.",
-    "scripts": {
-        "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
-        "build:cp": "node scripts/postBuild && copyfiles package.json LICENSE README.md dist/",
-        "build:js": "del-cli --force dist && npx rollup -c .rollup.config.js",
-        "build:doc": "del-cli --force docs/api && npx api-documenter markdown --input temp --output docs/api",
-        "build:dts": "del-cli --force temp && npx tsc && npx api-extractor run --local --verbose",
-        "eslint": "eslint --ext .ts,.js ./",
-        "prepublishOnly": "npm test && npm run build",
-        "prerelease": "npm test && npm run build",
-        "release": "standard-version",
-        "release:minor": "npm run release -- --release-as minor",
-        "test": "npm run eslint && jest --passWithNoTests"
-    },
-    "main": "./dist/index.js",
-    "exports": {
-        "require": "./dist/index.js",
-        "import": "./dist/index.mjs"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/koatty/koatty_serve.git"
-    },
-    "keywords": [
-        "IOC",
-        "koatty",
-        "thinkkoa"
-    ],
-    "engines": {
-        "node": ">10.0.0"
-    },
-    "author": {
-        "name": "richenlin",
-        "email": "richenlin@gmail.com"
-    },
-    "license": "BSD-3-Clause",
-    "bugs": {
-        "url": "https://github.com/koatty/koatty_serve/issues"
-    },
-    "homepage": "https://github.com/koatty/koatty_serve",
-    "maintainers": [
-        {
-            "name": "richenlin",
-            "email": "richenlin@gmail.com"
-        }
-    ],
-    "devDependencies": {
-        "@commitlint/cli": "^17.x.x",
-        "@commitlint/config-conventional": "^17.x.x",
-        "@microsoft/api-documenter": "^7.x.x",
-        "@microsoft/api-extractor": "^7.x.x",
-        "@rollup/plugin-json": "^4.x.x",
-        "@types/jest": "^27.x.x",
-        "@types/koa": "^2.x.x",
-        "@types/node": "^16.x.x",
-        "@types/ws": "^8.5.3",
-        "@typescript-eslint/eslint-plugin": "^5.x.x",
-        "@typescript-eslint/parser": "^5.x.x",
-        "conventional-changelog-cli": "^2.x.x",
-        "copyfiles": "^2.x.x",
-        "del-cli": "^4.x.x",
-        "eslint": "^8.x.x",
-        "eslint-plugin-jest": "^26.x.x",
-        "husky": "^4.x.x",
-        "jest": "^28.x.x",
-        "jest-html-reporters": "^3.x.x",
-        "rollup": "^2.x.x",
-        "rollup-plugin-typescript2": "^0.x.x",
-        "standard-version": "^9.x.x",
-        "ts-jest": "^28.x.x",
-        "ts-node": "^10.x.x",
-        "typescript": "^4.x.x"
-    },
-    "dependencies": {
-        "@grpc/grpc-js": "^1.7.3",
-        "koatty_core": "^1.x.x",
-        "koatty_lib": "^1.x.x",
-        "koatty_logger": "^1.x.x",
-        "tslib": "^2.4.0",
-        "ws": "^8.11.0"
-    },
-    "peerDependencies": {
-        "koatty_core": "^1.x.x",
-        "koatty_lib": "^1.x.x",
-        "koatty_logger": "^1.x.x"
+  "name": "koatty_serve",
+  "version": "1.5.2",
+  "description": "Provide http1/2, websocket, gRPC server for Koatty.",
+  "scripts": {
+    "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
+    "build:cp": "node scripts/postBuild && copyfiles package.json LICENSE README.md dist/",
+    "build:js": "del-cli --force dist && npx rollup --bundleConfigAsCjs -c .rollup.config.js",
+    "build:doc": "del-cli --force docs/api && npx api-documenter markdown --input temp --output docs/api",
+    "build:dts": "del-cli --force temp && npx tsc && npx api-extractor run --local --verbose",
+    "eslint": "eslint --ext .ts,.js ./",
+    "prepublishOnly": "npm test && npm run build",
+    "prerelease": "npm test && npm run build",
+    "pub": "git push --follow-tags origin && npm publish",
+    "release": "standard-version",
+    "release:minor": "npm run release -- --release-as minor",
+    "test": "npm run eslint && jest --passWithNoTests"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    "require": "./dist/index.js",
+    "import": "./dist/index.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/koatty/koatty_serve.git"
+  },
+  "keywords": [
+    "IOC",
+    "koatty",
+    "thinkkoa"
+  ],
+  "engines": {
+    "node": ">10.0.0"
+  },
+  "author": {
+    "name": "richenlin",
+    "email": "richenlin@gmail.com"
+  },
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/koatty/koatty_serve/issues"
+  },
+  "homepage": "https://github.com/koatty/koatty_serve",
+  "maintainers": [
+    {
+      "name": "richenlin",
+      "email": "richenlin@gmail.com"
     }
+  ],
+  "devDependencies": {
+    "@commitlint/cli": "^17.x.x",
+    "@commitlint/config-conventional": "^17.x.x",
+    "@microsoft/api-documenter": "^7.x.x",
+    "@microsoft/api-extractor": "^7.x.x",
+    "@rollup/plugin-json": "^6.x.x",
+    "@types/jest": "^29.x.x",
+    "@types/koa": "^2.x.x",
+    "@types/node": "^18.x.x",
+    "@types/ws": "^8.x.x",
+    "@typescript-eslint/eslint-plugin": "^5.x.x",
+    "@typescript-eslint/parser": "^5.x.x",
+    "conventional-changelog-cli": "^2.x.x",
+    "copyfiles": "^2.x.x",
+    "del-cli": "^4.x.x",
+    "eslint": "^8.x.x",
+    "eslint-plugin-jest": "^27.x.x",
+    "husky": "^4.x.x",
+    "jest": "^29.x.x",
+    "jest-html-reporters": "^3.x.x",
+    "rollup": "^3.x.x",
+    "rollup-plugin-typescript2": "^0.x.x",
+    "standard-version": "^9.x.x",
+    "ts-jest": "^29.x.x",
+    "ts-node": "^10.x.x",
+    "typescript": "^4.x.x"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.8.4",
+    "koatty_core": "^1.x.x",
+    "koatty_lib": "^1.x.x",
+    "koatty_logger": "^2.x.x",
+    "tslib": "^2.4.1",
+    "ws": "^8.12.0"
+  },
+  "peerDependencies": {
+    "koatty_core": "^1.x.x",
+    "koatty_lib": "^1.x.x",
+    "koatty_logger": "^2.x.x"
+  }
 }
