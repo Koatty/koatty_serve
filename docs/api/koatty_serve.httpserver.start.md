@@ -9,7 +9,7 @@ Start Server
 <b>Signature:</b>
 
 ```typescript
-Start(listenCallback?: () => void): Server;
+Start(listenCallback?: () => void): Server<typeof import("http").IncomingMessage, typeof import("http").ServerResponse>;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ Start(listenCallback?: () => void): Server;
 
 <b>Returns:</b>
 
-Server
+Server&lt;typeof import("http").IncomingMessage, typeof import("http").ServerResponse&gt;
 
