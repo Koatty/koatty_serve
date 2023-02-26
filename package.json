@@ -76,12 +76,12 @@
     "typescript": "^4.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.8.8",
+    "@grpc/grpc-js": "^1.8.11",
     "koatty_core": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
-    "tslib": "^2.4.1",
-    "ws": "^8.12.0"
+    "tslib": "^2.5.0",
+    "ws": "^8.12.1"
   },
   "peerDependencies": {
     "koatty_core": "^1.x.x",
