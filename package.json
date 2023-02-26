@@ -80,7 +80,6 @@
     "koatty_core": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
-    "tslib": "^2.5.0",
     "ws": "^8.12.1"
   },
   "peerDependencies": {
