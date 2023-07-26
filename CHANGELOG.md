@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.0.2](https://github.com/koatty/koatty_serve/compare/v2.0.1...v2.0.2) (2023-07-26)
+
+
+### Bug Fixes
+
+* default options ([e2634a8](https://github.com/koatty/koatty_serve/commit/e2634a8372bbdd36d2a8dc145e7357f4713a312b))
+
 ### [2.0.1](https://github.com/koatty/koatty_serve/compare/v2.0.0...v2.0.1) (2023-07-26)
 
 
