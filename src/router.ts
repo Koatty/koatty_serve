@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2022-10-29 11:15:30
- * @LastEditTime: 2023-07-26 22:18:48
+ * @LastEditTime: 2023-07-26 22:24:30
  */
 import { GrpcRouter } from "./grpc/router";
 import { HttpRouter } from "./http/router";
@@ -18,6 +18,7 @@ import { Helper } from "koatty_lib";
  * @interface RouterOptions
  */
 export interface RouterOptions {
+  protocol: string;
   prefix: string;
   /**
    * Methods which should be supported by the router.
@@ -55,12 +56,12 @@ export interface RouterOptions {
  * @param {string} [protocol]
  * @returns {*}  {KoattyRouter}
  */
-export function NewRouter(app: Koatty, opt: RouterOptions, protocol?: string): KoattyRouter {
-  protocol = protocol || app.config("protocol") || "http";
+export function NewRouter(app: Koatty, opt?: RouterOptions): KoattyRouter {
+  const protocol = app.config("protocol") || "http";
   const opts: RouterOptions = app.config(undefined, 'router') ?? {};
-  
+
   const options: RouterOptions = {
-    ...opts, ...opt
+    ...{ protocol: protocol, prefix: "" }, ...opts, ...opt
   }
   let router;
   switch (protocol) {
