@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2022-09-09 16:16:14
- * @LastEditTime: 2023-07-26 22:10:39
+ * @LastEditTime: 2023-07-27 00:01:59
  */
 import fs from "fs";
 import { Koatty, KoattyServer } from "koatty_core";
@@ -42,8 +42,7 @@ export function NewServe(app: Koatty, opt?: ListeningOptions): KoattyServer {
   const protocol = app.config("protocol") || "http";
   const port = process.env.PORT || process.env.APP_PORT ||
     app.config('app_port') || 3000;
-  const hostname = process.env.IP ||
-    process.env.HOSTNAME?.replace(/-/g, '.') || app.config('app_host') || '127.0.0.1';
+  const hostname = process.env.IP || app.config('app_host') || '127.0.0.1';
 
   const options: ListeningOptions = {
     ...{
