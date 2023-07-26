@@ -19,12 +19,12 @@
 |  [File(name)](./koatty_serve.file.md) | <p>Get parsed upload file object.</p> |
 |  [Get(name)](./koatty_serve.get.md) | <p>Get query-string parameters (take value from ctx.query).</p> |
 |  [Header(name)](./koatty_serve.header.md) | <p>Get request header.</p> |
-|  [NewRouter(app, options, protocol)](./koatty_serve.newrouter.md) | <p>get instance of Router</p> |
+|  [NewRouter(app, opt, protocol)](./koatty_serve.newrouter.md) | <p>get instance of Router</p> |
+|  [NewServe(app, opt)](./koatty_serve.newserve.md) | <p>Create Server</p> |
 |  [PathVariable(name)](./koatty_serve.pathvariable.md) | <p>Get path variable (take value from ctx.params).</p> |
 |  [Post(name)](./koatty_serve.post.md) | <p>Get parsed POST/PUT... body.</p> |
 |  [RequestBody()](./koatty_serve.requestbody.md) | <p>Get request body (contains the values of  and @<!-- -->File).</p> |
 |  [RequestParam(name)](./koatty_serve.requestparam.md) | <p>Get POST/GET parameters, POST priority</p> |
-|  [Serve(app, opt)](./koatty_serve.serve.md) | <p>Create Server</p> |
 
 ## Interfaces
 
