@@ -4,7 +4,7 @@
 
 ## ListeningOptions.protocol property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 protocol: KoattyProtocol;

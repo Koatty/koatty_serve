@@ -4,7 +4,7 @@
 
 ## ListeningOptions.port property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 port: number;

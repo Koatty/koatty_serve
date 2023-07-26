@@ -4,7 +4,7 @@
 
 ## TerminusOptions interface
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export interface TerminusOptions 
@@ -12,9 +12,9 @@ export interface TerminusOptions
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [onSignal?](./koatty_serve.terminusoptions.onsignal.md) | (event: string, server: KoattyServer, forceTimeout: number) =&gt; Promise&lt;any&gt; | <i>(Optional)</i> |
-|  [signals?](./koatty_serve.terminusoptions.signals.md) | string\[\] | <i>(Optional)</i> |
-|  [timeout](./koatty_serve.terminusoptions.timeout.md) | number |  |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [onSignal?](./koatty_serve.terminusoptions.onsignal.md) |  | (event: string, server: KoattyServer, forceTimeout: number) =&gt; Promise&lt;any&gt; | _(Optional)_ |
+|  [signals?](./koatty_serve.terminusoptions.signals.md) |  | string\[\] | _(Optional)_ |
+|  [timeout](./koatty_serve.terminusoptions.timeout.md) |  | number |  |
 

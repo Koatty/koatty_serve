@@ -4,7 +4,7 @@
 
 ## TerminusOptions.signals property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 signals?: string[];

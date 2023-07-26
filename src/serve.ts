@@ -6,12 +6,12 @@
  * @LastEditTime: 2022-10-31 14:56:35
  */
 import { Koatty, KoattyServer } from "koatty_core";
-import { GrpcServer } from "./grpc/grpc";
+import { GrpcServer } from "./grpc/serve";
 import { HttpServer } from "./http/http";
 import { Http2Server } from "./http/http2";
 import { HttpsServer } from "./http/https";
 // import { HttpsServer } from "./http/https";
-import { WsServer } from "./websocket/ws";
+import { WsServer } from "./websocket/serve";
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';

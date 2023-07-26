@@ -4,7 +4,7 @@
 
 ## TerminusOptions.timeout property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 timeout: number;

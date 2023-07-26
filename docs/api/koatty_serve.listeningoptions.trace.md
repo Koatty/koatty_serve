@@ -4,7 +4,7 @@
 
 ## ListeningOptions.trace property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 trace?: boolean;

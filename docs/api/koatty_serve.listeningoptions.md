@@ -8,7 +8,7 @@ listening options
 
  ListeningOptions
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export interface ListeningOptions 
@@ -16,11 +16,11 @@ export interface ListeningOptions
 
 ## Properties
 
-|  Property | Type | Description |
-|  --- | --- | --- |
-|  [ext?](./koatty_serve.listeningoptions.ext.md) | any | <i>(Optional)</i> |
-|  [hostname](./koatty_serve.listeningoptions.hostname.md) | string |  |
-|  [port](./koatty_serve.listeningoptions.port.md) | number |  |
-|  [protocol](./koatty_serve.listeningoptions.protocol.md) | [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
-|  [trace?](./koatty_serve.listeningoptions.trace.md) | boolean | <i>(Optional)</i> |
+|  Property | Modifiers | Type | Description |
+|  --- | --- | --- | --- |
+|  [ext?](./koatty_serve.listeningoptions.ext.md) |  | any | _(Optional)_ |
+|  [hostname](./koatty_serve.listeningoptions.hostname.md) |  | string |  |
+|  [port](./koatty_serve.listeningoptions.port.md) |  | number |  |
+|  [protocol](./koatty_serve.listeningoptions.protocol.md) |  | [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
+|  [trace?](./koatty_serve.listeningoptions.trace.md) |  | boolean | _(Optional)_ |
 

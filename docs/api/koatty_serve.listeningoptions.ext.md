@@ -4,7 +4,7 @@
 
 ## ListeningOptions.ext property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 ext?: any;

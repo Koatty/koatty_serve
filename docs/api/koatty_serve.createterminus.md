@@ -7,7 +7,7 @@
 Create terminus event
 
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void;
@@ -18,9 +18,9 @@ export declare function CreateTerminus(server: KoattyServer, options?: TerminusO
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  server | KoattyServer |  |
-|  options | [TerminusOptions](./koatty_serve.terminusoptions.md) | <i>(Optional)</i> |
+|  options | [TerminusOptions](./koatty_serve.terminusoptions.md) | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 void
 

@@ -4,7 +4,7 @@
 
 ## KoattyProtocol type
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';

@@ -4,7 +4,7 @@
 
 ## ListeningOptions.hostname property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 hostname: string;

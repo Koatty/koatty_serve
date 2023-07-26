@@ -6,7 +6,7 @@
 
 Bind event to the process
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 export declare function BindProcessEvent(event: EventEmitter, originEventName: string, targetEventName?: processEvent): EventEmitter;
@@ -18,9 +18,9 @@ export declare function BindProcessEvent(event: EventEmitter, originEventName: s
 |  --- | --- | --- |
 |  event | EventEmitter |  |
 |  originEventName | string |  |
-|  targetEventName | processEvent | <i>(Optional)</i> |
+|  targetEventName | processEvent | _(Optional)_ |
 
-<b>Returns:</b>
+**Returns:**
 
 EventEmitter
 

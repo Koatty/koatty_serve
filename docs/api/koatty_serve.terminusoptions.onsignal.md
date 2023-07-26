@@ -4,7 +4,7 @@
 
 ## TerminusOptions.onSignal property
 
-<b>Signature:</b>
+**Signature:**
 
 ```typescript
 onSignal?: (event: string, server: KoattyServer, forceTimeout: number) => Promise<any>;
