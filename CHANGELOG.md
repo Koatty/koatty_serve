@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [1.6.0](https://github.com/koatty/koatty_serve/compare/v1.5.6...v1.6.0) (2023-07-26)
+## [2.0.0](https://github.com/koatty/koatty_serve/compare/v1.5.6...v2.0.0) (2023-07-26)
 
 ### [1.5.6](https://github.com/koatty/koatty_serve/compare/v1.5.5...v1.5.6) (2023-02-26)
 
