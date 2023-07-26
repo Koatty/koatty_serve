@@ -10,7 +10,7 @@ get instance of Router
 **Signature:**
 
 ```typescript
-export declare function NewRouter(app: Koatty, opt: RouterOptions, protocol?: string): KoattyRouter;
+export declare function NewRouter(app: Koatty, opt?: RouterOptions): KoattyRouter;
 ```
 
 ## Parameters
@@ -18,8 +18,7 @@ export declare function NewRouter(app: Koatty, opt: RouterOptions, protocol?: st
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  app | Koatty |  |
-|  opt | [RouterOptions](./koatty_serve.routeroptions.md) |  |
-|  protocol | string | _(Optional)_ |
+|  opt | [RouterOptions](./koatty_serve.routeroptions.md) | _(Optional)_ |
 
 **Returns:**
 

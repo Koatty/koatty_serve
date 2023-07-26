@@ -21,6 +21,7 @@ export interface RouterOptions
 |  [ext?](./koatty_serve.routeroptions.ext.md) |  | any | _(Optional)_ Other extended configuration |
 |  [methods?](./koatty_serve.routeroptions.methods.md) |  | string\[\] | _(Optional)_ Methods which should be supported by the router. |
 |  [prefix](./koatty_serve.routeroptions.prefix.md) |  | string |  |
+|  [protocol](./koatty_serve.routeroptions.protocol.md) |  | string |  |
 |  [protoFile?](./koatty_serve.routeroptions.protofile.md) |  | string | _(Optional)_ gRPC protocol file |
 |  [routerPath?](./koatty_serve.routeroptions.routerpath.md) |  | string | _(Optional)_ |
 |  [sensitive?](./koatty_serve.routeroptions.sensitive.md) |  | boolean | _(Optional)_ Whether or not routing should be case-sensitive. |
