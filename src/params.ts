@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-24 23:21:26
- * @LastEditTime: 2023-02-17 14:21:38
+ * @LastEditTime: 2023-08-18 15:45:36
  */
 import { IOCContainer } from "koatty_container";
 import { Koatty, KoattyContext } from "koatty_core";
@@ -87,7 +87,7 @@ async function checkParams(app: Koatty, value: any, opt: ParamOptions) {
         value = plainToClass(opt.clazz, value, true);
       }
     } else {
-      // querystring must be convert type
+      // querystring default type is string, must be convert type
       value = convertParamsType(value, opt.type);
       //@Valid()
       if (opt.validRule) {
