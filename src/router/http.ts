@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 19:02:06
- * @LastEditTime: 2023-12-09 19:55:19
+ * @LastEditTime: 2023-12-09 22:42:21
  */
 import KoaRouter from "@koa/router";
 import * as Helper from "koatty_lib";
@@ -89,7 +89,7 @@ export class HttpRouter implements KoattyRouter {
       }
 
       // use trace middleware
-      this.app.use(Trace(this.options.trace, this.app));
+      this.app.use(Trace(this.app));
 
       // exp: in middleware
       // app.Router.SetRouter('/xxx',  (ctx: Koa.KoattyContext): any => {...}, 'GET')

@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 19:31:22
- * @LastEditTime: 2023-12-09 20:30:42
+ * @LastEditTime: 2023-12-09 22:35:24
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -23,31 +23,9 @@ import { asyncLocalStorage, createAsyncResource, wrapEmitter } from "./wrap";
  * @export
  * @returns {*}  
  */
-function getTraceId(options?: TraceOptions) {
-  const rid = options?.IdFactory()
-  return rid || uuidv4();
+function getTraceId() {
+  return uuidv4();
 }
-
-/**
- * TraceOptions
- *
- * @export
- * @interface TraceOptions
- */
-export interface TraceOptions {
-  RequestIdHeaderName: string;
-  RequestIdName: string;
-  IdFactory: any;
-}
-
-/** 
- * defaultOptions
- */
-const defaultOptions = {
-  RequestIdHeaderName: 'X-Request-Id',
-  RequestIdName: "requestId",
-  IdFactory: uuidv4,
-};
 
 /**
  * Trace middleware
@@ -56,12 +34,13 @@ const defaultOptions = {
  * @param {Koatty} app
  * @returns {*}  {Koa.Middleware}
  */
-export function Trace(options: TraceOptions, app: Koatty) {
-  options = { ...defaultOptions, ...options };
-  const timeout = (app.config('http_timeout') || 10) * 1000;
+export function Trace(app: Koatty) {
+  const timeout = (app.config('timeout') || 10) * 1000;
   const encoding = app.config('encoding') || 'utf-8';
   const openTrace = app.config("open_trace") || false;
   const asyncHooks = app.config("async_hooks") || false;
+  const requestHeader = app.config("trace_header") || "X-Request-Id";
+  const requestName = app.config("trace_id") || "requestId";
 
   // 
   let tracer: Tracer;
@@ -84,21 +63,21 @@ export function Trace(options: TraceOptions, app: Koatty) {
     // 
     const respWapper = async (requestId: string, span?: Span) => {
       // metadata
-      ctx.setMetaData(options.RequestIdName, requestId);
+      ctx.setMetaData(requestName, requestId);
 
       if (ctx.protocol === "grpc") {
         // allow bypassing koa
         ctx.respond = false;
-        ctx.rpc.call.metadata.set(options.RequestIdName, requestId);
+        ctx.rpc.call.metadata.set(requestName, requestId);
         await gRPCHandler(ctx, next, { timeout, requestId, encoding, terminated, span });
       } else if (ctx.protocol === "ws" || ctx.protocol === "wss") {
         // allow bypassing koa
         ctx.respond = false;
-        ctx.set(options.RequestIdHeaderName, requestId);
+        ctx.set(requestHeader, requestId);
         await wsHandler(ctx, next, { timeout, requestId, encoding, terminated, span });
       } else {
         // response header
-        ctx.set(options.RequestIdHeaderName, requestId);
+        ctx.set(requestHeader, requestId);
         await httpHandler(ctx, next, { timeout, requestId, encoding, terminated, span });
       }
       return respond(ctx);
@@ -107,12 +86,12 @@ export function Trace(options: TraceOptions, app: Koatty) {
     let requestId = '';
     if (ctx.protocol === "grpc") {
       const request: any = ctx.getMetaData("_body")[0] || {};
-      requestId = `${ctx.getMetaData(options.RequestIdName)[0]}` || <string>request[options.RequestIdName];
+      requestId = `${ctx.getMetaData(requestName)[0]}` || <string>request[requestName];
     } else {
-      const requestIdHeaderName = options.RequestIdHeaderName.toLowerCase();
-      requestId = <string>ctx.headers[requestIdHeaderName] || <string>ctx.query[options.RequestIdName];
+      const requestIdHeaderName = requestHeader.toLowerCase();
+      requestId = <string>ctx.headers[requestIdHeaderName] || <string>ctx.query[requestName];
     }
-    requestId = requestId || getTraceId(options);
+    requestId = requestId || getTraceId();
     let span: Span;
     if (openTrace) {
       const serviceName = app.name || "unknownKoattyProject";

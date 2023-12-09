@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:16:44
- * @LastEditTime: 2023-12-09 19:56:50
+ * @LastEditTime: 2023-12-09 22:33:36
  */
 
 import KoaRouter from "@koa/router";
@@ -100,7 +100,7 @@ export class WebsocketRouter implements KoattyRouter {
         }
       }
       // use trace middleware
-      this.app.use(Trace(this.options.trace, this.app));
+      this.app.use(Trace(this.app));
 
       // Add websocket handler
       this.app.use(this.ListRouter()).

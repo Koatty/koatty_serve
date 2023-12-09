@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 19:49:00
+ * @LastEditTime: 2023-12-09 22:41:35
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -14,7 +14,6 @@ import { PayloadOptions } from "./router/payload";
 import { WebsocketRouter } from "./router/ws";
 import { Koatty, KoattyRouter } from "koatty_core";
 import { Helper } from "koatty_lib";
-import { TraceOptions } from "./catcher/trace";
 
 /**
  * RouterOptions
@@ -50,11 +49,6 @@ export interface RouterOptions {
    * payload options
    */
   payload?: PayloadOptions;
-
-  /**
-   * trace options
-   */
-  trace?: TraceOptions;
   // 
   /**
    * Other extended configuration

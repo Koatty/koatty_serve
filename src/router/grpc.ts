@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:10:30
- * @LastEditTime: 2023-12-09 19:56:29
+ * @LastEditTime: 2023-12-09 22:33:27
  */
 import * as Helper from "koatty_lib";
 import { RouterOptions } from "../router";
@@ -169,7 +169,7 @@ export class GrpcRouter implements KoattyRouter {
           }
         }
         // use trace middleware
-        this.app.use(Trace(this.options.trace, this.app));
+        this.app.use(Trace(this.app));
 
         this.SetRouter(serviceName, si.service, impl);
       }
