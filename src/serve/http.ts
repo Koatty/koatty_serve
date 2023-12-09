@@ -3,24 +3,24 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2023-01-13 16:04:05
+ * @LastEditTime: 2023-12-09 20:31:23
  */
-import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { CreateTerminus } from "../terminus";
-import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from "koatty_core";
+import { CreateTerminus } from "./terminus";
+import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
+import { createServer, IncomingMessage, Server, ServerResponse } from "http";
 /**
  *
  *
  * @export
  * @class Http
  */
-export class Http2Server implements KoattyServer {
+export class HttpServer implements KoattyServer {
   app: Koatty;
   options: ListeningOptions;
+  readonly server: Server;
   readonly protocol: string;
-  readonly server: Http2SecureServer;
   status: number;
   listenCallback?: () => void;
 
@@ -28,12 +28,7 @@ export class Http2Server implements KoattyServer {
     this.app = app;
     this.protocol = options.protocol;
     this.options = options;
-    const opt: SecureServerOptions = {
-      allowHTTP1: true,
-      key: this.options.ext.key,
-      cert: this.options.ext.cert,
-    }
-    this.server = createSecureServer(opt, (req, res) => {
+    this.server = createServer((req, res) => {
       app.callback()(req, res);
     });
     CreateTerminus(this);
@@ -43,9 +38,9 @@ export class Http2Server implements KoattyServer {
    * Start Server
    *
    * @param {() => void} listenCallback
-   * @memberof Http2Server
+   * @memberof Http
    */
-  Start(listenCallback?: () => void): Http2SecureServer {
+  Start(listenCallback?: () => void): Server<typeof IncomingMessage, typeof ServerResponse> {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.server.listen({
       port: this.options.port,

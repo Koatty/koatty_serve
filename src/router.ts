@@ -3,17 +3,18 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 13:30:27
+ * @LastEditTime: 2023-12-09 19:49:00
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
-import { GrpcRouter } from "./grpc/router";
-import { HttpRouter } from "./http/router";
-import { PayloadOptions } from "./payload";
-import { WebsocketRouter } from "./websocket/router";
+import { GrpcRouter } from "./router/grpc";
+import { HttpRouter } from "./router/http";
+import { PayloadOptions } from "./router/payload";
+import { WebsocketRouter } from "./router/ws";
 import { Koatty, KoattyRouter } from "koatty_core";
 import { Helper } from "koatty_lib";
+import { TraceOptions } from "./catcher/trace";
 
 /**
  * RouterOptions
@@ -49,6 +50,11 @@ export interface RouterOptions {
    * payload options
    */
   payload?: PayloadOptions;
+
+  /**
+   * trace options
+   */
+  trace?: TraceOptions;
   // 
   /**
    * Other extended configuration

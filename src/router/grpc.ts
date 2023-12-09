@@ -3,16 +3,17 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:10:30
- * @LastEditTime: 2023-12-09 15:15:26
+ * @LastEditTime: 2023-12-09 19:56:29
  */
 import * as Helper from "koatty_lib";
 import { RouterOptions } from "../router";
 import { IOCContainer } from "koatty_container";
 import { ListServices, LoadProto } from "koatty_proto";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParamMetaData, injectRouter } from "../inject";
+import { Handler, injectParamMetaData, injectRouter } from "./inject";
 import { ServiceDefinition, UntypedHandleCall, UntypedServiceImplementation } from "@grpc/grpc-js";
 import { Koatty, KoattyRouter, IRpcServerUnaryCall, IRpcServerCallback } from "koatty_core";
+import { Trace } from "../catcher/trace";
 
 /**
  * GrpcRouter Options
@@ -167,6 +168,9 @@ export class GrpcRouter implements KoattyRouter {
             };
           }
         }
+        // use trace middleware
+        this.app.use(Trace(this.options.trace, this.app));
+
         this.SetRouter(serviceName, si.service, impl);
       }
 

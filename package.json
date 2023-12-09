@@ -61,6 +61,7 @@
     "@types/koa__router": "^12.x.x",
     "@types/node": "^18.x.x",
     "@types/on-finished": "^2.x.x",
+    "@types/uuid": "^9.x.x",
     "@types/ws": "^8.x.x",
     "@types/xml2js": "^0.x.x",
     "@typescript-eslint/eslint-plugin": "^5.x.x",
@@ -91,7 +92,9 @@
     "koatty_proto": "^1.x.x",
     "koatty_validation": "^1.x.x",
     "on-finished": "^2.4.1",
+    "opentracing": "^0.14.7",
     "raw-body": "^2.5.2",
+    "uuid": "^9.0.1",
     "ws": "^8.14.2",
     "xml2js": "^0.6.2"
   },

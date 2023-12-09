@@ -3,19 +3,19 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 12:31:55
+ * @LastEditTime: 2023-12-09 20:29:37
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
 import fs from "fs";
 import { Koatty, KoattyServer } from "koatty_core";
-import { GrpcServer } from "./grpc/serve";
-import { HttpServer } from "./http/http";
-import { Http2Server } from "./http/http2";
-import { HttpsServer } from "./http/https";
+import { GrpcServer } from "./serve/grpc";
+import { HttpServer } from "./serve/http";
+import { Http2Server } from "./serve/http2";
+import { HttpsServer } from "./serve/https";
 // import { HttpsServer } from "./http/https";
-import { WsServer } from "./websocket/serve";
+import { WsServer } from "./serve/ws";
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
@@ -29,7 +29,6 @@ export interface ListeningOptions {
   hostname: string;
   port: number;
   protocol: KoattyProtocol;
-  trace?: boolean; // Full stack debug & trace, default: false
   ext?: any; // Other extended configuration
 }
 

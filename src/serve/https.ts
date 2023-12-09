@@ -1,22 +1,24 @@
 /*
- * @Description:
- * @Usage:
+ * @Description: 
+ * @Usage: 
  * @Author: richen
- * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2023-01-13 16:03:35
+ * @Date: 2021-11-12 11:48:01
+ * @LastEditTime: 2023-12-09 20:23:11
  */
-import { createServer, IncomingMessage, Server, ServerResponse } from "http";
+import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer } from "koatty_core";
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "./terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
+import { IncomingMessage, ServerResponse } from "http";
+
 /**
  *
  *
  * @export
  * @class Http
  */
-export class HttpServer implements KoattyServer {
+export class HttpsServer implements KoattyServer {
   app: Koatty;
   options: ListeningOptions;
   readonly server: Server;
@@ -24,11 +26,21 @@ export class HttpServer implements KoattyServer {
   status: number;
   listenCallback?: () => void;
 
+  /**
+   * Creates an instance of HttpsServer.
+   * @param {Koatty} app
+   * @param {ListeningOptions} options
+   * @memberof HttpsServer
+   */
   constructor(app: Koatty, options: ListeningOptions) {
     this.app = app;
     this.protocol = options.protocol;
     this.options = options;
-    this.server = createServer((req, res) => {
+    const opt: ServerOptions = {
+      key: this.options.ext.key,
+      cert: this.options.ext.cert,
+    }
+    this.server = createServer(opt, (req, res) => {
       app.callback()(req, res);
     });
     CreateTerminus(this);
@@ -37,8 +49,9 @@ export class HttpServer implements KoattyServer {
   /**
    * Start Server
    *
+   * @param {boolean} openTrace
    * @param {() => void} listenCallback
-   * @memberof Http
+   * @memberof Https
    */
   Start(listenCallback?: () => void): Server<typeof IncomingMessage, typeof ServerResponse> {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;

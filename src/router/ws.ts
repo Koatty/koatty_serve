@@ -3,17 +3,18 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:16:44
- * @LastEditTime: 2023-12-09 15:15:15
+ * @LastEditTime: 2023-12-09 19:56:50
  */
 
 import KoaRouter from "@koa/router";
 import { RouterOptions } from "../router";
-import { RequestMethod } from "../mapping";
+import { RequestMethod } from "./mapping";
 import { IOCContainer } from "koatty_container";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParamMetaData, injectRouter } from "../inject";
+import { Handler, injectParamMetaData, injectRouter } from "./inject";
 import { Koatty, KoattyContext, KoattyNext, KoattyRouter } from "koatty_core";
 import { Helper } from "koatty_lib";
+import { Trace } from "../catcher/trace";
 
 /**
  * WebsocketRouter Options
@@ -98,6 +99,9 @@ export class WebsocketRouter implements KoattyRouter {
 
         }
       }
+      // use trace middleware
+      this.app.use(Trace(this.options.trace, this.app));
+
       // Add websocket handler
       this.app.use(this.ListRouter()).
         use(this.router.allowedMethods());

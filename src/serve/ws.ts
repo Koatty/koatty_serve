@@ -3,12 +3,12 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2023-01-13 16:05:07
+ * @LastEditTime: 2023-12-09 20:24:21
  */
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer } from 'ws';
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "./terminus";
 import { Server as HttpServer, IncomingMessage, ServerResponse, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { ListeningOptions } from "../index";
