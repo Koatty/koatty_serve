@@ -10,12 +10,12 @@
 
 import fs from "fs";
 import { Koatty, KoattyServer } from "koatty_core";
-import { GrpcServer } from "./grpc/serve";
-import { HttpServer } from "./http/http";
-import { Http2Server } from "./http/http2";
-import { HttpsServer } from "./http/https";
+import { GrpcServer } from "./grpc";
+import { HttpServer } from "./http";
+import { Http2Server } from "./http2";
+import { HttpsServer } from "./https";
 // import { HttpsServer } from "./http/https";
-import { WsServer } from "./websocket/serve";
+import { WsServer } from "./ws";
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';

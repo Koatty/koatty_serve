@@ -8,7 +8,7 @@
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer } from 'ws';
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "./terminus";
 import { Server as HttpServer, IncomingMessage, ServerResponse, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { ListeningOptions } from "../index";

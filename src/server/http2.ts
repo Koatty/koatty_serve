@@ -1,46 +1,39 @@
 /*
- * @Description: 
- * @Usage: 
+ * @Description:
+ * @Usage:
  * @Author: richen
- * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2023-01-13 16:04:34
+ * @Date: 2021-06-28 15:06:13
+ * @LastEditTime: 2023-01-13 16:04:05
  */
-import { createServer, Server, ServerOptions } from "https";
-import { Koatty, KoattyServer } from "koatty_core";
-import { CreateTerminus } from "../terminus";
+import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
+import { CreateTerminus } from "./terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
+import { Koatty, KoattyServer } from "koatty_core";
 import { ListeningOptions } from "../index";
-import { IncomingMessage, ServerResponse } from "http";
-
 /**
  *
  *
  * @export
  * @class Http
  */
-export class HttpsServer implements KoattyServer {
+export class Http2Server implements KoattyServer {
   app: Koatty;
   options: ListeningOptions;
-  readonly server: Server;
   readonly protocol: string;
+  readonly server: Http2SecureServer;
   status: number;
   listenCallback?: () => void;
 
-  /**
-   * Creates an instance of HttpsServer.
-   * @param {Koatty} app
-   * @param {ListeningOptions} options
-   * @memberof HttpsServer
-   */
   constructor(app: Koatty, options: ListeningOptions) {
     this.app = app;
     this.protocol = options.protocol;
     this.options = options;
-    const opt: ServerOptions = {
+    const opt: SecureServerOptions = {
+      allowHTTP1: true,
       key: this.options.ext.key,
       cert: this.options.ext.cert,
     }
-    this.server = createServer(opt, (req, res) => {
+    this.server = createSecureServer(opt, (req, res) => {
       app.callback()(req, res);
     });
     CreateTerminus(this);
@@ -49,11 +42,10 @@ export class HttpsServer implements KoattyServer {
   /**
    * Start Server
    *
-   * @param {boolean} openTrace
    * @param {() => void} listenCallback
-   * @memberof Https
+   * @memberof Http2Server
    */
-  Start(listenCallback?: () => void): Server<typeof IncomingMessage, typeof ServerResponse> {
+  Start(listenCallback?: () => void): Http2SecureServer {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.server.listen({
       port: this.options.port,

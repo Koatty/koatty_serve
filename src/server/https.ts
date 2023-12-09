@@ -1,39 +1,46 @@
 /*
- * @Description:
- * @Usage:
+ * @Description: 
+ * @Usage: 
  * @Author: richen
- * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2023-01-13 16:04:05
+ * @Date: 2021-11-12 11:48:01
+ * @LastEditTime: 2023-12-09 23:07:25
  */
-import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { CreateTerminus } from "../terminus";
-import { DefaultLogger as Logger } from "koatty_logger";
+import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer } from "koatty_core";
+import { CreateTerminus } from "./terminus";
+import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
+import { IncomingMessage, ServerResponse } from "http";
+
 /**
  *
  *
  * @export
  * @class Http
  */
-export class Http2Server implements KoattyServer {
+export class HttpsServer implements KoattyServer {
   app: Koatty;
   options: ListeningOptions;
+  readonly server: Server;
   readonly protocol: string;
-  readonly server: Http2SecureServer;
   status: number;
   listenCallback?: () => void;
 
+  /**
+   * Creates an instance of HttpsServer.
+   * @param {Koatty} app
+   * @param {ListeningOptions} options
+   * @memberof HttpsServer
+   */
   constructor(app: Koatty, options: ListeningOptions) {
     this.app = app;
     this.protocol = options.protocol;
     this.options = options;
-    const opt: SecureServerOptions = {
-      allowHTTP1: true,
+    const opt: ServerOptions = {
       key: this.options.ext.key,
       cert: this.options.ext.cert,
     }
-    this.server = createSecureServer(opt, (req, res) => {
+    this.server = createServer(opt, (req, res) => {
       app.callback()(req, res);
     });
     CreateTerminus(this);
@@ -42,10 +49,11 @@ export class Http2Server implements KoattyServer {
   /**
    * Start Server
    *
+   * @param {boolean} openTrace
    * @param {() => void} listenCallback
-   * @memberof Http2Server
+   * @memberof Https
    */
-  Start(listenCallback?: () => void): Http2SecureServer {
+  Start(listenCallback?: () => void): Server<typeof IncomingMessage, typeof ServerResponse> {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.server.listen({
       port: this.options.port,

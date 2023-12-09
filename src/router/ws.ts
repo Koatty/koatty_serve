@@ -2,36 +2,42 @@
  * @Description:
  * @Usage:
  * @Author: richen
- * @Date: 2021-06-28 19:02:06
- * @LastEditTime: 2023-12-09 15:15:05
+ * @Date: 2021-06-29 14:16:44
+ * @LastEditTime: 2023-12-09 15:15:15
  */
+
 import KoaRouter from "@koa/router";
-import * as Helper from "koatty_lib";
-import { RouterOptions } from "../router";
+import { RouterOptions } from "./router";
+import { RequestMethod } from "./mapping";
 import { IOCContainer } from "koatty_container";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParamMetaData, injectRouter } from "../inject";
-import { RequestMethod } from "../mapping";
+import { Handler, injectParamMetaData, injectRouter } from "./inject";
 import { Koatty, KoattyContext, KoattyNext, KoattyRouter } from "koatty_core";
-
-// HttpImplementation
-export type HttpImplementation = (ctx: KoattyContext, next: KoattyNext) => Promise<any>;
+import { Helper } from "koatty_lib";
 
 /**
- * HttpRouter class
+ * WebsocketRouter Options
+ *
+ * @export
+ * @interface WebsocketRouterOptions
  */
-export class HttpRouter implements KoattyRouter {
+export interface WebsocketRouterOptions extends RouterOptions {
+  prefix: string;
+}
+// WsImplementation
+export type WsImplementation = (ctx: KoattyContext, next: KoattyNext) => Promise<any>;
+
+export class WebsocketRouter implements KoattyRouter {
   app: Koatty;
   readonly protocol: string;
-  options: RouterOptions;
+  options: WebsocketRouterOptions;
   router: KoaRouter;
 
   constructor(app: Koatty, options?: RouterOptions) {
     this.app = app;
-    this.options = {
-      ...options
-    };
-    // initialize
+    this.options = Object.assign({
+      prefix: options.prefix
+    }, options);
     this.router = new KoaRouter(this.options);
   }
 
@@ -39,9 +45,12 @@ export class HttpRouter implements KoattyRouter {
    * Set router
    *
    * @param {string} path
+   * @param {WsImplementation} func
    * @param {RequestMethod} [method]
+   * @returns {*}
+   * @memberof WebsocketRouter
    */
-  SetRouter(path: string, func: HttpImplementation, method?: RequestMethod) {
+  SetRouter(path: string, func: WsImplementation, method?: RequestMethod) {
     if (Helper.isEmpty(method)) {
       return;
     }
@@ -52,7 +61,7 @@ export class HttpRouter implements KoattyRouter {
   /**
    * ListRouter
    *
-   * @returns {*}  {KoaRouter.Middleware<any, unknown>}
+   * @returns {*} {KoaRouter.Middleware<any, unknown>}
    */
   ListRouter() {
     return this.router.routes();
@@ -74,24 +83,27 @@ export class HttpRouter implements KoattyRouter {
         // tslint:disable-next-line: forin
         for (const it in ctlRouters) {
           const router = ctlRouters[it];
-          const method = router.method;
           const path = router.path;
+          const method = router.method;
           const requestMethod = <RequestMethod>router.requestMethod;
           const params = ctlParams[method];
-          Logger.Debug(`Register request mapping: ["${path}" => ${n}.${method}]`);
-          this.SetRouter(path, (ctx: KoattyContext): Promise<any> => {
-            const ctl = IOCContainer.getInsByClass(ctlClass, [ctx]);
-            return Handler(this.app, ctx, ctl, method, params);
-          }, requestMethod);
+          // websocket only handler get request
+          if (requestMethod == RequestMethod.GET || requestMethod == RequestMethod.ALL) {
+            Logger.Debug(`Register request mapping: [${requestMethod}] : ["${path}" => ${n}.${method}]`);
+            this.SetRouter(path, (ctx: KoattyContext): Promise<any> => {
+              const ctl = IOCContainer.getInsByClass(ctlClass, [ctx]);
+              return Handler(this.app, ctx, ctl, method, params);
+            }, requestMethod);
+          }
+
         }
       }
-
-      // exp: in middleware
-      // app.Router.SetRouter('/xxx',  (ctx: Koa.KoattyContext): any => {...}, 'GET')
+      // Add websocket handler
       this.app.use(this.ListRouter()).
         use(this.router.allowedMethods());
     } catch (err) {
       Logger.Error(err);
     }
   }
+
 }

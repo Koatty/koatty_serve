@@ -5,7 +5,7 @@
  * @Date: 2021-11-09 17:03:50
  * @LastEditTime: 2023-07-26 21:19:59
  */
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "./terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Koatty, KoattyServer } from "koatty_core";
 import {

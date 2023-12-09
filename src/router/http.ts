@@ -2,42 +2,36 @@
  * @Description:
  * @Usage:
  * @Author: richen
- * @Date: 2021-06-29 14:16:44
- * @LastEditTime: 2023-12-09 15:15:15
+ * @Date: 2021-06-28 19:02:06
+ * @LastEditTime: 2023-12-09 15:15:05
  */
-
 import KoaRouter from "@koa/router";
-import { RouterOptions } from "../router";
-import { RequestMethod } from "../mapping";
+import * as Helper from "koatty_lib";
+import { RouterOptions } from "./router";
 import { IOCContainer } from "koatty_container";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParamMetaData, injectRouter } from "../inject";
+import { Handler, injectParamMetaData, injectRouter } from "./inject";
+import { RequestMethod } from "./mapping";
 import { Koatty, KoattyContext, KoattyNext, KoattyRouter } from "koatty_core";
-import { Helper } from "koatty_lib";
+
+// HttpImplementation
+export type HttpImplementation = (ctx: KoattyContext, next: KoattyNext) => Promise<any>;
 
 /**
- * WebsocketRouter Options
- *
- * @export
- * @interface WebsocketRouterOptions
+ * HttpRouter class
  */
-export interface WebsocketRouterOptions extends RouterOptions {
-  prefix: string;
-}
-// WsImplementation
-export type WsImplementation = (ctx: KoattyContext, next: KoattyNext) => Promise<any>;
-
-export class WebsocketRouter implements KoattyRouter {
+export class HttpRouter implements KoattyRouter {
   app: Koatty;
   readonly protocol: string;
-  options: WebsocketRouterOptions;
+  options: RouterOptions;
   router: KoaRouter;
 
   constructor(app: Koatty, options?: RouterOptions) {
     this.app = app;
-    this.options = Object.assign({
-      prefix: options.prefix
-    }, options);
+    this.options = {
+      ...options
+    };
+    // initialize
     this.router = new KoaRouter(this.options);
   }
 
@@ -45,12 +39,9 @@ export class WebsocketRouter implements KoattyRouter {
    * Set router
    *
    * @param {string} path
-   * @param {WsImplementation} func
    * @param {RequestMethod} [method]
-   * @returns {*}
-   * @memberof WebsocketRouter
    */
-  SetRouter(path: string, func: WsImplementation, method?: RequestMethod) {
+  SetRouter(path: string, func: HttpImplementation, method?: RequestMethod) {
     if (Helper.isEmpty(method)) {
       return;
     }
@@ -61,7 +52,7 @@ export class WebsocketRouter implements KoattyRouter {
   /**
    * ListRouter
    *
-   * @returns {*} {KoaRouter.Middleware<any, unknown>}
+   * @returns {*}  {KoaRouter.Middleware<any, unknown>}
    */
   ListRouter() {
     return this.router.routes();
@@ -83,27 +74,24 @@ export class WebsocketRouter implements KoattyRouter {
         // tslint:disable-next-line: forin
         for (const it in ctlRouters) {
           const router = ctlRouters[it];
-          const path = router.path;
           const method = router.method;
+          const path = router.path;
           const requestMethod = <RequestMethod>router.requestMethod;
           const params = ctlParams[method];
-          // websocket only handler get request
-          if (requestMethod == RequestMethod.GET || requestMethod == RequestMethod.ALL) {
-            Logger.Debug(`Register request mapping: [${requestMethod}] : ["${path}" => ${n}.${method}]`);
-            this.SetRouter(path, (ctx: KoattyContext): Promise<any> => {
-              const ctl = IOCContainer.getInsByClass(ctlClass, [ctx]);
-              return Handler(this.app, ctx, ctl, method, params);
-            }, requestMethod);
-          }
-
+          Logger.Debug(`Register request mapping: ["${path}" => ${n}.${method}]`);
+          this.SetRouter(path, (ctx: KoattyContext): Promise<any> => {
+            const ctl = IOCContainer.getInsByClass(ctlClass, [ctx]);
+            return Handler(this.app, ctx, ctl, method, params);
+          }, requestMethod);
         }
       }
-      // Add websocket handler
+
+      // exp: in middleware
+      // app.Router.SetRouter('/xxx',  (ctx: Koa.KoattyContext): any => {...}, 'GET')
       this.app.use(this.ListRouter()).
         use(this.router.allowedMethods());
     } catch (err) {
       Logger.Error(err);
     }
   }
-
 }
