@@ -1,13 +1,16 @@
 /*
- * @Description:
- * @Usage:
+ * @Description: 
+ * @Usage: 
  * @Author: richen
- * @Date: 2021-06-28 14:49:46
- * @LastEditTime: 2022-11-16 17:41:03
+ * @Date: 2023-12-09 12:02:29
+ * @LastEditTime: 2023-12-09 13:22:06
+ * @License: BSD (3-Clause)
+ * @Copyright (c): <richenlin(at)gmail.com>
  */
+
 import EventEmitter from "events";
 import { DefaultLogger as Logger } from "koatty_logger";
-import * as Helper from "koatty_lib";
+import { Helper } from "koatty_lib";
 import { KoattyServer } from "koatty_core";
 
 /** @type {*} */

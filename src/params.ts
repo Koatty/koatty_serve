@@ -2,134 +2,153 @@
  * @Description: 
  * @Usage: 
  * @Author: richen
- * @Date: 2021-11-24 23:21:26
- * @LastEditTime: 2023-08-18 15:45:36
+ * @Date: 2023-12-09 12:02:29
+ * @LastEditTime: 2023-12-09 15:23:07
+ * @License: BSD (3-Clause)
+ * @Copyright (c): <richenlin(at)gmail.com>
  */
-import { IOCContainer } from "koatty_container";
-import { Koatty, KoattyContext } from "koatty_core";
-import { Exception } from "koatty_exception";
-import * as Helper from "koatty_lib";
-import {
-  ClassValidator, FunctionValidator, convertParamsType,
-  plainToClass, ValidRules, ValidOtpions, checkParamsType
-} from "koatty_validation";
-import { ParamMetadata } from "./inject";
+
+import { KoattyContext } from "koatty_core";
+import { injectParam } from "./inject";
+import { PayloadOptions, bodyParser, queryParser } from "./payload";
 
 /**
- * Parameter binding assignment.
- *
- * @param {Koatty} app
- * @param {KoattyContext} ctx
- * @param {any[]} params
- * @returns
- */
-export async function getParameter(app: Koatty, ctx: KoattyContext, params?: ParamMetadata[]) {
-  //convert type
-  params = params || <ParamMetadata[]>[];
-  const props: any[] = params.map(async (v: ParamMetadata, k: number) => {
-    let value: any = null;
-    if (v.fn && Helper.isFunction(v.fn)) {
-      value = await v.fn(ctx);
-    }
-
-    // check params
-    return checkParams(app, value, {
-      index: k,
-      isDto: v.isDto,
-      type: v.type,
-      validRule: v.rule,
-      validOpt: v.options,
-      dtoCheck: v.dtoCheck,
-      dtoRule: v.dtoRule,
-      clazz: v.clazz,
-    });
-  });
-  return Promise.all(props);
-}
-
-/**
- *
- *
- * @interface ParamOptions
- */
-interface ParamOptions {
-  index: number;
-  isDto: boolean;
-  type: string;
-  validRule: Function | ValidRules | ValidRules[];
-  validOpt: ValidOtpions;
-  dtoCheck: boolean;
-  dtoRule: any;
-  clazz: any;
-}
-
-/**
- * Parameter binding assignment and rule verification.
- * If the input parameter type is inconsistent with the calibration, 
- * it will cause the parameter type conversion
- *
- * @param {Koatty} app
- * @param {*} value
- * @param {ParamOptions} opt
- * @returns {*}  
- */
-async function checkParams(app: Koatty, value: any, opt: ParamOptions) {
-  try {
-    //@Validated
-    if (opt.isDto) {
-      // DTO class
-      if (!opt.clazz) {
-        opt.clazz = IOCContainer.getClass(opt.type, "COMPONENT");
-      }
-      if (opt.dtoCheck) {
-        value = await ClassValidator.valid(opt.clazz, value, true);
-      } else {
-        value = plainToClass(opt.clazz, value, true);
-      }
-    } else {
-      // querystring default type is string, must be convert type
-      value = convertParamsType(value, opt.type);
-      //@Valid()
-      if (opt.validRule) {
-        validatorFuncs(`${opt.index}`, value, opt.type, opt.validRule, opt.validOpt);
-      }
-    }
-    return value;
-  } catch (err) {
-    throw new Exception(err.message || `ValidatorError: invalid arguments.`, 1, 400);
-  }
-}
-
-
-/**
- * Validated by funcs.
+ * Get request header.
  *
  * @export
- * @param {string} name
- * @param {*} value
- * @param {string} type
- * @param {(ValidRules | ValidRules[] | Function)} rule
- * @param {ValidOtpions} [options]
- * @param {boolean} [checkType=true]
+ * @param {string} [name]
  * @returns
  */
-function validatorFuncs(name: string, value: any, type: string,
-  rule: ValidRules | ValidRules[] | Function, options?: ValidOtpions) {
-  if (Helper.isFunction(rule)) {
-    // Function no return value
-    rule(value);
-  } else {
-    const funcs: any[] = [];
-    if (Helper.isString(rule)) {
-      funcs.push(rule);
-    } else if (Helper.isArray(rule)) {
-      funcs.push(...<any[]>rule);
+export function Header(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext) => {
+    if (name !== undefined) {
+      return ctx.get(name);
     }
-    for (const func of funcs) {
-      if (Object.hasOwnProperty.call(FunctionValidator, func)) {
-        // FunctionValidator just throws error, no return value
-        FunctionValidator[<ValidRules>func](value, options);
-      }
-    }
-  }
+    return ctx.headers;
+  }, "Header");
 }
+
+/**
+ * Get path variable (take value from ctx.params).
+ *
+ * @export
+ * @param {string} [name] params name
+ * @returns
+ */
+export function PathVariable(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext) => {
+    const pathParams: any = ctx.params ?? {};
+    if (name === undefined) {
+      return pathParams;
+    }
+    return pathParams[name];
+  }, "PathVariable");
+}
+
+/**
+ * Get query-string parameters (take value from ctx.query).
+ *
+ * @export
+ * @param {string} [name]
+ * @returns
+ */
+export function Get(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext) => {
+    const queryParams: any = ctx.query ?? {};
+    if (name === undefined) {
+      return queryParams;
+    }
+    return queryParams[name];
+  }, "Get");
+}
+
+/**
+ * Get parsed POST/PUT... body.
+ *
+ * @export
+ * @param {string} [name]
+ * @returns
+ */
+export function Post(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
+    return bodyParser(ctx, opt).then((body: {
+      post: Object
+    }) => {
+      const params: any = body.post ? body.post : body;
+      if (name === undefined) {
+        return params;
+      }
+      return params[name];
+    });
+  }, "Post");
+}
+
+/**
+ * Get parsed upload file object.
+ *
+ * @export
+ * @param {string} [name]
+ * @returns
+ */
+export function File(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
+    return bodyParser(ctx, opt).then((body: {
+      file: Object
+    }) => {
+      const params: any = body.file ?? {};
+      if (name === undefined) {
+        return params;
+      }
+      return params[name];
+    });
+  }, "File");
+}
+
+
+/**
+ * Get request body (contains the values of @Post and @File).
+ *
+ * @export
+ * @returns
+ */
+export function RequestBody(): ParameterDecorator {
+  return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
+    return bodyParser(ctx, opt);
+  }, "RequestBody");
+}
+
+/**
+ * Alias of @RequestBody
+ * @param {*}
+ * @return {*}
+ */
+export const Body = RequestBody;
+
+/**
+ * Get POST/GET parameters, POST priority
+ *
+ * @export
+ * @param {string} [name]
+ * @returns {ParameterDecorator}
+ */
+export function RequestParam(name?: string): ParameterDecorator {
+  return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
+    return bodyParser(ctx, opt).then((body: {
+      post: Object
+    }) => {
+      const queryParams: any = queryParser(ctx, opt) ?? {};
+      const postParams: any = (body.post ? body.post : body) ?? {};
+      if (name !== undefined) {
+        return postParams[name] === undefined ? queryParams[name] : postParams[name];
+      }
+      return { ...queryParams, ...postParams };
+    });
+  }, "RequestParam");
+}
+
+/**
+ * Alias of @RequestParam
+ * @param {*}
+ * @return {*}
+ */
+export const Param = RequestParam;

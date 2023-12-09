@@ -3,14 +3,14 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 19:02:06
- * @LastEditTime: 2023-07-26 21:17:34
+ * @LastEditTime: 2023-12-09 15:15:05
  */
 import KoaRouter from "@koa/router";
 import * as Helper from "koatty_lib";
 import { RouterOptions } from "../router";
 import { IOCContainer } from "koatty_container";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParam, injectRouter } from "../inject";
+import { Handler, injectParamMetaData, injectRouter } from "../inject";
 import { RequestMethod } from "../mapping";
 import { Koatty, KoattyContext, KoattyNext, KoattyRouter } from "koatty_core";
 
@@ -70,7 +70,7 @@ export class HttpRouter implements KoattyRouter {
         // inject router
         const ctlRouters = injectRouter(this.app, ctlClass);
         // inject param
-        const ctlParams = injectParam(this.app, ctlClass);
+        const ctlParams = injectParamMetaData(this.app, ctlClass, this.options.payload);
         // tslint:disable-next-line: forin
         for (const it in ctlRouters) {
           const router = ctlRouters[it];

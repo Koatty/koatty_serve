@@ -1,9 +1,13 @@
-/**
- * @ author: richen
- * @ copyright: Copyright (c) - <richenlin(at)gmail.com>
- * @ license: BSD (3-Clause)
- * @ version: 2020-05-10 11:33:00
+/*
+ * @Description: 
+ * @Usage: 
+ * @Author: richen
+ * @Date: 2023-12-09 12:02:29
+ * @LastEditTime: 2023-12-09 12:31:19
+ * @License: BSD (3-Clause)
+ * @Copyright (c): <richenlin(at)gmail.com>
  */
+
 // tslint:disable-next-line: no-import-side-effect
 import "reflect-metadata";
 import { IOCContainer } from 'koatty_container';
