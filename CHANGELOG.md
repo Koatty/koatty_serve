@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.1.0-0](https://github.com/koatty/koatty_serve/compare/v2.0.4...v2.1.0-0) (2023-12-09)
+
+
+### Bug Fixes
+
+* comment ([3882d95](https://github.com/koatty/koatty_serve/commit/3882d95b1c544fc676858bfa7155a0f59da68d1f))
+* merge payload ([5eef05e](https://github.com/koatty/koatty_serve/commit/5eef05e49b6166b6abb0e7995564e794e7684948))
+* parseBody ([97d8f61](https://github.com/koatty/koatty_serve/commit/97d8f61bc11821c3e6ac49fa67acc1582ea21cea))
+* 调整结构 ([e82f6eb](https://github.com/koatty/koatty_serve/commit/e82f6ebe06799d40b6e4dd5160c75f080a54473a))
+
 ### [2.0.4](https://github.com/koatty/koatty_serve/compare/v2.0.3...v2.0.4) (2023-07-26)
 
 ### [2.0.3](https://github.com/koatty/koatty_serve/compare/v2.0.2...v2.0.3) (2023-07-26)
