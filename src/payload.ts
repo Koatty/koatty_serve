@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:30:20
- * @LastEditTime: 2023-12-09 15:08:57
+ * @LastEditTime: 2023-12-09 15:37:17
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -96,7 +96,7 @@ export function queryParser(ctx: KoattyContext, options?: PayloadOptions): any {
 }
 
 /**
- *
+ * parseBody
  *
  * @export
  * @param {*} ctx
