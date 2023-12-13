@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 15:24:52
+ * @LastEditTime: 2023-12-13 07:51:56
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -31,7 +31,7 @@ import { PayloadOptions } from "./payload";
  * @param {*} ctlParams
  * @returns
  */
-export async function Handler(app: Koatty, ctx: KoattyContext, ctl: any, method: string, ctlParams: any) {
+export async function Handler(app: Koatty, ctx: KoattyContext, ctl: any, method: string, ctlParams?: ParamMetadata[]) {
   if (!ctx || !ctl) {
     return ctx.throw(404, `Controller not found.`);
   }
@@ -110,14 +110,14 @@ export function injectRouter(app: Koatty, target: any, instance?: any): RouterMe
  *
  * @interface ParamMetadata
  */
-interface ParamMetadata {
-  "fn": any;
+export interface ParamMetadata {
+  "fn": Function;
   "name": string;
   "index": number;
   "clazz": any;
   "type": string;
   "isDto": boolean;
-  "rule": Function | ValidRules | ValidRules[];
+  "validRule": Function | ValidRules | ValidRules[];
   "validOpt": ValidOtpions;
   "options": PayloadOptions;
   "dtoCheck": boolean;
@@ -127,9 +127,9 @@ interface ParamMetadata {
 /**
  *
  *
- * @interface ParamMetadataObject
+ * @interface ParamMetadataMap
  */
-interface ParamMetadataObject {
+interface ParamMetadataMap {
   [key: string]: ParamMetadata[];
 }
 
@@ -141,12 +141,12 @@ interface ParamMetadataObject {
  * @param {*} [instance]
  * @returns {*} 
  */
-export function injectParamMetaData(app: Koatty, target: any, instance?: any, options?: PayloadOptions): ParamMetadataObject {
+export function injectParamMetaData(app: Koatty, target: any, instance?: any, options?: PayloadOptions): ParamMetadataMap {
   instance = instance || target.prototype;
   const metaDatas = RecursiveGetMetadata(TAGGED_PARAM, target);
   const validMetaDatas = RecursiveGetMetadata(PARAM_RULE_KEY, target);
   const validatedMetaDatas = RecursiveGetMetadata(PARAM_CHECK_KEY, target);
-  const argsMetaObj: ParamMetadataObject = {};
+  const argsMetaObj: ParamMetadataMap = {};
   for (const meta in metaDatas) {
     // 实例方法带规则形参必须小于等于原型形参(如果不存在验证规则，则小于)
     if (instance[meta] && instance[meta].length <= metaDatas[meta].length) {
@@ -158,7 +158,7 @@ export function injectParamMetaData(app: Koatty, target: any, instance?: any, op
       data.forEach((v: ParamMetadata) => {
         validData.forEach((it: any) => {
           if (v.index === it.index && it.name === v.name) {
-            v.rule = it.rule;
+            v.validRule = it.rule;
             v.validOpt = it.options;
           }
         });
@@ -252,7 +252,7 @@ async function getParameter(app: Koatty, ctx: KoattyContext, params?: ParamMetad
       index: k,
       isDto: v.isDto,
       type: v.type,
-      validRule: v.rule,
+      validRule: v.validRule,
       validOpt: v.validOpt,
       dtoCheck: v.dtoCheck,
       dtoRule: v.dtoRule,
