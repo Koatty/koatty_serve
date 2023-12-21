@@ -7,7 +7,7 @@
  */
 import { createServer, IncomingMessage, Server, ServerResponse } from "http";
 import { Koatty, KoattyServer } from "koatty_core";
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "./terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
 /**

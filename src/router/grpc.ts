@@ -3,14 +3,14 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:10:30
- * @LastEditTime: 2023-07-26 21:15:40
+ * @LastEditTime: 2023-12-13 07:36:36
  */
 import * as Helper from "koatty_lib";
-import { RouterOptions } from "../router";
+import { RouterOptions } from "./router";
 import { IOCContainer } from "koatty_container";
 import { ListServices, LoadProto } from "koatty_proto";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { Handler, injectParam, injectRouter } from "../inject";
+import { Handler, injectParamMetaData, injectRouter, ParamMetadata } from "./inject";
 import { ServiceDefinition, UntypedHandleCall, UntypedServiceImplementation } from "@grpc/grpc-js";
 import { Koatty, KoattyRouter, IRpcServerUnaryCall, IRpcServerCallback } from "koatty_core";
 
@@ -61,7 +61,7 @@ interface CtlProperty {
   name: string;
   ctl: Function;
   method: string;
-  params: any;
+  params: ParamMetadata[];
 }
 
 export class GrpcRouter implements KoattyRouter {
@@ -128,7 +128,7 @@ export class GrpcRouter implements KoattyRouter {
         // inject router
         const ctlRouters = injectRouter(this.app, ctlClass);
         // inject param
-        const ctlParams = injectParam(this.app, ctlClass);
+        const ctlParams = injectParamMetaData(this.app, ctlClass, this.options.payload);
 
         for (const it in ctlRouters) {
           const router = ctlRouters[it];

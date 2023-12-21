@@ -2,17 +2,20 @@
  * @Description: 
  * @Usage: 
  * @Author: richen
- * @Date: 2022-09-09 16:16:14
- * @LastEditTime: 2023-07-27 00:01:59
+ * @Date: 2023-12-09 12:02:29
+ * @LastEditTime: 2023-12-09 12:31:55
+ * @License: BSD (3-Clause)
+ * @Copyright (c): <richenlin(at)gmail.com>
  */
+
 import fs from "fs";
 import { Koatty, KoattyServer } from "koatty_core";
-import { GrpcServer } from "./grpc/serve";
-import { HttpServer } from "./http/http";
-import { Http2Server } from "./http/http2";
-import { HttpsServer } from "./http/https";
+import { GrpcServer } from "./grpc";
+import { HttpServer } from "./http";
+import { Http2Server } from "./http2";
+import { HttpsServer } from "./https";
 // import { HttpsServer } from "./http/https";
-import { WsServer } from "./websocket/serve";
+import { WsServer } from "./ws";
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';

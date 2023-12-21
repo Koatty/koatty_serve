@@ -2,12 +2,16 @@
  * @Description: 
  * @Usage: 
  * @Author: richen
- * @Date: 2022-10-29 11:15:30
- * @LastEditTime: 2023-07-26 22:24:30
+ * @Date: 2023-12-09 12:02:29
+ * @LastEditTime: 2023-12-09 23:12:34
+ * @License: BSD (3-Clause)
+ * @Copyright (c): <richenlin(at)gmail.com>
  */
-import { GrpcRouter } from "./grpc/router";
-import { HttpRouter } from "./http/router";
-import { WebsocketRouter } from "./websocket/router";
+
+import { GrpcRouter } from "./grpc";
+import { HttpRouter } from "./http";
+import { PayloadOptions } from "./payload";
+import { WebsocketRouter } from "./ws";
 import { Koatty, KoattyRouter } from "koatty_core";
 import { Helper } from "koatty_lib";
 
@@ -40,6 +44,11 @@ export interface RouterOptions {
    * gRPC protocol file
    */
   protoFile?: string;
+
+  /**
+   * payload options
+   */
+  payload?: PayloadOptions;
   // 
   /**
    * Other extended configuration
