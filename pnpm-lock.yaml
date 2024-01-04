@@ -6,7 +6,7 @@ settings:
 
 dependencies:
   '@grpc/grpc-js':
-    specifier: ^1.9.12
+    specifier: ^1.9.13
     version: 1.9.13
   '@koa/router':
     specifier: ^12.0.1
@@ -45,8 +45,8 @@ dependencies:
     specifier: ^2.5.2
     version: 2.5.2
   ws:
-    specifier: ^8.14.2
-    version: 8.15.0
+    specifier: ^8.16.0
+    version: 8.16.0
   xml2js:
     specifier: ^0.6.2
     version: 0.6.2
@@ -6035,8 +6035,8 @@ packages:
       signal-exit: 3.0.7
     dev: true
 
-  /ws@8.15.0:
-    resolution: {integrity: sha512-H/Z3H55mrcrgjFwI+5jKavgXvwQLtfPCUEp6pi35VhoB0pfcHnSoyuTzkBEZpzq49g1193CUEwIvmsjcotenYw==}
+  /ws@8.16.0:
+    resolution: {integrity: sha512-HS0c//TP7Ina87TfiPUz1rQzMhHrl/SG2guqRcTOIUYD2q8uhUdNHZYJUaQ8aTGPzCh+c6oawMKW35nFl1dxyQ==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1

@@ -10,12 +10,14 @@
     "build:dts": "del-cli --force temp && npx tsc && npx api-extractor run --local --verbose",
     "eslint": "eslint --ext .ts,.js ./",
     "lock": "npm i --package-lock-only",
-    "prepublishOnly": "npm test && npm run build",
+    "prepublishOnly": "npm test && npm run build && git push --follow-tags origin",
     "prerelease": "npm test && npm run build",
-    "pub": "git push --follow-tags origin && npm publish",
     "release": "standard-version",
+    "release:pre": "npm run release -- --prerelease",
+    "release:major": "npm run release -- --release-as major",
     "release:minor": "npm run release -- --release-as minor",
-    "test": "npm run eslint && jest --passWithNoTests"
+    "test": "npm run eslint && jest --passWithNoTests",
+    "test:cov": "jest --collectCoverage --detectOpenHandles"
   },
   "main": "./dist/index.js",
   "exports": {
@@ -84,7 +86,7 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.9.12",
+    "@grpc/grpc-js": "^1.9.13",
     "@koa/router": "^12.0.1",
     "formidable": "^3.5.1",
     "inflation": "^2.1.0",
@@ -97,7 +99,7 @@
     "koatty_validation": "^1.x.x",
     "on-finished": "^2.4.1",
     "raw-body": "^2.5.2",
-    "ws": "^8.14.2",
+    "ws": "^8.16.0",
     "xml2js": "^0.6.2"
   },
   "peerDependencies": {
