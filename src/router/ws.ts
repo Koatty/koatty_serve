@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:16:44
- * @LastEditTime: 2023-12-09 15:15:15
+ * @LastEditTime: 2024-01-04 23:09:52
  */
 
 import KoaRouter from "@koa/router";
@@ -83,8 +83,11 @@ export class WebsocketRouter implements KoattyRouter {
         // tslint:disable-next-line: forin
         for (const it in ctlRouters) {
           const router = ctlRouters[it];
-          const path = router.path;
           const method = router.method;
+          let path = router.path || "/";
+          if (path.length > 1 && path.endsWith("/")) {
+            path = path.slice(0, path.length - 1);
+          }
           const requestMethod = <RequestMethod>router.requestMethod;
           const params = ctlParams[method];
           // websocket only handler get request
