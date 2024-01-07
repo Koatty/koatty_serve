@@ -3,10 +3,11 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:10:30
- * @LastEditTime: 2024-01-04 23:09:48
+ * @LastEditTime: 2024-01-07 22:38:51
  */
 import * as Helper from "koatty_lib";
 import { RouterOptions } from "./router";
+import { parsePath } from "../utils/path";
 import { IOCContainer } from "koatty_container";
 import { ListServices, LoadProto } from "koatty_proto";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -155,10 +156,7 @@ export class GrpcRouter implements KoattyRouter {
         }
         const impl: { [key: string]: UntypedHandleCall } = {};
         for (const handler of si.handlers) {
-          let path = handler.path || "/";
-          if (path.length > 1 && path.endsWith("/")) {
-            path = path.slice(0, path.length - 1);
-          }
+          const path = parsePath(handler.path);
           if (ctls[path]) {
             const ctlItem = ctls[path];
             Logger.Debug(`Register request mapping: ["${path}" => ${ctlItem.name}.${ctlItem.method}]`);

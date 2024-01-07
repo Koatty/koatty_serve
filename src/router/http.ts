@@ -3,11 +3,12 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 19:02:06
- * @LastEditTime: 2024-01-04 23:09:35
+ * @LastEditTime: 2024-01-07 22:39:54
  */
 import KoaRouter from "@koa/router";
 import * as Helper from "koatty_lib";
 import { RouterOptions } from "./router";
+import { parsePath } from "../utils/path";
 import { IOCContainer } from "koatty_container";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { Handler, injectParamMetaData, injectRouter } from "./inject";
@@ -75,10 +76,7 @@ export class HttpRouter implements KoattyRouter {
         for (const it in ctlRouters) {
           const router = ctlRouters[it];
           const method = router.method;
-          let path = router.path || "/";
-          if (path.length > 1 && path.endsWith("/")) {
-            path = path.slice(0, path.length - 1);
-          }
+          const path = parsePath(router.path);
           const requestMethod = <RequestMethod>router.requestMethod;
           const params = ctlParams[method];
           Logger.Debug(`Register request mapping: ["${path}" => ${n}.${method}]`);

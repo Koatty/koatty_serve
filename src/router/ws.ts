@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-29 14:16:44
- * @LastEditTime: 2024-01-04 23:09:52
+ * @LastEditTime: 2024-01-07 22:40:30
  */
 
 import KoaRouter from "@koa/router";
@@ -14,6 +14,7 @@ import { DefaultLogger as Logger } from "koatty_logger";
 import { Handler, injectParamMetaData, injectRouter } from "./inject";
 import { Koatty, KoattyContext, KoattyNext, KoattyRouter } from "koatty_core";
 import { Helper } from "koatty_lib";
+import { parsePath } from "../utils/path";
 
 /**
  * WebsocketRouter Options
@@ -84,10 +85,7 @@ export class WebsocketRouter implements KoattyRouter {
         for (const it in ctlRouters) {
           const router = ctlRouters[it];
           const method = router.method;
-          let path = router.path || "/";
-          if (path.length > 1 && path.endsWith("/")) {
-            path = path.slice(0, path.length - 1);
-          }
+          const path = parsePath(router.path);
           const requestMethod = <RequestMethod>router.requestMethod;
           const params = ctlParams[method];
           // websocket only handler get request
