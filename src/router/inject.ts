@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2024-01-03 20:28:59
+ * @LastEditTime: 2024-01-08 06:35:21
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -12,7 +12,10 @@ import { Helper } from "koatty_lib";
 import { Exception } from "koatty_exception";
 import { Koatty, KoattyContext } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { getOriginMetadata, IOCContainer, RecursiveGetMetadata, TAGGED_PARAM } from "koatty_container";
+import {
+  getOriginMetadata, IOCContainer, RecursiveGetMetadata,
+  TAGGED_PARAM
+} from "koatty_container";
 import {
   ClassValidator, FunctionValidator, convertParamsType,
   PARAM_CHECK_KEY, PARAM_RULE_KEY, PARAM_TYPE_KEY,
@@ -31,7 +34,8 @@ import { PayloadOptions } from "./payload";
  * @param {*} ctlParams
  * @returns
  */
-export async function Handler(app: Koatty, ctx: KoattyContext, ctl: any, method: string, ctlParams?: ParamMetadata[]) {
+export async function Handler(app: Koatty, ctx: KoattyContext, ctl: any,
+  method: string, ctlParams?: ParamMetadata[]) {
   if (!ctx || !ctl) {
     return ctx.throw(404, `Controller not found.`);
   }
@@ -91,7 +95,8 @@ export function injectRouter(app: Koatty, target: any, instance?: any): RouterMe
   const router: RouterMetadataObject = {};
   // tslint:disable-next-line: forin
   for (const metaKey in rmetaData) {
-    // Logger.Debug(`Register inject method Router key: ${metaKey} => value: ${JSON.stringify(rmetaData[metaKey])}`);
+    // Logger.Debug(`Register inject method Router key: ${metaKey} => 
+    // value: ${ JSON.stringify(rmetaData[metaKey]) }`);
     //.sort((a, b) => b.priority - a.priority) 
     for (const val of rmetaData[metaKey]) {
       const tmp = {
@@ -121,7 +126,7 @@ export interface ParamMetadata {
   "validOpt": ValidOtpions;
   "options": PayloadOptions;
   "dtoCheck": boolean;
-  "dtoRule": any;
+  "dtoRule": Map<string, string>;
 }
 
 /**
@@ -141,7 +146,8 @@ interface ParamMetadataMap {
  * @param {*} [instance]
  * @returns {*} 
  */
-export function injectParamMetaData(app: Koatty, target: any, instance?: any, options?: PayloadOptions): ParamMetadataMap {
+export function injectParamMetaData(app: Koatty, target: any, instance?: any,
+  options?: PayloadOptions): ParamMetadataMap {
   instance = instance || target.prototype;
   const metaDatas = RecursiveGetMetadata(TAGGED_PARAM, target);
   const validMetaDatas = RecursiveGetMetadata(PARAM_RULE_KEY, target);
@@ -150,10 +156,12 @@ export function injectParamMetaData(app: Koatty, target: any, instance?: any, op
   for (const meta in metaDatas) {
     // 实例方法带规则形参必须小于等于原型形参(如果不存在验证规则，则小于)
     if (instance[meta] && instance[meta].length <= metaDatas[meta].length) {
-      Logger.Debug(`Register inject param key ${IOCContainer.getIdentifier(target)}: ${Helper.toString(meta)} => value: ${JSON.stringify(metaDatas[meta])}`);
+      Logger.Debug(`Register inject param key ${IOCContainer.getIdentifier(target)
+        }: ${Helper.toString(meta)} => value: ${JSON.stringify(metaDatas[meta])}`);
 
       // cover to obj
-      const data: ParamMetadata[] = (metaDatas[meta] ?? []).sort((a: ParamMetadata, b: ParamMetadata) => a.index - b.index);
+      const data: ParamMetadata[] = (metaDatas[meta] ?? []).sort((a: ParamMetadata,
+        b: ParamMetadata) => a.index - b.index);
       const validData = validMetaDatas[meta] ?? [];
       data.forEach((v: ParamMetadata) => {
         validData.forEach((it: any) => {
@@ -168,13 +176,18 @@ export function injectParamMetaData(app: Koatty, target: any, instance?: any, op
         v.dtoCheck = !!((validatedMetaDatas[meta]?.dtoCheck));
         if (v.isDto) {
           v.clazz = IOCContainer.getClass(v.type, "COMPONENT");
+          if (!v.clazz) {
+            throw Error(`Failed to obtain the class ${v.type},
+            because the class is not registered in the container.`);
+          }
           if (v.dtoCheck) {
-            v.dtoRule = {};
-            const originMap = getOriginMetadata(PARAM_TYPE_KEY, v.clazz);
-            for (const [key, type] of originMap) {
-              v.dtoRule[key] = type;
-            }
-            v.clazz.prototype["_typeDef"] = v.dtoRule;
+            v.dtoRule = getOriginMetadata(PARAM_TYPE_KEY, v.clazz);
+            Reflect.defineProperty(v.clazz.prototype, "_typeDef", {
+              enumerable: true,
+              configurable: false,
+              writable: false,
+              value: v.dtoRule,
+            });
           }
         }
         v.options = options
