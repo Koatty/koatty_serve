@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.2-0](https://github.com/koatty/koatty_serve/compare/v2.1.1...v2.1.2-0) (2024-01-07)
+
+
+### Bug Fixes
+
+* dto参数预处理 ([d9de4d4](https://github.com/koatty/koatty_serve/commit/d9de4d47f6794cb59383883df4624ab2c35afc02))
+* 处理path ([3a81df5](https://github.com/koatty/koatty_serve/commit/3a81df51811bbf6c0db12586bee2f7358c5ac128))
+
 ### [2.1.1](https://github.com/koatty/koatty_serve/compare/v2.1.0...v2.1.1) (2024-01-05)
 
 
