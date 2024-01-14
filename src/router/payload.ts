@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:30:20
- * @LastEditTime: 2023-12-14 21:29:46
+ * @LastEditTime: 2024-01-14 15:55:24
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -62,13 +62,13 @@ const defaultOptions: PayloadOptions = {
  * @param {PayloadOptions} options
  * @return {*}
  */
-export async function bodyParser(ctx: KoattyContext, options?: PayloadOptions): Promise<any> {
-  options = { ...defaultOptions, ...options };
+export async function BodyParser(ctx: KoattyContext, options?: PayloadOptions): Promise<any> {
   let body = ctx.getMetaData("_body")[0];
   if (!Helper.isEmpty(body)) {
     return body;
   }
   try {
+    options = { ...defaultOptions, ...options };
     const res = await parseBody(ctx, options);
     body = res || {};
     ctx.setMetaData("_body", body);
@@ -85,7 +85,7 @@ export async function bodyParser(ctx: KoattyContext, options?: PayloadOptions): 
  * @param {PayloadOptions} options
  * @return {*}
  */
-export function queryParser(ctx: KoattyContext, options?: PayloadOptions): any {
+export function QueryParser(ctx: KoattyContext, options?: PayloadOptions): any {
   let query = ctx.getMetaData("_query")[0];
   if (!Helper.isEmpty(query)) {
     return query;

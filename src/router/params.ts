@@ -3,14 +3,14 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 23:12:15
+ * @LastEditTime: 2024-01-14 15:52:57
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
 import { KoattyContext } from "koatty_core";
 import { injectParam } from "./inject";
-import { PayloadOptions, bodyParser, queryParser } from "./payload";
+import { PayloadOptions, BodyParser, QueryParser } from "./payload";
 
 /**
  * Get request header.
@@ -71,7 +71,7 @@ export function Get(name?: string): ParameterDecorator {
  */
 export function Post(name?: string): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return bodyParser(ctx, opt).then((body: {
+    return BodyParser(ctx, opt).then((body: {
       post: Object
     }) => {
       const params: any = body.post ? body.post : body;
@@ -92,7 +92,7 @@ export function Post(name?: string): ParameterDecorator {
  */
 export function File(name?: string): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return bodyParser(ctx, opt).then((body: {
+    return BodyParser(ctx, opt).then((body: {
       file: Object
     }) => {
       const params: any = body.file ?? {};
@@ -113,7 +113,7 @@ export function File(name?: string): ParameterDecorator {
  */
 export function RequestBody(): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return bodyParser(ctx, opt);
+    return BodyParser(ctx, opt);
   }, "RequestBody");
 }
 
@@ -133,10 +133,10 @@ export const Body = RequestBody;
  */
 export function RequestParam(name?: string): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return bodyParser(ctx, opt).then((body: {
+    return BodyParser(ctx, opt).then((body: {
       post: Object
     }) => {
-      const queryParams: any = queryParser(ctx, opt) ?? {};
+      const queryParams: any = QueryParser(ctx, opt) ?? {};
       const postParams: any = (body.post ? body.post : body) ?? {};
       if (name !== undefined) {
         return postParams[name] === undefined ? queryParams[name] : postParams[name];
