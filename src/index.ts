@@ -15,3 +15,4 @@ export * from "./server/terminus";
 export * from "./router/router";
 export * from "./router/mapping";
 export * from "./router/params";
+export * from "./router/payload";
