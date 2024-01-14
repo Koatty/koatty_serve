@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.2-1](https://github.com/koatty/koatty_serve/compare/v2.1.2-0...v2.1.2-1) (2024-01-14)
+
+
+### Bug Fixes
+
+* export parser ([9279f09](https://github.com/koatty/koatty_serve/commit/9279f095fa9a03309708ed555cbad3c37e67ba47))
+
 ### [2.1.2-0](https://github.com/koatty/koatty_serve/compare/v2.1.1...v2.1.2-0) (2024-01-07)
 
 
