@@ -4,53 +4,20 @@
 
 ## koatty\_serve package
 
-## Enumerations
-
-|  Enumeration | Description |
-|  --- | --- |
-|  [RequestMethod](./koatty_serve.requestmethod.md) | <p>http request methods</p><p>  RequestMethod</p> |
-
 ## Functions
 
 |  Function | Description |
 |  --- | --- |
 |  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
 |  [CreateTerminus(server, options)](./koatty_serve.createterminus.md) | <p>Create terminus event</p> |
-|  [File(name)](./koatty_serve.file.md) | <p>Get parsed upload file object.</p> |
-|  [Get(name)](./koatty_serve.get.md) | <p>Get query-string parameters (take value from ctx.query).</p> |
-|  [Header(name)](./koatty_serve.header.md) | <p>Get request header.</p> |
-|  [NewRouter(app, opt)](./koatty_serve.newrouter.md) | <p>get instance of Router</p> |
 |  [NewServe(app, opt)](./koatty_serve.newserve.md) | <p>Create Server</p> |
-|  [PathVariable(name)](./koatty_serve.pathvariable.md) | <p>Get path variable (take value from ctx.params).</p> |
-|  [Post(name)](./koatty_serve.post.md) | <p>Get parsed POST/PUT... body.</p> |
-|  [RequestBody()](./koatty_serve.requestbody.md) | <p>Get request body (contains the values of  and @<!-- -->File).</p> |
-|  [RequestParam(name)](./koatty_serve.requestparam.md) | <p>Get POST/GET parameters, POST priority</p> |
 
 ## Interfaces
 
 |  Interface | Description |
 |  --- | --- |
 |  [ListeningOptions](./koatty_serve.listeningoptions.md) | <p>listening options</p><p> ListeningOptions</p> |
-|  [RouterOption](./koatty_serve.routeroption.md) | <p>Koatty router options</p><p>  RouterOption</p> |
-|  [RouterOptions](./koatty_serve.routeroptions.md) | <p>RouterOptions</p><p>  RouterOptions</p> |
 |  [TerminusOptions](./koatty_serve.terminusoptions.md) |  |
-
-## Variables
-
-|  Variable | Description |
-|  --- | --- |
-|  [Body](./koatty_serve.body.md) | Alias of  |
-|  [CONTROLLER\_ROUTER](./koatty_serve.controller_router.md) |  |
-|  [DeleteMapping](./koatty_serve.deletemapping.md) | Routes HTTP DELETE requests to the specified path. |
-|  [GetMapping](./koatty_serve.getmapping.md) | Routes HTTP GET requests to the specified path. |
-|  [HeadMapping](./koatty_serve.headmapping.md) | Routes HTTP HEAD requests to the specified path. |
-|  [OptionsMapping](./koatty_serve.optionsmapping.md) | Routes HTTP OPTIONS requests to the specified path. |
-|  [Param](./koatty_serve.param.md) | Alias of  |
-|  [PatchMapping](./koatty_serve.patchmapping.md) | Routes HTTP PATCH requests to the specified path. |
-|  [PostMapping](./koatty_serve.postmapping.md) | Routes HTTP POST requests to the specified path. |
-|  [PutMapping](./koatty_serve.putmapping.md) | Routes HTTP PUT requests to the specified path. |
-|  [RequestMapping](./koatty_serve.requestmapping.md) | Routes HTTP requests to the specified path. |
-|  [ROUTER\_KEY](./koatty_serve.router_key.md) |  |
 
 ## Type Aliases
 
