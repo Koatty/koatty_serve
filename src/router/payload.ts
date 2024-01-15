@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:30:20
- * @LastEditTime: 2024-01-14 15:55:24
+ * @LastEditTime: 2024-01-15 13:30:33
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -16,7 +16,7 @@ import { parseStringPromise } from "xml2js";
 import { IncomingForm, BufferEncoding } from "formidable";
 import { DefaultLogger as Logger } from "koatty_logger";
 import onFinished from "on-finished";
-import { KoattyContext } from "koatty_core";
+import { KoattyContext, KoattyNext } from "koatty_core";
 import { Helper } from "koatty_lib";
 import { DefaultLogger as logger } from "koatty_logger";
 const fsUnlink = util.promisify(fs.unlink);
@@ -57,12 +57,45 @@ const defaultOptions: PayloadOptions = {
 };
 
 /**
+ * @description: payload middleware
+ * @param {PayloadOptions} options
+ * @return {*}
+ */
+export function payload(options?: PayloadOptions) {
+  return (ctx: KoattyContext, next: KoattyNext) => {
+    Helper.define(ctx, "requestParam", () => {
+      return queryParser(ctx, options);
+    });
+    Helper.define(ctx, "requestBody", () => {
+      return bodyParser(ctx, options);
+    });
+    return next();
+  }
+}
+
+/**
  * @description: 
  * @param {KoattyContext} ctx
  * @param {PayloadOptions} options
  * @return {*}
  */
-export async function BodyParser(ctx: KoattyContext, options?: PayloadOptions): Promise<any> {
+export function queryParser(ctx: KoattyContext, options?: PayloadOptions): any {
+  let query = ctx.getMetaData("_query")[0];
+  if (!Helper.isEmpty(query)) {
+    return query;
+  }
+  query = { ...(ctx.query), ...(ctx.params || {}) };
+  ctx.setMetaData("_query", query);
+  return query;
+}
+
+/**
+ * @description: 
+ * @param {KoattyContext} ctx
+ * @param {PayloadOptions} options
+ * @return {*}
+ */
+export async function bodyParser(ctx: KoattyContext, options?: PayloadOptions): Promise<any> {
   let body = ctx.getMetaData("_body")[0];
   if (!Helper.isEmpty(body)) {
     return body;
@@ -77,22 +110,6 @@ export async function BodyParser(ctx: KoattyContext, options?: PayloadOptions): 
     logger.Error(err);
     return {};
   }
-}
-
-/**
- * @description: 
- * @param {KoattyContext} ctx
- * @param {PayloadOptions} options
- * @return {*}
- */
-export function QueryParser(ctx: KoattyContext, options?: PayloadOptions): any {
-  let query = ctx.getMetaData("_query")[0];
-  if (!Helper.isEmpty(query)) {
-    return query;
-  }
-  query = { ...(ctx.query), ...(ctx.params || {}) };
-  ctx.setMetaData("_query", query);
-  return query;
 }
 
 /**
