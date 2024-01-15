@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.2-2](https://github.com/koatty/koatty_serve/compare/v2.1.2-1...v2.1.2-2) (2024-01-15)
+
+
+### Bug Fixes
+
+* remove export ([3efd4ba](https://github.com/koatty/koatty_serve/commit/3efd4ba30d700af6b5ba319c59f460c5198fecd2))
+* 移除app循环引用 ([3f11ba4](https://github.com/koatty/koatty_serve/commit/3f11ba4742b06ff2f2ba24fcf612b8a3b9a40bf4))
+
+
+### Refactor
+
+* requestParam重新定义 ([d1eb5c3](https://github.com/koatty/koatty_serve/commit/d1eb5c32f7e8528ecf1881d272b364b72af95235))
+* router接口变更 ([401a4d2](https://github.com/koatty/koatty_serve/commit/401a4d209e8b18d69981ee79fe06ac74089f0d12))
+
 ### [2.1.2-1](https://github.com/koatty/koatty_serve/compare/v2.1.2-0...v2.1.2-1) (2024-01-14)
 
 
