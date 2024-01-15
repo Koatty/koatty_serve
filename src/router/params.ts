@@ -3,14 +3,14 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2024-01-14 15:52:57
+ * @LastEditTime: 2024-01-15 13:02:38
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
 import { KoattyContext } from "koatty_core";
 import { injectParam } from "./inject";
-import { PayloadOptions, BodyParser, QueryParser } from "./payload";
+import { PayloadOptions, bodyParser, queryParser } from "./payload";
 
 /**
  * Get request header.
@@ -71,7 +71,7 @@ export function Get(name?: string): ParameterDecorator {
  */
 export function Post(name?: string): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return BodyParser(ctx, opt).then((body: {
+    return bodyParser(ctx, opt).then((body: {
       post: Object
     }) => {
       const params: any = body.post ? body.post : body;
@@ -92,7 +92,7 @@ export function Post(name?: string): ParameterDecorator {
  */
 export function File(name?: string): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return BodyParser(ctx, opt).then((body: {
+    return bodyParser(ctx, opt).then((body: {
       file: Object
     }) => {
       const params: any = body.file ?? {};
@@ -106,14 +106,14 @@ export function File(name?: string): ParameterDecorator {
 
 
 /**
- * Get request body (contains the values of @Post and @File).
+ * Get parsed body(form variable and file object).
  *
  * @export
- * @returns
+ * @returns ex: {post: {...}, file: {...}}
  */
 export function RequestBody(): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return BodyParser(ctx, opt);
+    return bodyParser(ctx, opt);
   }, "RequestBody");
 }
 
@@ -125,24 +125,15 @@ export function RequestBody(): ParameterDecorator {
 export const Body = RequestBody;
 
 /**
- * Get POST/GET parameters, POST priority
- *
+ * Get parsed query-string and path variable(koa ctx.query and ctx.params),
+ * and set as an object.
+ * 
  * @export
- * @param {string} [name]
  * @returns {ParameterDecorator}
  */
-export function RequestParam(name?: string): ParameterDecorator {
+export function RequestParam(): ParameterDecorator {
   return injectParam((ctx: KoattyContext, opt?: PayloadOptions) => {
-    return BodyParser(ctx, opt).then((body: {
-      post: Object
-    }) => {
-      const queryParams: any = QueryParser(ctx, opt) ?? {};
-      const postParams: any = (body.post ? body.post : body) ?? {};
-      if (name !== undefined) {
-        return postParams[name] === undefined ? queryParams[name] : postParams[name];
-      }
-      return { ...queryParams, ...postParams };
-    });
+    return queryParser(ctx, opt)
   }, "RequestParam");
 }
 
