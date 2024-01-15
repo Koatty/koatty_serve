@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2023-01-13 16:04:05
+ * @LastEditTime: 2024-01-15 19:47:19
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
 import { CreateTerminus } from "./terminus";
@@ -17,7 +17,6 @@ import { ListeningOptions } from "../index";
  * @class Http
  */
 export class Http2Server implements KoattyServer {
-  app: Koatty;
   options: ListeningOptions;
   readonly protocol: string;
   readonly server: Http2SecureServer;
@@ -25,7 +24,6 @@ export class Http2Server implements KoattyServer {
   listenCallback?: () => void;
 
   constructor(app: Koatty, options: ListeningOptions) {
-    this.app = app;
     this.protocol = options.protocol;
     this.options = options;
     const opt: SecureServerOptions = {
