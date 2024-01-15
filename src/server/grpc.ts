@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2023-07-26 21:19:59
+ * @LastEditTime: 2024-01-15 21:16:25
  */
 import { CreateTerminus } from "./terminus";
 import { DefaultLogger as Logger } from "koatty_logger";
@@ -43,7 +43,6 @@ export interface GrpcServerOptions extends ListeningOptions {
 }
 
 export class GrpcServer implements KoattyServer {
-  app: Koatty;
   options: GrpcServerOptions;
   readonly server: Server;
   readonly protocol: string;
@@ -51,7 +50,6 @@ export class GrpcServer implements KoattyServer {
   listenCallback?: () => void;
 
   constructor(app: Koatty, options: ListeningOptions) {
-    this.app = app;
     this.protocol = options.protocol;
     this.options = options;
     options.ext = options.ext || {};

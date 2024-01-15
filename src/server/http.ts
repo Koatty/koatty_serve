@@ -3,7 +3,7 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2023-01-13 16:03:35
+ * @LastEditTime: 2024-01-15 19:46:33
  */
 import { createServer, IncomingMessage, Server, ServerResponse } from "http";
 import { Koatty, KoattyServer } from "koatty_core";
@@ -17,7 +17,6 @@ import { ListeningOptions } from "../index";
  * @class Http
  */
 export class HttpServer implements KoattyServer {
-  app: Koatty;
   options: ListeningOptions;
   readonly server: Server;
   readonly protocol: string;
@@ -25,7 +24,6 @@ export class HttpServer implements KoattyServer {
   listenCallback?: () => void;
 
   constructor(app: Koatty, options: ListeningOptions) {
-    this.app = app;
     this.protocol = options.protocol;
     this.options = options;
     this.server = createServer((req, res) => {

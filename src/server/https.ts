@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2023-12-09 23:07:25
+ * @LastEditTime: 2024-01-15 19:47:33
  */
 import { createServer, Server, ServerOptions } from "https";
 import { Koatty, KoattyServer } from "koatty_core";
@@ -19,7 +19,6 @@ import { IncomingMessage, ServerResponse } from "http";
  * @class Http
  */
 export class HttpsServer implements KoattyServer {
-  app: Koatty;
   options: ListeningOptions;
   readonly server: Server;
   readonly protocol: string;
@@ -33,7 +32,6 @@ export class HttpsServer implements KoattyServer {
    * @memberof HttpsServer
    */
   constructor(app: Koatty, options: ListeningOptions) {
-    this.app = app;
     this.protocol = options.protocol;
     this.options = options;
     const opt: ServerOptions = {
