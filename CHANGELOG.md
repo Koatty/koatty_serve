@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.4](https://github.com/koatty/koatty_serve/compare/v2.1.2...v2.1.4) (2024-04-14)
+
 ### [2.1.2](https://github.com/koatty/koatty_serve/compare/v2.1.2-2...v2.1.2) (2024-01-16)
 
 
