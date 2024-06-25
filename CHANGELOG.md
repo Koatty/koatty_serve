@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.5](https://github.com/koatty/koatty_serve/compare/v2.1.0...v2.1.5) (2024-06-25)
+
+
+### Bug Fixes
+
+* dto参数预处理 ([c3ed24f](https://github.com/koatty/koatty_serve/commit/c3ed24f063fdb79bcc2b71549ec3fd57a2e347a0))
+* export parser ([e001b9a](https://github.com/koatty/koatty_serve/commit/e001b9a02b5ca5edf5aba87356bbb8e879aaac7f))
+* path subfix ([ba4f74d](https://github.com/koatty/koatty_serve/commit/ba4f74d79d7802859a0b901363232181d82a3920))
+* remove export ([52dd457](https://github.com/koatty/koatty_serve/commit/52dd4574c78679c0d7c35a5e05c5a64be431a491))
+* 处理path ([464c2d7](https://github.com/koatty/koatty_serve/commit/464c2d727706697964a21546b871f402281afc50))
+* 移除app循环引用 ([c305504](https://github.com/koatty/koatty_serve/commit/c3055049626d553c8110e5dd19cf4cede5984b34))
+
+
+### Refactor
+
+* requestParam重新定义 ([4709fa9](https://github.com/koatty/koatty_serve/commit/4709fa973ec355dcaed44a65642c1c5c8fbff3d2))
+* router 分离 ([436bc25](https://github.com/koatty/koatty_serve/commit/436bc254181e97c289bc11c6102810b6857e5328))
+* router接口变更 ([ed60213](https://github.com/koatty/koatty_serve/commit/ed6021386144242ce35750ac44720b8268a9a64b))
+
 ### [2.1.4](https://github.com/koatty/koatty_serve/compare/v2.1.2...v2.1.4) (2024-04-14)
 
 ### [2.1.2](https://github.com/koatty/koatty_serve/compare/v2.1.2-2...v2.1.2) (2024-01-16)
