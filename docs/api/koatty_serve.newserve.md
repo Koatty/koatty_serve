@@ -10,14 +10,14 @@ Create Server
 **Signature:**
 
 ```typescript
-export declare function NewServe(app: Koatty, opt?: ListeningOptions): KoattyServer;
+export declare function NewServe(app: KoattyApplication, opt?: ListeningOptions): KoattyServer;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  app | Koatty |  |
+|  app | KoattyApplication |  |
 |  opt | [ListeningOptions](./koatty_serve.listeningoptions.md) | _(Optional)_ |
 
 **Returns:**
