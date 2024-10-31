@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [2.1.6-0](https://github.com/koatty/koatty_serve/compare/v2.1.5...v2.1.6-0) (2024-10-31)
+
+
+### Performance
+
+* 性能优化 ([885a4a7](https://github.com/koatty/koatty_serve/commit/885a4a7f0a33a94acee7bcda5c468ad9b412c342))
+
 ### [2.1.5](https://github.com/koatty/koatty_serve/compare/v2.1.0...v2.1.5) (2024-06-25)
 
 
