@@ -3,16 +3,16 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2023-01-13 16:05:07
+ * @LastEditTime: 2024-10-31 14:01:39
  */
-import { DefaultLogger as Logger } from "koatty_logger";
-import { Koatty, KoattyServer } from 'koatty_core';
-import { ServerOptions, WebSocketServer } from 'ws';
-import { CreateTerminus } from "./terminus";
 import { Server as HttpServer, IncomingMessage, ServerResponse, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
-import { ListeningOptions } from "../index";
+import { KoattyApplication, KoattyServer } from 'koatty_core';
 import { Helper } from "koatty_lib";
+import { DefaultLogger as Logger } from "koatty_logger";
+import { ServerOptions, WebSocketServer } from 'ws';
+import { ListeningOptions } from "../index";
+import { CreateTerminus } from "./terminus";
 export interface WebSocketServerOptions extends ListeningOptions {
   wsOptions?: ServerOptions;
 }
@@ -23,7 +23,7 @@ export interface WebSocketServerOptions extends ListeningOptions {
  * @class Http
  */
 export class WsServer implements KoattyServer {
-  app: Koatty;
+  app: KoattyApplication;
   options: WebSocketServerOptions;
   readonly server: WebSocketServer;
   readonly protocol: string;
@@ -32,7 +32,7 @@ export class WsServer implements KoattyServer {
   listenCallback?: () => void;
   readonly httpServer: HttpServer | HttpsServer;
 
-  constructor(app: Koatty, options: ListeningOptions) {
+  constructor(app: KoattyApplication, options: ListeningOptions) {
     this.app = app;
     this.protocol = options.protocol;
     this.options = options;
@@ -86,8 +86,8 @@ export class WsServer implements KoattyServer {
    */
   Stop(callback?: () => void) {
     this.server.close((err?: Error) => {
-      callback && callback();
-      Logger.Error(err);
+      if (callback) callback();
+      if (err) Logger.Error(err);
     });
   }
 }

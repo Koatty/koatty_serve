@@ -3,15 +3,15 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2023-12-09 13:22:06
+ * @LastEditTime: 2024-10-31 13:50:47
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
 import EventEmitter from "events";
-import { DefaultLogger as Logger } from "koatty_logger";
-import { Helper } from "koatty_lib";
 import { KoattyServer } from "koatty_core";
+import { Helper } from "koatty_lib";
+import { DefaultLogger as Logger } from "koatty_logger";
 
 /** @type {*} */
 const terminusOptions = {
@@ -36,11 +36,11 @@ export interface TerminusOptions {
  */
 export function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void {
   const opt = { ...terminusOptions, ...options };
-  for (const event of opt.signals) {
+  opt.signals.forEach(event => {
     process.on(event, () => {
-      opt.onSignal(event, server, opt.timeout);
-    })
-  }
+      opt.onSignal(event, server, opt.timeout).catch(err => Logger.Error(err));
+    });
+  });
 }
 // processEvent
 type processEvent = "beforeExit" | "exit" | NodeJS.Signals;
@@ -52,13 +52,12 @@ type processEvent = "beforeExit" | "exit" | NodeJS.Signals;
  * @param {string} [targetEventName]
  */
 export function BindProcessEvent(event: EventEmitter, originEventName: string, targetEventName: processEvent = "beforeExit") {
-  const ls: Function[] = event.listeners(originEventName);
-  for (const func of ls) {
+  event.listeners(originEventName).forEach(func => {
     if (Helper.isFunction(func)) {
       process.addListener(<any>targetEventName, func);
     }
-  }
-  return event.removeAllListeners(originEventName);
+  });
+  event.removeAllListeners(originEventName);
 }
 
 /**
@@ -70,9 +69,9 @@ export function BindProcessEvent(event: EventEmitter, originEventName: string, t
 const asyncEvent = async function (event: EventEmitter, eventName: string) {
   const ls: any[] = event.listeners(eventName);
   // eslint-disable-next-line no-restricted-syntax
-  for await (const func of ls) {
+  for (const func of ls) {
     if (Helper.isFunction(func)) {
-      func();
+      await func();
     }
   }
   return event.removeAllListeners(eventName);
@@ -92,12 +91,13 @@ async function onSignal(event: string, server: KoattyServer, forceTimeout: numbe
     return process.exit(0);
   }
 
-  setTimeout(() => {
+  const forceShutdown = setTimeout(() => {
     Logger.Error('Could not close connections in time, forcefully shutting down');
     process.exit(1);
   }, forceTimeout);
 
   server.Stop(() => {
+    clearTimeout(forceShutdown);
     Logger.Warn('Closed out remaining connections');
     process.exit(0);
   });

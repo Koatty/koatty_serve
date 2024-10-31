@@ -3,16 +3,16 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2024-01-15 21:16:25
+ * @LastEditTime: 2024-10-31 13:53:31
  */
-import { CreateTerminus } from "./terminus";
-import { DefaultLogger as Logger } from "koatty_logger";
-import { Koatty, KoattyServer } from "koatty_core";
 import {
   ChannelOptions, Server, ServerCredentials,
   ServiceDefinition, UntypedHandleCall
 } from "@grpc/grpc-js";
+import { KoattyApplication, KoattyServer } from "koatty_core";
+import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
+import { CreateTerminus } from "./terminus";
 /**
  * ServiceImplementation
  *
@@ -49,11 +49,14 @@ export class GrpcServer implements KoattyServer {
   status: number;
   listenCallback?: () => void;
 
-  constructor(app: Koatty, options: ListeningOptions) {
+  constructor(app: KoattyApplication, options: ListeningOptions) {
     this.protocol = options.protocol;
     this.options = options;
     options.ext = options.ext || {};
-    this.options.channelOptions = Object.assign(this.options.channelOptions || {}, options.ext);
+    this.options.channelOptions = {
+      ...this.options.channelOptions,
+      ...options.ext,
+    };
     this.server = new Server(this.options.channelOptions);
     CreateTerminus(this);
   }
@@ -65,7 +68,7 @@ export class GrpcServer implements KoattyServer {
    * @memberof Grpc
    */
   Start(listenCallback?: () => void): Server {
-    listenCallback = listenCallback ? listenCallback : this.listenCallback;
+    const finalCallback = listenCallback || this.listenCallback;
     const creds = ServerCredentials.createInsecure();
     // key: this.options.ext.key,
     // cert: this.options.ext.cert,
@@ -75,7 +78,7 @@ export class GrpcServer implements KoattyServer {
     // );
     this.server.bindAsync(`${this.options.hostname}:${this.options.port}`, creds, () => {
       this.server.start();
-      listenCallback();
+      finalCallback?.();
     });
 
     return this.server;
@@ -87,8 +90,8 @@ export class GrpcServer implements KoattyServer {
    */
   Stop(callback?: () => void) {
     this.server.tryShutdown((err?: Error) => {
-      callback?.();
-      Logger.Error(err);
+      if (callback) callback();
+      if (err) Logger.Error(err);
     });
   }
 

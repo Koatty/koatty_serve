@@ -3,13 +3,13 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2024-01-15 19:46:33
+ * @LastEditTime: 2024-10-31 11:44:30
  */
 import { createServer, IncomingMessage, Server, ServerResponse } from "http";
-import { Koatty, KoattyServer } from "koatty_core";
-import { CreateTerminus } from "./terminus";
+import { KoattyApplication, KoattyServer } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
+import { CreateTerminus } from "./terminus";
 /**
  *
  *
@@ -23,7 +23,7 @@ export class HttpServer implements KoattyServer {
   status: number;
   listenCallback?: () => void;
 
-  constructor(app: Koatty, options: ListeningOptions) {
+  constructor(app: KoattyApplication, options: ListeningOptions) {
     this.protocol = options.protocol;
     this.options = options;
     this.server = createServer((req, res) => {
@@ -55,8 +55,8 @@ export class HttpServer implements KoattyServer {
    */
   Stop(callback?: () => void) {
     this.server.close((err?: Error) => {
-      callback?.();
-      Logger.Error(err);
+      if (callback) callback();
+      if (err) Logger.Error(err);
     });
   }
 }
