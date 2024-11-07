@@ -10,4 +10,4 @@
 
 // export
 export * from "./server/serve";
-export * from "./server/terminus";
+export * from "./terminus";

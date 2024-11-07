@@ -12,7 +12,7 @@ import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ServerOptions, WebSocketServer } from 'ws';
 import { ListeningOptions } from "../index";
-import { CreateTerminus } from "./terminus";
+import { CreateTerminus } from "../terminus";
 export interface WebSocketServerOptions extends ListeningOptions {
   wsOptions?: ServerOptions;
 }
