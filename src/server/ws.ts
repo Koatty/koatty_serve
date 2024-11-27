@@ -40,15 +40,21 @@ export class WsServer implements KoattyServer {
     this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
 
     this.server = new WebSocketServer(this.options.wsOptions);
-    if (this.options.protocol == "wss") {
-      const opt: httpsServerOptions = {
-        key: this.options.ext.key,
-        cert: this.options.ext.cert,
-      }
-      this.httpServer = httpsCreateServer(opt);
+    // set http server
+    if (options.ext.server) {
+      this.httpServer = options.ext.server;
     } else {
-      this.httpServer = createServer();
+      if (this.options.protocol == "wss") {
+        const opt: httpsServerOptions = {
+          key: this.options.ext.key,
+          cert: this.options.ext.cert,
+        }
+        this.httpServer = httpsCreateServer(opt);
+      } else {
+        this.httpServer = createServer();
+      }
     }
+
     CreateTerminus(this);
   }
 

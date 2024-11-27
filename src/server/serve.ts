@@ -55,6 +55,7 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
       key: "",
       cert: "",
       protoFile: "",
+      server: null, // used by websocket
     },
     ...opt
   };
