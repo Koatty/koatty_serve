@@ -90,7 +90,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.12.2",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.10.0-15",
+    "koatty_core": "^1.x.x",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",

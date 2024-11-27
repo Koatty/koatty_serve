@@ -3,9 +3,9 @@
  * @Usage:
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2024-10-31 11:44:30
+ * @LastEditTime: 2024-11-27 17:47:17
  */
-import { createServer, IncomingMessage, Server, ServerResponse } from "http";
+import { createServer, Server } from "http";
 import { KoattyApplication, KoattyServer } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "../index";
@@ -38,7 +38,7 @@ export class HttpServer implements KoattyServer {
    * @param {() => void} listenCallback
    * @memberof Http
    */
-  Start(listenCallback?: () => void): Server<typeof IncomingMessage, typeof ServerResponse> {
+  Start(listenCallback?: () => void): Server {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.server.listen({
       port: this.options.port,
