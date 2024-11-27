@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2024-10-31 13:53:31
+ * @LastEditTime: 2024-11-27 17:24:54
  */
 import {
   ChannelOptions, Server, ServerCredentials,
@@ -69,15 +69,15 @@ export class GrpcServer implements KoattyServer {
    */
   Start(listenCallback?: () => void): Server {
     const finalCallback = listenCallback || this.listenCallback;
-    const creds = ServerCredentials.createInsecure();
+    const credentials = ServerCredentials.createInsecure();
     // key: this.options.ext.key,
     // cert: this.options.ext.cert,
-    // const creds = ServerCredentials.createSsl(
+    // const credentials = ServerCredentials.createSsl(
     //     Buffer.from(this.options.ext.cert),
     //     [],
     // );
-    this.server.bindAsync(`${this.options.hostname}:${this.options.port}`, creds, () => {
-      this.server.start();
+    this.server.bindAsync(`${this.options.hostname}:${this.options.port}`, credentials, () => {
+      // this.server.start();
       finalCallback?.();
     });
 
