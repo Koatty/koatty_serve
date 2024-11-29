@@ -42,15 +42,15 @@ export interface ListeningOptions {
  * @returns {*}  {KoattyServer}
  */
 export function NewServe(app: KoattyApplication, opt?: ListeningOptions): KoattyServer {
-  const protocol = app.config("protocol") || "http";
-  const port = process.env.PORT || process.env.APP_PORT ||
-    app.config('app_port') || 3000;
-  const hostname = process.env.IP || app.config('app_host') || '127.0.0.1';
+  // const protocol = app.config("protocol") || "http";
+  // const port = process.env.PORT || process.env.APP_PORT ||
+  //   app.config('app_port') || 3000;
+  // const hostname = process.env.IP || app.config('app_host') || '127.0.0.1';
 
   const options: ListeningOptions = {
-    hostname,
-    port,
-    protocol,
+    hostname: process.env.IP || '127.0.0.1',
+    port: process.env.PORT || process.env.APP_PORT || 3000,
+    protocol: 'http',
     ext: {
       key: "",
       cert: "",
