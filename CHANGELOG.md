@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.3.0](https://github.com/koatty/koatty_serve/compare/v2.2.0...v2.3.0) (2024-12-03)
+
+
+### Features
+
+*  add support for custom HTTP server in WebSocket server options ([fbe0a9a](https://github.com/koatty/koatty_serve/commit/fbe0a9a0c39bdca476b4e5c84a8d8973b2f9cfef))
+
+
+### Bug Fixes
+
+* default config ([a5ee9bd](https://github.com/koatty/koatty_serve/commit/a5ee9bde465f89e4a8f93e65c0e91718b5e7c391))
+* grpc server.start is deprecated ([8639cca](https://github.com/koatty/koatty_serve/commit/8639ccaf6bece98befa8c466275f1ea51cf9693f))
+* native server types ([6298470](https://github.com/koatty/koatty_serve/commit/62984701a91fc673fe3b9422d163489c2a2f05d6))
+
 ## [2.2.0](https://github.com/koatty/koatty_serve/compare/v2.1.6-0...v2.2.0) (2024-11-07)
 
 ### [2.1.6-0](https://github.com/koatty/koatty_serve/compare/v2.1.5...v2.1.6-0) (2024-10-31)
