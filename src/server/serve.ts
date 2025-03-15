@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2024-12-03 16:23:54
+ * @LastEditTime: 2025-03-16 00:51:51
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -84,5 +84,5 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
   };
 
   const ServerConstructor = serverMap[options.protocol] || HttpServer;
-  return new ServerConstructor(app, options);
+  return (new ServerConstructor(app, options)) as KoattyServer;
 }
