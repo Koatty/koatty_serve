@@ -88,9 +88,9 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.12.2",
+    "@grpc/grpc-js": "^1.13.0",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.10.1",
+    "koatty_core": "^1.x.x",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
