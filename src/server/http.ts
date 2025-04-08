@@ -8,7 +8,7 @@
 import { createServer, Server } from "http";
 import { KoattyApplication } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ListeningOptions } from "./base";
 /**
  *

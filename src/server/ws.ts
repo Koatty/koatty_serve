@@ -11,7 +11,7 @@ import { KoattyApplication } from 'koatty_core';
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ServerOptions, WebSocketServer } from 'ws';
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ListeningOptions } from "./base";
 
 export interface WebSocketServerOptions extends ListeningOptions {

@@ -10,7 +10,7 @@ import { KoattyApplication } from "koatty_core";
 import { BaseServer } from "./base";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "./base";
-import { CreateTerminus } from "../terminus";
+import { CreateTerminus } from "../utils/terminus";
 
 /**
  *
