@@ -17,7 +17,7 @@ import { HttpServer } from "./server/http";
 import { ListeningOptions } from "./server/base";
 
 // export
-export * from "./terminus";
+export * from "./utils/terminus";
 
 
 /**

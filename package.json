@@ -88,7 +88,7 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.13.0",
+    "@grpc/grpc-js": "^1.13.2",
     "koatty_container": "^1.x.x",
     "koatty_core": "^1.x.x",
     "koatty_exception": "^1.x.x",
@@ -96,7 +96,7 @@
     "koatty_logger": "^2.x.x",
     "koatty_proto": "^1.x.x",
     "koatty_validation": "^1.x.x",
-    "ws": "^8.18.0"
+    "ws": "^8.18.1"
   },
   "peerDependencies": {
     "koatty_container": "^1.x.x",
