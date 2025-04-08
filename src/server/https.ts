@@ -6,9 +6,10 @@
  * @LastEditTime: 2024-10-31 11:45:01
  */
 import { createServer, Server, ServerOptions } from "https";
-import { KoattyApplication, KoattyServer } from "koatty_core";
+import { KoattyApplication } from "koatty_core";
+import { BaseServer } from "./base";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { ListeningOptions } from "../index";
+import { ListeningOptions } from "./base";
 import { CreateTerminus } from "../terminus";
 
 /**
@@ -17,22 +18,11 @@ import { CreateTerminus } from "../terminus";
  * @export
  * @class Http
  */
-export class HttpsServer implements KoattyServer {
-  options: ListeningOptions;
+export class HttpsServer extends BaseServer<ListeningOptions> {
   readonly server: Server;
-  readonly protocol: string;
-  status: number;
-  listenCallback?: () => void;
 
-  /**
-   * Creates an instance of HttpsServer.
-   * @param {Koatty} app
-   * @param {ListeningOptions} options
-   * @memberof HttpsServer
-   */
   constructor(app: KoattyApplication, options: ListeningOptions) {
-    this.protocol = options.protocol;
-    this.options = options;
+    super(app, options);
     const opt: ServerOptions = {
       key: this.options.ext.key,
       cert: this.options.ext.cert,
@@ -50,6 +40,20 @@ export class HttpsServer implements KoattyServer {
    * @param {() => void} listenCallback
    * @memberof Https
    */
+  protected applyConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    newConfig: Partial<ListeningOptions>
+  ) {
+    this.options = { ...this.options, ...newConfig };
+    
+    if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
+      Logger.Info('Restarting server with new address configuration...');
+      this.Stop(() => {
+        this.Start(this.listenCallback);
+      });
+    }
+  }
+
   Start(listenCallback?: () => void): Server {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.server.listen({

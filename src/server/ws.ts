@@ -3,44 +3,34 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2024-10-31 14:01:39
+ * @LastEditTime: 2025-04-08 10:48:00
  */
 import { Server as HttpServer, IncomingMessage, ServerResponse, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
-import { KoattyApplication, KoattyServer } from 'koatty_core';
+import { KoattyApplication } from 'koatty_core';
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ServerOptions, WebSocketServer } from 'ws';
-import { ListeningOptions } from "../index";
 import { CreateTerminus } from "../terminus";
+import { BaseServer, ListeningOptions } from "./base";
+
 export interface WebSocketServerOptions extends ListeningOptions {
   wsOptions?: ServerOptions;
 }
-/**
- *
- *
- * @export
- * @class Http
- */
-export class WsServer implements KoattyServer {
-  app: KoattyApplication;
-  options: WebSocketServerOptions;
-  readonly server: WebSocketServer;
-  readonly protocol: string;
-  status: number;
-  socket: any;
-  listenCallback?: () => void;
-  readonly httpServer: HttpServer | HttpsServer;
 
-  constructor(app: KoattyApplication, options: ListeningOptions) {
-    this.app = app;
-    this.protocol = options.protocol;
-    this.options = options;
+export class WsServer extends BaseServer<WebSocketServerOptions> {
+  readonly server: WebSocketServer;
+  readonly httpServer: HttpServer | HttpsServer;
+  socket: any;
+
+  constructor(app: KoattyApplication, options: WebSocketServerOptions) {
+    super(app, options);
     options.ext = options.ext || {};
-    this.options.wsOptions = { ...options.ext, ...{ noServer: true } }
+    this.options.wsOptions = { ...options.ext, ...{ noServer: true } };
 
     this.server = new WebSocketServer(this.options.wsOptions);
-    // set http server
+    
+    // Set http server
     if (options.ext.server) {
       this.httpServer = options.ext.server;
     } else {
@@ -48,7 +38,7 @@ export class WsServer implements KoattyServer {
         const opt: httpsServerOptions = {
           key: this.options.ext.key,
           cert: this.options.ext.cert,
-        }
+        };
         this.httpServer = httpsCreateServer(opt);
       } else {
         this.httpServer = createServer();
@@ -58,13 +48,20 @@ export class WsServer implements KoattyServer {
     CreateTerminus(this);
   }
 
-  /**
-   * Start Server
-   *
-   * @param {() => void} listenCallback
-   * @returns {*}  
-   * @memberof WsServer
-   */
+  protected applyConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    newConfig: Partial<ListeningOptions>
+  ) {
+    this.options = { ...this.options, ...newConfig };
+    
+    if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
+      Logger.Info('Restarting server with new address configuration...');
+      this.Stop(() => {
+        this.Start(this.listenCallback);
+      });
+    }
+  }
+
   Start(listenCallback?: () => void): HttpServer<typeof IncomingMessage, typeof ServerResponse> {
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
     return this.httpServer.listen({
@@ -81,15 +78,10 @@ export class WsServer implements KoattyServer {
         });
       });
     }).on("clientError", (err: any, sock: any) => {
-      // Logger.error("Bad request, HTTP parse error");
       sock.end('400 Bad Request\r\n\r\n');
     });
   }
 
-  /**
-   * Stop Server
-   *
-   */
   Stop(callback?: () => void) {
     this.server.close((err?: Error) => {
       if (callback) callback();

@@ -15,7 +15,7 @@ import { DefaultLogger as Logger } from "koatty_logger";
 
 /** @type {*} */
 const terminusOptions = {
-  signals: ["SIGINT", "SIGTERM"],
+  signals: ["SIGINT", "SIGTERM", 'SIGQUIT'],
   // cleanup options
   timeout: 60000,                   // [optional = 1000] number of milliseconds before forceful exiting
   onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
@@ -66,10 +66,8 @@ export function BindProcessEvent(event: EventEmitter, originEventName: string, t
  * @param {Koatty} event
  * @param {string} eventName
  */
-const asyncEvent = async function (event: EventEmitter, eventName: string) {
-  const ls: any[] = event.listeners(eventName);
-  // eslint-disable-next-line no-restricted-syntax
-  for (const func of ls) {
+const asyncEvent = async (event: EventEmitter, eventName: string) => {
+  for (const func of event.listeners(eventName)) {
     if (Helper.isFunction(func)) {
       await func();
     }

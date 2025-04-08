@@ -9,9 +9,9 @@ import {
   ChannelOptions, Server, ServerCredentials,
   ServiceDefinition, UntypedHandleCall
 } from "@grpc/grpc-js";
-import { KoattyApplication, KoattyServer } from "koatty_core";
+import { KoattyApplication } from "koatty_core";
+import { BaseServer, ListeningOptions } from "./base";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { ListeningOptions } from "../index";
 import { CreateTerminus } from "../terminus";
 /**
  * ServiceImplementation
@@ -40,25 +40,40 @@ interface Implementation {
  */
 export interface GrpcServerOptions extends ListeningOptions {
   channelOptions?: ChannelOptions;
+  ext?: {
+    key?: string;
+    cert?: string;
+    [key: string]: any;
+  };
 }
 
-export class GrpcServer implements KoattyServer {
-  options: GrpcServerOptions;
+export class GrpcServer extends BaseServer<GrpcServerOptions> {
   readonly server: Server;
-  readonly protocol: string;
-  status: number;
-  listenCallback?: () => void;
 
-  constructor(app: KoattyApplication, options: ListeningOptions) {
-    this.protocol = options.protocol;
-    this.options = options;
-    options.ext = options.ext || {};
-    this.options.channelOptions = {
-      ...this.options.channelOptions,
-      ...options.ext,
+  constructor(app: KoattyApplication, options: GrpcServerOptions) {
+    super(app, options);
+    const opts = this.options as GrpcServerOptions;
+    opts.ext = opts.ext || {};
+    const channelOptions = {
+      ...opts.channelOptions,
+      ...opts.ext,
     };
-    this.server = new Server(this.options.channelOptions);
+    this.server = new Server(channelOptions);
     CreateTerminus(this);
+  }
+
+  protected applyConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    newConfig: Partial<ListeningOptions>
+  ) {
+    this.options = { ...this.options, ...newConfig };
+    
+    if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
+      Logger.Info('Restarting server with new address configuration...');
+      this.Stop(() => {
+        this.Start(this.listenCallback);
+      });
+    }
   }
 
   /**

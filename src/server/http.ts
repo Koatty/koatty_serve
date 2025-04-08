@@ -6,30 +6,41 @@
  * @LastEditTime: 2024-11-27 17:47:17
  */
 import { createServer, Server } from "http";
-import { KoattyApplication, KoattyServer } from "koatty_core";
+import { KoattyApplication } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { ListeningOptions } from "../index";
 import { CreateTerminus } from "../terminus";
+import { BaseServer, ListeningOptions } from "./base";
 /**
  *
  *
  * @export
  * @class Http
  */
-export class HttpServer implements KoattyServer {
-  options: ListeningOptions;
+export class HttpServer extends BaseServer<ListeningOptions> {
   readonly server: Server;
-  readonly protocol: string;
-  status: number;
-  listenCallback?: () => void;
 
   constructor(app: KoattyApplication, options: ListeningOptions) {
-    this.protocol = options.protocol;
-    this.options = options;
+    super(app, options);
     this.server = createServer((req, res) => {
       app.callback()(req, res);
     });
     CreateTerminus(this);
+  }
+
+  protected applyConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    newConfig: Partial<ListeningOptions>
+  ) {
+    // Merge new config
+    this.options = { ...this.options, ...newConfig };
+
+    // Handle special cases
+    if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
+      Logger.Info('Restarting server with new address configuration...');
+      this.Stop(() => {
+        this.Start(this.listenCallback);
+      });
+    }
   }
 
   /**
