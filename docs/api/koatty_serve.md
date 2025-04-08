@@ -16,12 +16,5 @@
 
 |  Interface | Description |
 |  --- | --- |
-|  [ListeningOptions](./koatty_serve.listeningoptions.md) | <p>listening options</p><p> ListeningOptions</p> |
 |  [TerminusOptions](./koatty_serve.terminusoptions.md) |  |
-
-## Type Aliases
-
-|  Type Alias | Description |
-|  --- | --- |
-|  [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
 
