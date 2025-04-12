@@ -62,7 +62,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     CreateTerminus(this);
   }
 
-  protected async applyConfigChanges(
+  protected applyConfigChanges(
     changedKeys: (keyof ListeningOptions)[],
     newConfig: Partial<ListeningOptions>
   ) {
@@ -70,10 +70,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     
     if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
       Logger.Info('Restarting server with new address configuration...');
-      await this.Stop();
-      // 添加微延迟确保服务完全关闭
-      await new Promise(resolve => setTimeout(resolve, 100));
-      this.Start(this.listenCallback);
+      this.Stop(() => {
+        this.Start(this.listenCallback);
+      });
     }
   }
 
