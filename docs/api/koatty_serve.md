@@ -11,6 +11,7 @@
 |  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
 |  [CreateTerminus(server, options)](./koatty_serve.createterminus.md) | <p>Create terminus event</p> |
 |  [NewServe(app, opt)](./koatty_serve.newserve.md) | <p>Create Server</p> |
+|  [onSignal(event, server, forceTimeout)](./koatty_serve.onsignal.md) | cleanup function, returning a promise (used to be onSigterm) |
 
 ## Interfaces
 

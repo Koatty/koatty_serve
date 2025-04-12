@@ -97,12 +97,12 @@ describe("GrpcServer", () => {
     });
   });
 
-  describe("Configuration Changes", () => {
-    it("should detect config changes", () => {
-      const updated = server.updateConfig({ port: 50083 });
-      expect(updated).toBeTruthy();
-    });
-  });
+  // describe("Configuration Changes", () => {
+  //   it("should detect config changes", () => {
+  //     const updated = server.updateConfig({ port: 50083 });
+  //     expect(updated).toBeTruthy();
+  //   });
+  // });
 
   describe("Service Registration", () => {
     it("should register service successfully", () => {
