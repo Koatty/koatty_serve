@@ -80,7 +80,7 @@ const asyncEvent = async (event: EventEmitter, eventName: string) => {
  *
  * @returns {*}  
  */
-async function onSignal(event: string, server: KoattyServer, forceTimeout: number) {
+export async function onSignal(event: string, server: KoattyServer, forceTimeout: number) {
   Logger.Warn(`Received kill signal (${event}), shutting down...`);
   server.status = 503;
   await asyncEvent(process, 'beforeExit');

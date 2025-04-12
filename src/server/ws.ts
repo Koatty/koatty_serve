@@ -25,13 +25,8 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
   constructor(app: KoattyApplication, options: WebSocketServerOptions) {
     super(app, options);
-    options.ext = options.ext || {};
-    this.options.wsOptions = { ...options.ext, ...{ noServer: true } };
-
-    this.server = new WebSocketServer(this.options.wsOptions);
-    
-    // Set http server
-    if (options.ext.server) {
+    options.ext = options.ext || { noServer: true };
+    if (options.ext.server){
       this.httpServer = options.ext.server;
     } else {
       if (this.options.protocol == "wss") {
@@ -44,6 +39,11 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
         this.httpServer = createServer();
       }
     }
+    this.options.wsOptions = {
+      server: this.httpServer,
+    };
+
+    this.server = new WebSocketServer(this.options.wsOptions);
 
     CreateTerminus(this);
   }
@@ -53,7 +53,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     newConfig: Partial<ListeningOptions>
   ) {
     this.options = { ...this.options, ...newConfig };
-    
+
     if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
       Logger.Info('Restarting server with new address configuration...');
       this.Stop(() => {
@@ -82,10 +82,13 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     });
   }
 
-  Stop(callback?: () => void) {
+  Stop(callback?: () => void): void {
     this.server.close((err?: Error) => {
+      if (err) {
+        Logger.Error(err);
+        return;
+      }
       if (callback) callback();
-      if (err) Logger.Error(err);
     });
   }
 }

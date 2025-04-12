@@ -62,7 +62,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     CreateTerminus(this);
   }
 
-  protected applyConfigChanges(
+  protected async applyConfigChanges(
     changedKeys: (keyof ListeningOptions)[],
     newConfig: Partial<ListeningOptions>
   ) {
@@ -70,9 +70,10 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     
     if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
       Logger.Info('Restarting server with new address configuration...');
-      this.Stop(() => {
-        this.Start(this.listenCallback);
-      });
+      await this.Stop();
+      // 添加微延迟确保服务完全关闭
+      await new Promise(resolve => setTimeout(resolve, 100));
+      this.Start(this.listenCallback);
     }
   }
 
@@ -103,10 +104,14 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    * Stop Server
    *
    */
-  Stop(callback?: () => void) {
+  Stop(callback?: (err?: Error) => void) {
     this.server.tryShutdown((err?: Error) => {
+      if (err) {
+        Logger.Error('Graceful shutdown failed, forcing shutdown:', err);
+        this.server.forceShutdown();
+        return;
+      }
       if (callback) callback();
-      if (err) Logger.Error(err);
     });
   }
 

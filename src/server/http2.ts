@@ -72,10 +72,13 @@ export class Http2Server extends BaseServer<ListeningOptions> {
    * Stop Server
    *
    */
-  Stop(callback?: () => void) {
+  Stop(callback?: () => void): void {
     this.server.close((err?: Error) => {
+      if (err) {
+        Logger.Error(err);
+        return;
+      }
       if (callback) callback();
-      if (err) Logger.Error(err);
     });
   }
 }
