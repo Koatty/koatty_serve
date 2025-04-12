@@ -1,6 +1,6 @@
 {
   "name": "koatty_serve",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Provide http1/2, websocket, gRPC server for Koatty.",
   "scripts": {
     "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
@@ -81,9 +81,7 @@
     "jest-html-reporters": "^3.x.x",
     "reflect-metadata": "^0.x.x",
     "rollup": "^4.x.x",
-    "rollup-plugin-cleanup": "^3.x.x",
     "rollup-plugin-delete": "^2.x.x",
-    "rollup-plugin-terser": "^7.x.x",
     "rollup-plugin-typescript2": "^0.x.x",
     "standard-version": "^9.x.x",
     "supertest": "^7.1.0",
@@ -93,9 +91,9 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.13.2",
+    "@grpc/grpc-js": "^1.13.3",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.15.0",
+    "koatty_core": "^1.x.x",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
