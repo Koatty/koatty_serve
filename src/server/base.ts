@@ -20,7 +20,6 @@ export interface ListeningOptions {
   hostname: string;
   port: number;
   protocol: KoattyProtocol;
-  trace?: boolean; // Full stack debug & trace, default: false
   ext?: Record<string, any>; // Other extended configuration
 }
 
