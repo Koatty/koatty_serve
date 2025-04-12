@@ -19,7 +19,7 @@ import { ListeningOptions } from "./server/base";
 // export
 export * from "./utils/terminus";
 
-
+const secureProtocols = new Set(["https", "http2", "wss"]);
 /**
  * Create Server
  *
@@ -39,18 +39,17 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
     port: process.env.PORT || process.env.APP_PORT || 3000,
     protocol: 'http',
     ext: {
-      key: "",
-      cert: "",
+      key_file: "",
+      crt_file: "",
       protoFile: "",
       server: null, // used by websocket
     },
     ...opt
   };
 
-  const secureProtocols = new Set(["https", "http2", "wss"]);
   if (secureProtocols.has(options.protocol)) {
-    const keyFile = app.config("key_file") ?? "";
-    const crtFile = app.config("crt_file") ?? "";
+    const keyFile = options.ext.key_file ?? "";
+    const crtFile = options.ext.crt_file ?? "";
     options.ext.key = fs.readFileSync(keyFile, 'utf-8');
     options.ext.cert = fs.readFileSync(crtFile, 'utf-8');
   }
