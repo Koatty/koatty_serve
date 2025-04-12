@@ -39,8 +39,8 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
     port: process.env.PORT || process.env.APP_PORT || 3000,
     protocol: 'http',
     ext: {
-      key_file: "",
-      crt_file: "",
+      keyFile: "",
+      crtFile: "",
       protoFile: "",
       server: null, // used by websocket
     },
@@ -48,10 +48,8 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
   };
 
   if (secureProtocols.has(options.protocol)) {
-    const keyFile = options.ext.key_file ?? "";
-    const crtFile = options.ext.crt_file ?? "";
-    options.ext.key = fs.readFileSync(keyFile, 'utf-8');
-    options.ext.cert = fs.readFileSync(crtFile, 'utf-8');
+    options.ext.key = fs.readFileSync(options.ext.keyFile, 'utf-8');
+    options.ext.cert = fs.readFileSync(options.ext.crtFile, 'utf-8');
   }
   if (["https", "http2"].includes(options.protocol) && options.port === 80) {
     options.port = 443;
