@@ -6,7 +6,7 @@
  * @LastEditTime: 2024-11-27 17:44:37
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { KoattyApplication } from "koatty_core";
+import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer } from "./base";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { ListeningOptions } from "./base";
@@ -80,5 +80,21 @@ export class Http2Server extends BaseServer<ListeningOptions> {
       }
       if (callback) callback();
     });
+  }
+
+  /**
+   * Get status
+   * @returns 
+   */
+  getStatus(): number {
+    return this.status;
+  }
+
+  /**
+   * Get native server
+   * @returns 
+   */
+  getNativeServer(): NativeServer {
+    return this.server;
   }
 }

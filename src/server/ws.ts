@@ -91,4 +91,20 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       if (callback) callback();
     });
   }
+
+  /**
+   * Get status
+   * @returns 
+   */
+  getStatus(): number {
+    return this.status;
+  }
+
+  /**
+   * Get native server
+   * @returns 
+   */
+  getNativeServer(): NativeServer {
+    return this.server;
+  }
 }

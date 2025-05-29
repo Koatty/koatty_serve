@@ -6,8 +6,9 @@
  * @License: BSD (3-Clause)
  */
 
-import { KoattyApplication, KoattyServer } from "koatty_core";
+import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
+import { deepEqual } from "../utils/helper";
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
@@ -63,8 +64,7 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions> 
     const changes: (keyof ListeningOptions)[] = [];
     for (const key in newConfig) {
       const typedKey = key as keyof ListeningOptions;
-      if (JSON.stringify(this.options[typedKey]) !== 
-          JSON.stringify(newConfig[typedKey])) {
+      if (!deepEqual(this.options[typedKey], newConfig[typedKey])) {
         changes.push(typedKey);
       }
     }
@@ -79,4 +79,7 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions> 
   // Implement KoattyServer interface
   abstract Start(listenCallback?: () => void): any;
   abstract Stop(callback?: () => void): void;
+
+  abstract getStatus(): number;
+  abstract getNativeServer(): NativeServer;
 }

@@ -9,7 +9,7 @@ import {
   ChannelOptions, Server, ServerCredentials,
   ServiceDefinition, UntypedHandleCall
 } from "@grpc/grpc-js";
-import { KoattyApplication } from "koatty_core";
+import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ListeningOptions } from "./base";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { CreateTerminus } from "../utils/terminus";
@@ -123,5 +123,21 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   RegisterService(impl: ServiceImplementation) {
     this.server.addService(impl.service, impl.implementation);
+  }
+
+  /**
+   * Get status
+   * @returns 
+   */
+  getStatus(): number {
+    return this.status;
+  }
+
+  /**
+   * Get native server
+   * @returns 
+   */
+  getNativeServer(): NativeServer {
+    return this.server;
   }
 }

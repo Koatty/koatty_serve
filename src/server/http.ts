@@ -6,7 +6,7 @@
  * @LastEditTime: 2024-11-27 17:47:17
  */
 import { createServer, Server } from "http";
-import { KoattyApplication } from "koatty_core";
+import { KoattyApplication, NativeServer } from "koatty_core";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ListeningOptions } from "./base";
@@ -72,5 +72,22 @@ export class HttpServer extends BaseServer<ListeningOptions> {
       }
       if (callback) callback();
     });
+  }
+
+
+  /**
+   * Get status
+   * @returns 
+   */
+  getStatus(): number {
+    return this.status;
+  }
+
+  /**
+   * Get native server
+   * @returns 
+   */
+  getNativeServer(): NativeServer {
+    return this.server;
   }
 }
