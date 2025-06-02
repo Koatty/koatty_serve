@@ -10,7 +10,7 @@
 
 import fs from "fs";
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
-import { DefaultLogger as Logger } from "koatty_logger";
+import { createLogger, generateTraceId } from "../utils/structured-logger";
 import { GrpcServer } from "./grpc";
 import { HttpServer as KoattyHttpServer } from "./http";
 import { Http2Server } from "./http2";
@@ -51,6 +51,7 @@ interface SingleServerOptions {
 export class MultiProtocolServer implements KoattyServer {
   private app: KoattyApplication;
   private servers: Map<string, KoattyServer> = new Map(); // Use any to avoid type conflicts
+  private logger = createLogger({ module: 'multiprotocol' });
   
   readonly protocol: string = 'http';
   readonly options: ListeningOptions;
@@ -65,6 +66,12 @@ export class MultiProtocolServer implements KoattyServer {
       ...opt
     };
 
+    this.logger.info('Multi-protocol server initialized', {}, {
+      protocols: Array.isArray(this.options.protocol) ? this.options.protocol : [this.options.protocol],
+      hostname: this.options.hostname,
+      basePort: this.options.port
+    });
+
     CreateTerminus(this);
   }
 
@@ -72,20 +79,31 @@ export class MultiProtocolServer implements KoattyServer {
    * Start all servers
    */
   Start(listenCallback?: () => void): any {
+    const traceId = generateTraceId();
     this.listenCallback = listenCallback;
     
     try {
+      this.logger.logServerEvent('starting', { traceId }, {
+        protocols: Array.isArray(this.options.protocol) ? this.options.protocol : [this.options.protocol],
+        hostname: this.options.hostname,
+        basePort: this.options.port
+      });
+
       // Create and start protocol servers
-      this.createProtocolServers();
+      this.createProtocolServers(traceId);
       
-      Logger.Info(`Multi-protocol server started with ${this.servers.size} services`);
+      this.logger.logServerEvent('started', { traceId }, {
+        totalServers: this.servers.size,
+        servers: Array.from(this.servers.keys())
+      });
+
       if (this.listenCallback) {
         this.listenCallback();
       }
       
       return this;
     } catch (error) {
-      Logger.Error('Failed to start multi-protocol server:', error);
+      this.logger.logServerEvent('error', { traceId }, error);
       throw error;
     }
   }
@@ -94,6 +112,11 @@ export class MultiProtocolServer implements KoattyServer {
    * Stop all servers
    */
   Stop(callback?: () => void): void {
+    const traceId = generateTraceId();
+    this.logger.logServerEvent('stopping', { traceId }, {
+      totalServers: this.servers.size
+    });
+
     const stopPromises: Promise<void>[] = [];
     
     // Stop all protocol servers
@@ -101,10 +124,11 @@ export class MultiProtocolServer implements KoattyServer {
       stopPromises.push(new Promise<void>((resolve) => {
         if (server && typeof server.Stop === 'function') {
           server.Stop(() => {
-            Logger.Info(`Stopped server: ${key}`);
+            this.logger.debug('Individual server stopped', { traceId }, { serverKey: key });
             resolve();
           });
         } else {
+          this.logger.warn('Server has no Stop method', { traceId }, { serverKey: key });
           resolve();
         }
       }));
@@ -112,10 +136,10 @@ export class MultiProtocolServer implements KoattyServer {
     
     Promise.all(stopPromises).then(() => {
       this.servers.clear();
-      Logger.Info('All servers stopped');
+      this.logger.logServerEvent('stopped', { traceId });
       if (callback) callback();
     }).catch((error) => {
-      Logger.Error('Error stopping servers:', error);
+      this.logger.logServerEvent('error', { traceId }, error);
       if (callback) callback();
     });
   }
@@ -135,13 +159,22 @@ export class MultiProtocolServer implements KoattyServer {
    * @returns 
    */
   getStatus(protocolType?: KoattyProtocol, port?: number): number {
-    if (protocolType === undefined) {
-      protocolType = this.options.protocol[0] as KoattyProtocol;
+    // Safer type handling without unsafe type assertions
+    let targetProtocol: KoattyProtocol;
+    
+    if (protocolType) {
+      targetProtocol = protocolType;
+    } else {
+      const protocols = Array.isArray(this.options.protocol) 
+        ? this.options.protocol 
+        : [this.options.protocol];
+      targetProtocol = protocols[0];
     }
-    if (port === undefined) {
-      port = this.options.port;
-    }
-    return this.getServer(protocolType, port).getStatus() ?? 0;
+    
+    const targetPort = port ?? this.options.port;
+    const server = this.getServer(targetProtocol, targetPort);
+    
+    return server?.getStatus?.() ?? 0;
   }
 
   /**
@@ -151,26 +184,29 @@ export class MultiProtocolServer implements KoattyServer {
    * @returns 
    */
   getNativeServer(protocolType?: KoattyProtocol, port?: number): NativeServer {
-    if (protocolType === undefined) {
-      protocolType = this.options.protocol[0] as KoattyProtocol;
+    // Safer type handling without unsafe type assertions
+    let targetProtocol: KoattyProtocol;
+    
+    if (protocolType) {
+      targetProtocol = protocolType;
+    } else {
+      const protocols = Array.isArray(this.options.protocol) 
+        ? this.options.protocol 
+        : [this.options.protocol];
+      targetProtocol = protocols[0];
     }
-    if (port === undefined) {
-      port = this.options.port;
-    }
-    return this.getServer(protocolType, port).getNativeServer();
+    
+    const targetPort = port ?? this.options.port;
+    const server = this.getServer(targetProtocol, targetPort);
+    
+    return server?.getNativeServer?.();
   }
 
 
   /**
    * Get server by protocol and port
    */
-  getServer(protocolType: KoattyProtocol, port: number): KoattyServer {
-    if (protocolType === undefined) {
-      protocolType = this.options.protocol[0] as KoattyProtocol;
-    }
-    if (port === undefined) {
-      port = this.options.port;
-    }
+  getServer(protocolType: KoattyProtocol, port: number): KoattyServer | undefined {
     return this.servers.get(`${protocolType}:${port}`);
   }
 
@@ -184,7 +220,7 @@ export class MultiProtocolServer implements KoattyServer {
   /**
    * Create protocol servers based on configuration
    */
-  private createProtocolServers(): void {
+  private createProtocolServers(traceId?: string): void {
     const protocols = Array.isArray(this.options.protocol) 
       ? this.options.protocol 
       : [this.options.protocol];
@@ -203,31 +239,130 @@ export class MultiProtocolServer implements KoattyServer {
         }
       };
 
-      // Handle secure protocols
-      const secureProtocols = new Set(["https", "http2", "wss"]);
-      if (secureProtocols.has(protocolType)) {
-        const keyFile = this.app.config("key_file") ?? "";
-        const crtFile = this.app.config("crt_file") ?? "";
-        options.ext.key = fs.readFileSync(keyFile, 'utf-8');
-        options.ext.cert = fs.readFileSync(crtFile, 'utf-8');
+      try {
+        this.logger.info('Creating individual server', { 
+          traceId, 
+          protocol: protocolType, 
+          port: port 
+        });
+
+        // Handle secure protocols with error handling
+        const secureProtocols = new Set(["https", "http2", "wss"]);
+        if (secureProtocols.has(protocolType)) {
+          this.configureSSLForProtocol(protocolType, options, traceId);
+        }
+
+        if (["https", "http2"].includes(protocolType) && port === 80) {
+          options.port = 443;
+        }
+
+        if (protocolType === "grpc") {
+          options.ext.protoFile = this.app.config("protoFile", "router");
+        }
+
+        // Handle WebSocket specific options
+        if (["ws", "wss"].includes(protocolType)) {
+          this.configureWebSocketOptions(options, traceId);
+        }
+
+        const server = this.createServerInstance(protocolType, options);
+        const serverKey = `${protocolType}:${options.port}`;
+        this.servers.set(serverKey, server);
+
+        // Start the server
+        server.Start(() => {
+          this.logger.info('Individual server started successfully', { 
+            traceId, 
+            protocol: protocolType, 
+            port: options.port 
+          });
+        });
+
+      } catch (error) {
+        this.logger.error('Failed to create individual server', { 
+          traceId, 
+          protocol: protocolType, 
+          port: port 
+        }, error);
+        throw error;
       }
+    });
+  }
 
-      if (["https", "http2"].includes(protocolType) && port === 80) {
-        options.port = 443;
+  /**
+   * Configure SSL for secure protocols
+   */
+  private configureSSLForProtocol(protocolType: KoattyProtocol, options: SingleServerOptions, traceId?: string): void {
+    try {
+      const keyFile = this.app.config("key_file") ?? "";
+      const crtFile = this.app.config("crt_file") ?? "";
+      
+      if (!keyFile || !crtFile) {
+        const error = new Error(`SSL certificate files not configured for ${protocolType} protocol`);
+        this.logger.error('SSL configuration missing', { 
+          traceId, 
+          protocol: protocolType 
+        }, error);
+        throw error;
       }
-
-      if (protocolType === "grpc") {
-        options.ext.protoFile = this.app.config("protoFile", "router");
+      
+      // Check if files exist before reading
+      if (!fs.existsSync(keyFile)) {
+        const error = new Error(`SSL key file not found: ${keyFile}`);
+        this.logger.error('SSL key file not found', { 
+          traceId, 
+          protocol: protocolType 
+        }, error);
+        throw error;
       }
-
-      const server = this.createServerInstance(protocolType, options);
-      const serverKey = `${protocolType}:${options.port}`;
-      this.servers.set(serverKey, server);
-
-      // Start the server
-      server.Start(() => {
-        Logger.Info(`Server ${serverKey} started successfully`);
+      
+      if (!fs.existsSync(crtFile)) {
+        const error = new Error(`SSL certificate file not found: ${crtFile}`);
+        this.logger.error('SSL certificate file not found', { 
+          traceId, 
+          protocol: protocolType 
+        }, error);
+        throw error;
+      }
+      
+      options.ext.key = fs.readFileSync(keyFile, 'utf-8');
+      options.ext.cert = fs.readFileSync(crtFile, 'utf-8');
+      
+      this.logger.info('SSL certificates loaded successfully', { 
+        traceId, 
+        protocol: protocolType 
+      }, { 
+        keyFile, 
+        crtFile 
       });
+    } catch (error) {
+      this.logger.error('Failed to load SSL certificates', { 
+        traceId, 
+        protocol: protocolType 
+      }, error);
+      throw error; // Re-throw to prevent server startup with invalid SSL config
+    }
+  }
+
+  /**
+   * Configure WebSocket specific options
+   */
+  private configureWebSocketOptions(options: SingleServerOptions, traceId?: string): void {
+    const maxConnections = this.app.config("maxConnections", "websocket") || 1000;
+    const connectionTimeout = this.app.config("connectionTimeout", "websocket") || 30000;
+    
+    options.ext = {
+      ...options.ext,
+      maxConnections,
+      connectionTimeout
+    };
+    
+    this.logger.info('WebSocket server configured', { 
+      traceId, 
+      protocol: options.protocol 
+    }, {
+      maxConnections,
+      connectionTimeout: `${connectionTimeout}ms`
     });
   }
 
@@ -259,9 +394,16 @@ export class MultiProtocolServer implements KoattyServer {
  * @returns {*}  {KoattyServer}
  */
 export function NewServe(app: KoattyApplication, opt?: ListeningOptions): KoattyServer {
+  // Safe port parsing with validation
+  const parsePort = (envPort: string | undefined): number => {
+    if (!envPort) return 3000;
+    const parsed = parseInt(envPort, 10);
+    return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : 3000;
+  };
+
   const options: ListeningOptions = {
     hostname: process.env.IP || '127.0.0.1',
-    port: parseInt(process.env.PORT || process.env.APP_PORT || '3000'),
+    port: parsePort(process.env.PORT || process.env.APP_PORT),
     protocol: 'http',
     ext: {
       key: "",

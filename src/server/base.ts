@@ -7,7 +7,7 @@
  */
 
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
-import { DefaultLogger as Logger } from "koatty_logger";
+import { createLogger } from "../utils/structured-logger";
 import { deepEqual } from "../utils/helper";
 
 // KoattyProtocol
@@ -34,11 +34,24 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions> 
   status: number;
   listenCallback?: () => void;
   protected configVersion = 0;
+  protected logger = createLogger({ module: 'base' });
 
   constructor(protected app: KoattyApplication, options: T) {
     this.options = { ...options };
     this.protocol = options.protocol;
     this.status = 0;
+    
+    // Set logger context
+    this.logger = createLogger({ 
+      module: 'base', 
+      protocol: options.protocol 
+    });
+
+    this.logger.debug('Base server constructed', {}, {
+      protocol: options.protocol,
+      hostname: options.hostname,
+      port: options.port
+    });
   }
 
   /**
@@ -48,14 +61,27 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions> 
    */
   updateConfig(newConfig: Partial<ListeningOptions>): boolean {
     const changes = this.diffConfig(newConfig);
-    if (changes.length === 0) return false;
+    if (changes.length === 0) {
+      this.logger.debug('No configuration changes detected');
+      return false;
+    }
 
     try {
+      this.logger.info('Applying configuration changes', {}, {
+        changes,
+        newConfig: newConfig
+      });
+      
       this.applyConfigChanges(changes, newConfig);
       this.configVersion++;
+      
+      this.logger.info('Configuration updated successfully', {}, {
+        configVersion: this.configVersion
+      });
+      
       return true;
     } catch (err) {
-      Logger.Error('Config update failed:', err);
+      this.logger.error('Config update failed', {}, err);
       return false;
     }
   }
