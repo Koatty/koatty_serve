@@ -3,14 +3,17 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:48:01
- * @LastEditTime: 2024-11-27 17:45:01
+ * @LastEditTime: 2024-11-27 21:10:00
  */
 import { createServer, Server, ServerOptions } from "https";
 import { readFileSync } from "fs";
+import { TLSSocket } from "tls";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
-import { createLogger, generateTraceId } from "../utils/structured-logger";
+import { createLogger, generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { HttpsConnectionPoolManager } from "./pools/https";
+import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
 
 /**
  * SSL/TLS Configuration with enhanced security modes
@@ -55,14 +58,8 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   readonly server: Server;
   protected logger = createLogger({ module: 'https', protocol: 'https' });
   private serverId = `https_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  private connections = new Set<any>();
-  private connectionStats: ConnectionStats = {
-    activeConnections: 0,
-    totalConnections: 0,
-    connectionsPerSecond: 0,
-    averageLatency: 0,
-    errorRate: 0
-  };
+  private connectionPool: HttpsConnectionPoolManager;
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(app: KoattyApplication, options: HttpsServerOptions) {
     super(app, options);
@@ -74,12 +71,16 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       serverId: this.serverId
     });
 
-    this.logger.info('Initializing HTTPS server', {}, {
+    this.logger.info('Initializing HTTPS server with connection pool', {}, {
       hostname: options.hostname,
       port: options.port,
       protocol: options.protocol,
-      sslMode: options.ssl?.mode || 'auto'
+      sslMode: options.ssl?.mode || 'auto',
+      maxConnections: options.connectionPool?.maxConnections
     });
+
+    // 初始化连接池
+    this.initializeConnectionPool();
 
     // Create SSL options with enhanced configuration
     const sslOptions = this.createSSLOptions();
@@ -96,41 +97,23 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       });
     });
 
-    // Enhanced connection tracking with error monitoring
-    this.server.on('connection', (socket) => {
-      this.connections.add(socket);
-      this.connectionStats.activeConnections++;
-      this.connectionStats.totalConnections++;
-      
-      socket.on('close', () => {
-        this.connections.delete(socket);
-        this.connectionStats.activeConnections--;
+    // Enhanced connection tracking with connection pool management
+    this.server.on('secureConnection', (tlsSocket: TLSSocket) => {
+      // 使用连接池管理连接
+      this.connectionPool.addConnection(tlsSocket, {
+        remoteAddress: tlsSocket.remoteAddress,
+        userAgent: 'https-client',
+        serverName: (tlsSocket as any).servername
+      }).catch(error => {
+        this.logger.error('Failed to add HTTPS connection to pool', {}, error);
+        tlsSocket.destroy();
       });
 
-      socket.on('error', (error: Error) => {
-        this.logger.error('HTTPS connection error', {}, {
-          error: error.message,
-          remoteAddress: (socket as any).remoteAddress
-        });
-        this.connectionStats.errorRate += 0.01; // Increment error rate
+      // 更新连接活动时间
+      tlsSocket.on('data', () => {
+        this.connectionPool.updateConnectionActivity(tlsSocket);
       });
-    });
 
-    // Configure connection pool settings
-    if (options.connectionPool) {
-      if (options.connectionPool.keepAliveTimeout) {
-        this.server.keepAliveTimeout = options.connectionPool.keepAliveTimeout;
-      }
-      if (options.connectionPool.headersTimeout) {
-        this.server.headersTimeout = options.connectionPool.headersTimeout;
-      }
-      if (options.connectionPool.requestTimeout) {
-        this.server.requestTimeout = options.connectionPool.requestTimeout;
-      }
-    }
-
-    // SSL/TLS event monitoring
-    this.server.on('secureConnection', (tlsSocket) => {
       this.logger.debug('Secure connection established', {}, {
         authorized: tlsSocket.authorized,
         protocol: tlsSocket.getProtocol(),
@@ -145,9 +128,115 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         remoteAddress: tlsSocket?.remoteAddress
       });
     });
+
+    // Configure connection pool settings
+    this.configureConnectionPool();
+    
+    // 设置连接池事件监听
+    this.setupConnectionPoolEventListeners();
+    
+    // 设置定期清理
+    this.setupPeriodicCleanup();
     
     this.logger.debug('HTTPS server initialized successfully');
     CreateTerminus(this);
+  }
+
+  /**
+   * 初始化连接池
+   */
+  private initializeConnectionPool(): void {
+    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
+    this.connectionPool = new HttpsConnectionPoolManager(poolConfig);
+  }
+
+  /**
+   * 提取连接池配置
+   */
+  private extractConnectionPoolConfig(): ConnectionPoolConfig {
+    const options = this.options.connectionPool;
+    return {
+      maxConnections: options?.maxConnections,
+      connectionTimeout: 30000, // 30秒连接超时
+      keepAliveTimeout: options?.keepAliveTimeout,
+      requestTimeout: options?.requestTimeout,
+      headersTimeout: options?.headersTimeout
+    };
+  }
+
+  /**
+   * 设置连接池事件监听
+   */
+  private setupConnectionPoolEventListeners(): void {
+    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
+      this.logger.warn('HTTPS connection pool limit reached', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
+      this.logger.info('HTTPS connection pool health status changed', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
+      this.logger.warn('HTTPS connection pool error', {}, {
+        error: data.error?.message,
+        remoteAddress: data.socket?.remoteAddress
+      });
+    });
+  }
+
+  /**
+   * 设置定期清理
+   */
+  private setupPeriodicCleanup(): void {
+    this.cleanupInterval = setInterval(() => {
+      const cleaned = this.connectionPool.cleanupStaleConnections();
+      if (cleaned > 0) {
+        this.logger.debug('Cleaned up stale HTTPS connections', {}, { count: cleaned });
+      }
+    }, 30000); // 每30秒清理一次
+  }
+
+  /**
+   * Configure connection pool settings
+   */
+  private configureConnectionPool(): void {
+    const poolConfig = this.options.connectionPool;
+    
+    if (!poolConfig) {
+      this.logger.debug('No connection pool configuration provided, using defaults');
+      return;
+    }
+
+    // Apply keep-alive timeout
+    if (poolConfig.keepAliveTimeout !== undefined) {
+      this.server.keepAliveTimeout = poolConfig.keepAliveTimeout;
+      this.logger.debug('Set keep-alive timeout', {}, {
+        keepAliveTimeout: poolConfig.keepAliveTimeout
+      });
+    }
+
+    // Apply headers timeout
+    if (poolConfig.headersTimeout !== undefined) {
+      this.server.headersTimeout = poolConfig.headersTimeout;
+      this.logger.debug('Set headers timeout', {}, {
+        headersTimeout: poolConfig.headersTimeout
+      });
+    }
+
+    // Apply request timeout
+    if (poolConfig.requestTimeout !== undefined) {
+      this.server.requestTimeout = poolConfig.requestTimeout;
+      this.logger.debug('Set request timeout', {}, {
+        requestTimeout: poolConfig.requestTimeout
+      });
+    }
+
+    this.logger.info('HTTPS connection pool configured successfully', {}, {
+      maxConnections: poolConfig.maxConnections || 'unlimited',
+      keepAliveTimeout: poolConfig.keepAliveTimeout || this.server.keepAliveTimeout,
+      headersTimeout: poolConfig.headersTimeout || this.server.headersTimeout,
+      requestTimeout: poolConfig.requestTimeout || this.server.requestTimeout
+    });
   }
 
   /**
@@ -424,18 +513,18 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
     this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connections.size,
+      activeConnections: this.connectionPool.getActiveConnectionCount(),
       timeout: timeout
     });
 
     const startTime = Date.now();
     
-    while (this.connections.size > 0) {
+    while (this.connectionPool.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
         this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connections.size,
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
         break;
@@ -444,7 +533,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       // Log progress every 5 seconds
       if (elapsed % 5000 < 100) {
         this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connections.size,
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
       }
@@ -453,28 +542,20 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     }
     
     this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connections.size
+      remainingConnections: this.connectionPool.getActiveConnectionCount()
     });
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connections.size;
+    const remainingConnections = this.connectionPool.getActiveConnectionCount();
     
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
         remainingConnections
       });
       
-      // Force close all remaining connections
-      for (const connection of this.connections) {
-        try {
-          connection.destroy();
-        } catch (error) {
-          this.logger.warn('Failed to destroy connection', { traceId }, error);
-        }
-      }
-      
-      this.connections.clear();
+      // Use connection pool to close all connections
+      await this.connectionPool.closeAllConnections(5000);
       
       this.logger.warn('Forced closure of remaining connections', { traceId }, {
         forcedConnections: remainingConnections
@@ -487,8 +568,15 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   protected stopMonitoringAndCleanup(traceId: string): void {
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
     
+    // Stop cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    
     // Log final connection statistics
-    this.logger.info('Final connection statistics', { traceId }, this.connectionStats);
+    const finalStats = this.connectionPool.getMetrics();
+    this.logger.info('Final connection statistics', { traceId }, finalStats);
     
     this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
   }
@@ -499,21 +587,14 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     // Force close server
     this.server.close();
     
-    // Force close all connections
-    for (const connection of this.connections) {
-      try {
-        connection.destroy();
-      } catch (error) {
-        this.logger.warn('Failed to destroy connection during force shutdown', { traceId }, error);
-      }
-    }
-    this.connections.clear();
+    // Force close all connections via connection pool
+    this.connectionPool.closeAllConnections(1000);
     
     this.stopMonitoringAndCleanup(traceId);
   }
 
   protected getActiveConnectionCount(): number {
-    return this.connections.size;
+    return this.connectionPool.getActiveConnectionCount();
   }
 
   // ============= HTTPS 特有的辅助方法 =============
@@ -596,24 +677,35 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     };
 
     // Connection pool health check
-    const connectionPool = this.options.connectionPool;
-    if (connectionPool) {
-      checks.connectionPool = {
-        status: HealthStatus.HEALTHY,
-        message: 'Connection pool configured',
-        details: {
-          keepAliveTimeout: this.server.keepAliveTimeout,
-          headersTimeout: this.server.headersTimeout,
-          requestTimeout: this.server.requestTimeout,
-          activeConnections: this.connections.size
-        }
-      };
-    }
+    const poolHealth = this.connectionPool.getHealth();
+    checks.connectionPool = {
+      status: poolHealth.status === 'healthy' 
+        ? HealthStatus.HEALTHY 
+        : poolHealth.status === 'degraded' 
+          ? HealthStatus.DEGRADED 
+          : HealthStatus.UNHEALTHY,
+      message: poolHealth.message,
+      details: poolHealth
+    };
+
+    // SSL security metrics
+    const securityMetrics = this.connectionPool.getSecurityMetrics();
+    checks.security = {
+      status: securityMetrics.unauthorizedConnections > 0 
+        ? HealthStatus.DEGRADED 
+        : HealthStatus.HEALTHY,
+      message: `${securityMetrics.authorizedConnections}/${securityMetrics.totalConnections} authorized connections`,
+      details: securityMetrics
+    };
     
     return checks;
   }
 
   protected collectProtocolMetrics(): Record<string, any> {
+    const poolMetrics = this.connectionPool.getMetrics();
+    const securityMetrics = this.connectionPool.getSecurityMetrics();
+    const poolConfig = this.options.connectionPool;
+    
     return {
       protocol: 'https',
       server: {
@@ -621,33 +713,36 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         address: this.server.address(),
         keepAliveTimeout: this.server.keepAliveTimeout,
         headersTimeout: this.server.headersTimeout,
-        requestTimeout: this.server.requestTimeout
+        requestTimeout: this.server.requestTimeout,
+        serverId: this.serverId
       },
       ssl: {
         mode: this.options.ssl?.mode || 'auto',
         keyConfigured: !!(this.options.ssl?.key || this.options.ext?.key),
         certConfigured: !!(this.options.ssl?.cert || this.options.ext?.cert),
         caConfigured: !!(this.options.ssl?.ca || this.options.ext?.ca),
-        mutualTLS: this.options.ssl?.mode === 'mutual_tls',
-        ciphers: this.options.ssl?.ciphers,
-        secureProtocol: this.options.ssl?.secureProtocol
+        mutualTLS: this.options.ssl?.mode === 'mutual_tls'
       },
-      connectionPool: this.options.connectionPool || {}
+      connectionPool: {
+        enabled: !!poolConfig,
+        ...poolMetrics,
+        configuration: poolConfig,
+        security: securityMetrics
+      }
     };
   }
 
   // ============= 原有的 HTTPS 功能方法 =============
 
   /**
-   * Start Server with enhanced SSL configuration
+   * Start Server
    */
   Start(listenCallback?: () => void): Server {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
-      protocol: this.options.protocol,
-      sslMode: this.options.ssl?.mode || 'auto'
+      protocol: this.options.protocol
     });
 
     listenCallback = listenCallback ? listenCallback : this.listenCallback;
@@ -660,8 +755,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         address: this.server.address(),
         hostname: this.options.hostname,
         port: this.options.port,
-        protocol: this.options.protocol,
-        sslMode: this.options.ssl?.mode || 'auto'
+        protocol: this.options.protocol
       });
       
       // Start monitoring after server is successfully started
@@ -687,7 +781,35 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    * Get connection statistics
    */
   getConnectionStats(): ConnectionStats {
-    return { ...this.connectionStats };
+    const poolMetrics = this.connectionPool.getMetrics();
+    return {
+      activeConnections: poolMetrics.activeConnections,
+      totalConnections: poolMetrics.totalConnections,
+      connectionsPerSecond: poolMetrics.connectionsPerSecond,
+      averageLatency: poolMetrics.averageLatency,
+      errorRate: poolMetrics.errorRate
+    };
+  }
+
+  /**
+   * Get connection pool health
+   */
+  getConnectionPoolHealth() {
+    return this.connectionPool.getHealth();
+  }
+
+  /**
+   * Get connection pool metrics
+   */
+  getConnectionPoolMetrics() {
+    return this.connectionPool.getMetrics();
+  }
+
+  /**
+   * Get SSL security metrics
+   */
+  getSecurityMetrics() {
+    return this.connectionPool.getSecurityMetrics();
   }
 
   /**

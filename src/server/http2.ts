@@ -9,7 +9,7 @@ import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http
 import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
-import { createLogger, generateTraceId } from "../utils/structured-logger";
+import { createLogger, generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 
 /**

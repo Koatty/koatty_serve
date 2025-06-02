@@ -10,7 +10,7 @@
 
 import fs from "fs";
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
-import { createLogger, generateTraceId } from "../utils/structured-logger";
+import { createLogger, generateTraceId } from "../utils/logger";
 import { GrpcServer } from "./grpc";
 import { HttpServer as KoattyHttpServer } from "./http";
 import { Http2Server } from "./http2";

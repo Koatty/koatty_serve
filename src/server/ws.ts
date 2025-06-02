@@ -3,250 +3,34 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2025-04-08 10:48:00
+ * @LastEditTime: 2024-11-27 21:20:00
  */
 import { Server as HttpServer, IncomingMessage, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { KoattyApplication, NativeServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
 import { CreateTerminus } from "../utils/terminus";
-import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats } from "./base";
-import { createLogger, generateConnectionId, generateTraceId, LogContext } from "../utils/structured-logger";
+import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
+import { createLogger, generateTraceId } from "../utils/logger";
+import { WebSocketConnectionPoolManager } from "./pools/ws";
+import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
 
 export interface WebSocketServerOptions extends ListeningOptions {
   wsOptions?: ServerOptions;
   maxConnections?: number; // 最大连接数限制
   connectionTimeout?: number; // 连接超时时间(ms)
-}
-
-/**
- * WebSocket connection manager with structured logging
- */
-class ConnectionManager {
-  private connections = new Set<WebSocket>();
-  private connectionData = new WeakMap<WebSocket, { 
-    connectTime: number; 
-    lastActivity: number;
-    connectionId: string;
-    traceId: string;
-  }>();
-  private logger = createLogger({ module: 'websocket', action: 'connection_manager' });
-  private stats: ConnectionStats = {
-    activeConnections: 0,
-    totalConnections: 0,
-    connectionsPerSecond: 0,
-    averageLatency: 0,
-    errorRate: 0
+  connectionPool?: {
+    maxConnections?: number;
+    pingInterval?: number;
+    pongTimeout?: number;
+    heartbeatInterval?: number;
   };
-  private startTime = Date.now();
-  
-  constructor(
-    private maxConnections: number = 1000,
-    private connectionTimeout: number = 30000 // 30秒超时
-  ) {
-    this.logger.info('Connection manager initialized', {}, {
-      maxConnections: this.maxConnections,
-      connectionTimeout: this.connectionTimeout
-    });
-  }
-
-  /**
-   * Add new connection
-   */
-  addConnection(ws: WebSocket): boolean {
-    if (this.connections.size >= this.maxConnections) {
-      this.logger.logSecurityEvent('rate_limit', {}, {
-        reason: 'max_connections_reached',
-        current: this.connections.size,
-        limit: this.maxConnections
-      });
-      return false;
-    }
-
-    const connectionId = generateConnectionId();
-    const traceId = generateTraceId();
-    
-    this.connections.add(ws);
-    this.connectionData.set(ws, {
-      connectTime: Date.now(),
-      lastActivity: Date.now(),
-      connectionId,
-      traceId
-    });
-
-    this.stats.activeConnections++;
-    this.stats.totalConnections++;
-
-    this.logger.logConnectionEvent('connected', { connectionId, traceId }, {
-      totalConnections: this.connections.size,
-      maxConnections: this.maxConnections
-    });
-    
-    return true;
-  }
-
-  /**
-   * Remove connection
-   */
-  removeConnection(ws: WebSocket): void {
-    const data = this.connectionData.get(ws);
-    
-    if (this.connections.has(ws)) {
-      this.connections.delete(ws);
-      this.connectionData.delete(ws);
-      this.stats.activeConnections--;
-      
-      if (data) {
-        const duration = Date.now() - data.connectTime;
-        this.logger.logConnectionEvent('disconnected', {
-          connectionId: data.connectionId,
-          traceId: data.traceId
-        }, {
-          duration: `${duration}ms`,
-          totalConnections: this.connections.size,
-          maxConnections: this.maxConnections
-        });
-      }
-    }
-  }
-
-  /**
-   * Update connection activity
-   */
-  updateActivity(ws: WebSocket): void {
-    const data = this.connectionData.get(ws);
-    if (data) {
-      data.lastActivity = Date.now();
-    }
-  }
-
-  /**
-   * Get connection context for logging
-   */
-  getConnectionContext(ws: WebSocket): LogContext {
-    const data = this.connectionData.get(ws);
-    return data ? {
-      connectionId: data.connectionId,
-      traceId: data.traceId
-    } : {};
-  }
-
-  /**
-   * Get connection count
-   */
-  getConnectionCount(): number {
-    return this.connections.size;
-  }
-
-  /**
-   * Get connection statistics
-   */
-  getStats(): ConnectionStats {
-    const now = Date.now();
-    const timeDiff = (now - this.startTime) / 1000;
-    
-    if (timeDiff > 0) {
-      this.stats.connectionsPerSecond = this.stats.totalConnections / timeDiff;
-    }
-    
-    return { ...this.stats };
-  }
-
-  /**
-   * Close all connections
-   */
-  closeAllConnections(): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.connections.size === 0) {
-        this.logger.info('No connections to close');
-        resolve();
-        return;
-      }
-
-      let closedCount = 0;
-      const totalConnections = this.connections.size;
-
-      this.logger.info('Closing all connections', {}, {
-        totalConnections
-      });
-
-      this.connections.forEach((ws) => {
-        const data = this.connectionData.get(ws);
-        const context = data ? { connectionId: data.connectionId, traceId: data.traceId } : {};
-
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.close(1001, 'Server shutting down');
-          this.logger.debug('Sent close signal to connection', context);
-        }
-        
-        const cleanup = () => {
-          this.removeConnection(ws);
-          closedCount++;
-          if (closedCount >= totalConnections) {
-            this.logger.info('All connections closed successfully');
-            resolve();
-          }
-        };
-
-        // Set timeout in case close event doesn't fire
-        setTimeout(cleanup, 1000);
-        
-        ws.once('close', cleanup);
-      });
-
-      // Fallback timeout
-      setTimeout(() => {
-        if (closedCount < totalConnections) {
-          const forceClosed = totalConnections - closedCount;
-          this.logger.warn('Force closing connections due to timeout', {}, {
-            forceClosed,
-            totalConnections
-          });
-          resolve();
-        }
-      }, 5000);
-    });
-  }
-
-  /**
-   * Clean up stale connections
-   */
-  cleanupStaleConnections(): void {
-    const now = Date.now();
-    const staleConnections: { ws: WebSocket; data: any }[] = [];
-
-    this.connections.forEach((ws) => {
-      const data = this.connectionData.get(ws);
-      if (data && (now - data.lastActivity) > this.connectionTimeout) {
-        staleConnections.push({ ws, data });
-      }
-    });
-
-    if (staleConnections.length > 0) {
-      this.logger.info('Cleaning up stale connections', {}, {
-        staleCount: staleConnections.length,
-        timeout: this.connectionTimeout
-      });
-
-      staleConnections.forEach(({ ws, data }) => {
-        this.logger.logConnectionEvent('timeout', {
-          connectionId: data.connectionId,
-          traceId: data.traceId
-        }, {
-          inactiveTime: now - data.lastActivity
-        });
-        
-        ws.close(1000, 'Connection timeout');
-        this.removeConnection(ws);
-      });
-    }
-  }
 }
 
 export class WsServer extends BaseServer<WebSocketServerOptions> {
   readonly server: WebSocketServer;
   readonly httpServer: HttpServer | HttpsServer;
-  private connectionManager: ConnectionManager;
+  private connectionPool: WebSocketConnectionPoolManager;
   private cleanupInterval?: NodeJS.Timeout;
   private upgradeHandler?: (request: any, socket: any, head: any) => void;
   private clientErrorHandler?: (err: any, sock: any) => void;
@@ -265,19 +49,16 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       serverId: this.serverId
     });
 
-    // Initialize connection manager
-    this.connectionManager = new ConnectionManager(
-      options.maxConnections || 1000,
-      options.connectionTimeout || 30000
-    );
-
-    this.logger.info('Initializing WebSocket server', {}, {
+    this.logger.info('Initializing WebSocket server with connection pool', {}, {
       hostname: options.hostname,
       port: options.port,
       protocol: options.protocol,
-      maxConnections: options.maxConnections || 1000,
+      maxConnections: options.connectionPool?.maxConnections || options.maxConnections || 1000,
       connectionTimeout: options.connectionTimeout || 30000
     });
+
+    // 初始化连接池
+    this.initializeConnectionPool();
 
     if (options.ext.server){
       this.httpServer = options.ext.server;
@@ -303,14 +84,63 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
     this.server = new WebSocketServer(this.options.wsOptions);
 
+    // 设置连接池事件监听
+    this.setupConnectionPoolEventListeners();
+
     // Set up periodic cleanup of stale connections
     this.cleanupInterval = setInterval(() => {
-      this.connectionManager.cleanupStaleConnections();
+      const cleaned = this.connectionPool.cleanupStaleConnections();
+      if (cleaned > 0) {
+        this.logger.debug('Cleaned up stale WebSocket connections', {}, { count: cleaned });
+      }
     }, 10000); // Check every 10 seconds
 
     this.logger.debug('WebSocket server initialized successfully');
 
     CreateTerminus(this);
+  }
+
+  /**
+   * 初始化连接池
+   */
+  private initializeConnectionPool(): void {
+    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
+    this.connectionPool = new WebSocketConnectionPoolManager(poolConfig);
+  }
+
+  /**
+   * 提取连接池配置
+   */
+  private extractConnectionPoolConfig(): ConnectionPoolConfig {
+    const options = this.options.connectionPool;
+    return {
+      maxConnections: options?.maxConnections || this.options.maxConnections,
+      connectionTimeout: this.options.connectionTimeout || 30000,
+      protocolSpecific: {
+        pingInterval: options?.pingInterval,
+        pongTimeout: options?.pongTimeout
+      }
+    };
+  }
+
+  /**
+   * 设置连接池事件监听
+   */
+  private setupConnectionPoolEventListeners(): void {
+    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
+      this.logger.warn('WebSocket connection pool limit reached', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
+      this.logger.info('WebSocket connection pool health status changed', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
+      this.logger.warn('WebSocket connection pool error', {}, {
+        error: data.error?.message,
+        connectionId: data.connectionId
+      });
+    });
   }
 
   // ============= 实现 BaseServer 抽象方法 =============
@@ -380,12 +210,12 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
         newTimeout: newConfig.connectionTimeout
       });
       
-      // Update connection manager limits
+      // Update connection pool limits
       if (newConfig.maxConnections) {
-        (this.connectionManager as any).maxConnections = newConfig.maxConnections;
+        (this.connectionPool as any).maxConnections = newConfig.maxConnections;
       }
       if (newConfig.connectionTimeout) {
-        (this.connectionManager as any).connectionTimeout = newConfig.connectionTimeout;
+        (this.connectionPool as any).connectionTimeout = newConfig.connectionTimeout;
       }
     }
 
@@ -417,18 +247,18 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
     this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connectionManager.getConnectionCount(),
+      activeConnections: this.connectionPool.getActiveConnectionCount(),
       timeout: timeout
     });
 
     const startTime = Date.now();
     
-    while (this.connectionManager.getConnectionCount() > 0) {
+    while (this.connectionPool.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
         this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
         break;
@@ -437,7 +267,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       // Log progress every 5 seconds
       if (elapsed % 5000 < 100) {
         this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
       }
@@ -446,12 +276,12 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     }
     
     this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connectionManager.getConnectionCount()
+      remainingConnections: this.connectionPool.getActiveConnectionCount()
     });
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connectionManager.getConnectionCount();
+    const remainingConnections = this.connectionPool.getActiveConnectionCount();
     
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
@@ -459,7 +289,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       });
       
       // Force close all remaining connections
-      await this.connectionManager.closeAllConnections();
+      await this.connectionPool.closeAllConnections(5000);
       
       this.logger.warn('Forced closure of remaining connections', { traceId }, {
         forcedConnections: remainingConnections
@@ -472,14 +302,14 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   protected stopMonitoringAndCleanup(traceId: string): void {
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
     
-    // Stop cleanup interval
+    // Clear cleanup interval
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = undefined;
     }
     
     // Log final connection statistics
-    const finalStats = this.connectionManager.getStats();
+    const finalStats = this.connectionPool.getMetrics();
     this.logger.info('Final connection statistics', { traceId }, finalStats);
     
     this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
@@ -488,17 +318,17 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force shutdown initiated', { traceId });
     
-    // Force close HTTP server
+    // Force close the HTTP server
     this.httpServer.close();
     
     // Force close all WebSocket connections
-    this.connectionManager.closeAllConnections();
+    this.connectionPool.closeAllConnections(1000);
     
     this.stopMonitoringAndCleanup(traceId);
   }
 
   protected getActiveConnectionCount(): number {
-    return this.connectionManager.getConnectionCount();
+    return this.connectionPool.getActiveConnectionCount();
   }
 
   // ============= WebSocket 特有的辅助方法 =============
@@ -626,12 +456,12 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * Get connection statistics
    */
   getConnectionStats(): ConnectionStats {
-    return this.connectionManager.getStats();
+    return this.connectionPool.getMetrics();
   }
 
   getConnectionsStatus(): { current: number; max: number } {
     return {
-      current: this.connectionManager.getConnectionCount(),
+      current: this.connectionPool.getActiveConnectionCount(),
       max: this.options.maxConnections || 1000
     };
   }
@@ -641,12 +471,21 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    */
   private onConnection(ws: WebSocket, request: IncomingMessage): void {
     // Check connection limits and add to manager
-    if (!this.connectionManager.addConnection(ws)) {
+    if (!this.connectionPool.addConnection(ws, {
+      remoteAddress: request.socket.remoteAddress,
+      userAgent: request.headers['user-agent'],
+      url: request.url
+    })) {
       ws.close(1013, 'Server overloaded');
       return;
     }
 
-    const connectionContext = this.connectionManager.getConnectionContext(ws);
+    const connectionInfo = this.connectionPool.getConnectionInfo(ws);
+    const connectionContext = connectionInfo ? {
+      connectionId: connectionInfo.connectionId,
+      traceId: generateTraceId()
+    } : {};
+    
     const clientInfo = {
       url: request.url,
       userAgent: request.headers['user-agent'],
@@ -658,7 +497,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
     // Handle messages
     ws.on('message', (message: Buffer) => {
-      this.connectionManager.updateActivity(ws);
+      this.connectionPool.updateConnectionActivity(ws);
       
       try {
         this.logger.debug('Message received', connectionContext, {
@@ -679,16 +518,101 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
         code,
         reason: reason.toString()
       });
-      this.connectionManager.removeConnection(ws);
+      this.connectionPool.removeConnection(ws);
     });
 
     // Handle errors
     ws.on('error', (error: Error) => {
       this.logger.logConnectionEvent('error', connectionContext, error);
-      this.connectionManager.removeConnection(ws);
+      this.connectionPool.removeConnection(ws);
     });
 
     // 触发应用层的连接事件
     this.app.emit('websocket_connection', ws, request);
+  }
+
+  // ============= 实现健康检查和指标收集 =============
+
+  protected async performProtocolHealthChecks(): Promise<Record<string, any>> {
+    const checks: Record<string, any> = {};
+    
+    // WebSocket server specific health checks
+    const nativeServer = (this.httpServer as any).server || this.httpServer;
+    const serverListening = nativeServer.listening;
+    
+    checks.server = {
+      status: serverListening ? HealthStatus.HEALTHY : HealthStatus.UNHEALTHY,
+      message: serverListening ? 'WebSocket server is listening' : 'WebSocket server is not listening',
+      details: {
+        listening: serverListening,
+        protocol: this.options.protocol,
+        serverId: this.serverId
+      }
+    };
+
+    // Connection pool health check
+    const connectionStats = this.connectionPool.getMetrics();
+    const maxConnections = this.options.maxConnections || 1000;
+    const utilizationRatio = connectionStats.activeConnections / maxConnections;
+    
+    checks.connectionPool = {
+      status: utilizationRatio > 0.9 
+        ? HealthStatus.DEGRADED 
+        : utilizationRatio > 0.95 
+          ? HealthStatus.UNHEALTHY 
+          : HealthStatus.HEALTHY,
+      message: `Connection pool utilization: ${(utilizationRatio * 100).toFixed(1)}%`,
+      details: {
+        activeConnections: connectionStats.activeConnections,
+        maxConnections,
+        utilizationRatio: utilizationRatio.toFixed(3),
+        freeConnections: maxConnections - connectionStats.activeConnections
+      }
+    };
+
+    // WebSocket performance health
+    const errorRate = connectionStats.errorRate;
+    checks.performance = {
+      status: errorRate > 0.1 
+        ? HealthStatus.UNHEALTHY 
+        : errorRate > 0.05 
+          ? HealthStatus.DEGRADED 
+          : HealthStatus.HEALTHY,
+      message: `WebSocket error rate: ${(errorRate * 100).toFixed(2)}%`,
+      details: connectionStats
+    };
+    
+    return checks;
+  }
+
+  protected collectProtocolMetrics(): Record<string, any> {
+    const connectionStats = this.connectionPool.getMetrics();
+    const nativeServer = (this.httpServer as any).server || this.httpServer;
+    
+    return {
+      protocol: this.options.protocol,
+      server: {
+        listening: nativeServer.listening,
+        serverId: this.serverId,
+        address: nativeServer.address()
+      },
+      connectionPool: {
+        enabled: true,
+        maxConnections: this.options.maxConnections || 1000,
+        activeConnections: connectionStats.activeConnections,
+        totalConnections: connectionStats.totalConnections,
+        utilizationRatio: (connectionStats.activeConnections / (this.options.maxConnections || 1000)).toFixed(3),
+        configuration: {
+          maxConnections: this.options.maxConnections || 1000,
+          connectionTimeout: this.options.connectionTimeout || 30000
+        }
+      },
+      performance: {
+        connectionsPerSecond: connectionStats.connectionsPerSecond,
+        averageLatency: connectionStats.averageLatency,
+        errorRate: connectionStats.errorRate,
+        connectionStats: connectionStats
+      }
+    };
   }
 }

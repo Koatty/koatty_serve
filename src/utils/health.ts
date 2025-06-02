@@ -7,7 +7,7 @@
  */
 import { IncomingMessage, ServerResponse } from 'http';
 import { BaseServer, HealthCheckResult, PerformanceMetrics, HealthStatus } from '../server/base';
-import { createLogger } from './structured-logger';
+import { createLogger } from './logger';
 
 /**
  * Health and metrics endpoints handler

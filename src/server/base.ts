@@ -7,7 +7,7 @@
  */
 
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
-import { createLogger, generateTraceId } from "../utils/structured-logger";
+import { createLogger, generateTraceId } from "../utils/logger";
 import { deepEqual } from "../utils/helper";
 
 // KoattyProtocol

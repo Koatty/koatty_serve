@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2024-11-27 17:24:54
+ * @LastEditTime: 2024-11-27 21:15:00
  */
 import {
   ChannelOptions, Server, ServerCredentials,
@@ -12,8 +12,11 @@ import {
 import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats } from "./base";
-import { createLogger, generateTraceId } from "../utils/structured-logger";
+import { createLogger, generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { HealthStatus } from "./base";
+import { GrpcConnectionPoolManager } from "./pools/grpc";
+import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
 
 /**
  * ServiceImplementation
@@ -70,91 +73,12 @@ export interface GrpcServerOptions extends ListeningOptions {
   };
 }
 
-/**
- * Connection Manager for gRPC Server
- */
-class GrpcConnectionManager {
-  private connections = new Map<string, any>();
-  private stats: ConnectionStats = {
-    activeConnections: 0,
-    totalConnections: 0,
-    connectionsPerSecond: 0,
-    averageLatency: 0,
-    errorRate: 0
-  };
-  private logger: any;
-  private startTime = Date.now();
-  private lastStatsTime = Date.now();
-  private requestCount = 0;
-  private errorCount = 0;
-
-  constructor(logger: any) {
-    this.logger = logger.createChild({ component: 'connection_manager' });
-  }
-
-  addConnection(connectionId: string, connection: any) {
-    this.connections.set(connectionId, {
-      connection,
-      startTime: Date.now(),
-      requestCount: 0
-    });
-    this.stats.activeConnections++;
-    this.stats.totalConnections++;
-    
-    this.logger.logConnectionEvent('connected', { connectionId }, {
-      activeConnections: this.stats.activeConnections,
-      totalConnections: this.stats.totalConnections
-    });
-  }
-
-  removeConnection(connectionId: string) {
-    const conn = this.connections.get(connectionId);
-    if (conn) {
-      const duration = Date.now() - conn.startTime;
-      this.connections.delete(connectionId);
-      this.stats.activeConnections--;
-      
-      this.logger.logConnectionEvent('disconnected', { connectionId }, {
-        duration: `${duration}ms`,
-        requestCount: conn.requestCount,
-        activeConnections: this.stats.activeConnections
-      });
-    }
-  }
-
-  recordRequest(connectionId: string, success: boolean = true) {
-    const conn = this.connections.get(connectionId);
-    if (conn) {
-      conn.requestCount++;
-    }
-    this.requestCount++;
-    if (!success) {
-      this.errorCount++;
-    }
-  }
-
-  getStats(): ConnectionStats {
-    const now = Date.now();
-    const timeDiff = (now - this.lastStatsTime) / 1000;
-    
-    if (timeDiff > 0) {
-      this.stats.connectionsPerSecond = this.stats.totalConnections / ((now - this.startTime) / 1000);
-      this.stats.errorRate = this.errorCount / Math.max(this.requestCount, 1);
-    }
-    
-    return { ...this.stats };
-  }
-
-  getConnectionCount(): number {
-    return this.connections.size;
-  }
-}
-
 export class GrpcServer extends BaseServer<GrpcServerOptions> {
   readonly server: Server;
   protected logger = createLogger({ module: 'grpc', protocol: 'grpc' });
   private serverId = `grpc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  private connectionManager: GrpcConnectionManager;
+  private connectionPool: GrpcConnectionPoolManager;
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(app: KoattyApplication, options: GrpcServerOptions) {
     super(app, options);
@@ -166,14 +90,16 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       serverId: this.serverId
     });
 
-    this.connectionManager = new GrpcConnectionManager(this.logger);
-
-    this.logger.info('Initializing gRPC server', {}, {
+    this.logger.info('Initializing gRPC server with connection pool', {}, {
       hostname: options.hostname,
       port: options.port,
       protocol: options.protocol,
-      sslEnabled: options.ssl?.enabled || false
+      sslEnabled: options.ssl?.enabled || false,
+      maxConnections: options.connectionPool?.maxConnections
     });
+
+    // 初始化连接池
+    this.initializeConnectionPool();
 
     const opts = this.options as GrpcServerOptions;
     opts.ext = opts.ext || {};
@@ -195,12 +121,74 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     
     this.server = new Server(channelOptions);
     
+    // 设置连接池事件监听
+    this.setupConnectionPoolEventListeners();
+    
+    // 设置定期清理
+    this.setupPeriodicCleanup();
+    
     this.logger.debug('gRPC server initialized successfully', {}, {
       channelOptions,
-      connectionPoolConfig: opts.connectionPool
+      connectionPoolEnabled: true
     });
     
     CreateTerminus(this);
+  }
+
+  /**
+   * 初始化连接池
+   */
+  private initializeConnectionPool(): void {
+    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
+    this.connectionPool = new GrpcConnectionPoolManager(poolConfig);
+  }
+
+  /**
+   * 提取连接池配置
+   */
+  private extractConnectionPoolConfig(): ConnectionPoolConfig {
+    const options = this.options.connectionPool;
+    return {
+      maxConnections: options?.maxConnections,
+      connectionTimeout: 30000, // 30秒连接超时
+      protocolSpecific: {
+        keepAliveTime: options?.keepAliveTime,
+        maxReceiveMessageLength: options?.maxReceiveMessageLength,
+        maxSendMessageLength: options?.maxSendMessageLength
+      }
+    };
+  }
+
+  /**
+   * 设置连接池事件监听
+   */
+  private setupConnectionPoolEventListeners(): void {
+    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
+      this.logger.warn('gRPC connection pool limit reached', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
+      this.logger.info('gRPC connection pool health status changed', {}, data);
+    });
+
+    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
+      this.logger.warn('gRPC connection pool error', {}, {
+        error: data.error?.message,
+        connectionId: data.connectionId
+      });
+    });
+  }
+
+  /**
+   * 设置定期清理
+   */
+  private setupPeriodicCleanup(): void {
+    this.cleanupInterval = setInterval(() => {
+      const cleaned = this.connectionPool.cleanupStaleConnections();
+      if (cleaned > 0) {
+        this.logger.debug('Cleaned up stale gRPC connections', {}, { count: cleaned });
+      }
+    }, 30000); // 每30秒清理一次
   }
 
   // ============= 实现 BaseServer 抽象方法 =============
@@ -301,18 +289,18 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
     this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connectionManager.getConnectionCount(),
+      activeConnections: this.connectionPool.getActiveConnectionCount(),
       timeout: timeout
     });
 
     const startTime = Date.now();
     
-    while (this.connectionManager.getConnectionCount() > 0) {
+    while (this.connectionPool.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
         this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
         break;
@@ -321,7 +309,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       // Log progress every 5 seconds
       if (elapsed % 5000 < 100) {
         this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
+          remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
       }
@@ -330,20 +318,20 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     }
     
     this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connectionManager.getConnectionCount()
+      remainingConnections: this.connectionPool.getActiveConnectionCount()
     });
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connectionManager.getConnectionCount();
+    const remainingConnections = this.connectionPool.getActiveConnectionCount();
     
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
         remainingConnections
       });
       
-      // Force shutdown the gRPC server
-      this.server.forceShutdown();
+      // Use connection pool to close all connections
+      await this.connectionPool.closeAllConnections(5000);
       
       this.logger.warn('Forced closure of remaining connections', { traceId }, {
         forcedConnections: remainingConnections
@@ -356,14 +344,14 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   protected stopMonitoringAndCleanup(traceId: string): void {
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
     
-    // Clear monitoring interval
-    if ((this.server as any)._monitoringInterval) {
-      clearInterval((this.server as any)._monitoringInterval);
-      (this.server as any)._monitoringInterval = null;
+    // Stop cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
     }
-
+    
     // Log final connection statistics
-    const finalStats = this.connectionManager.getStats();
+    const finalStats = this.connectionPool.getMetrics();
     this.logger.info('Final connection statistics', { traceId }, finalStats);
     
     this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
@@ -376,7 +364,85 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   }
 
   protected getActiveConnectionCount(): number {
-    return this.connectionManager.getConnectionCount();
+    return this.connectionPool.getActiveConnectionCount();
+  }
+
+  // ============= 实现健康检查和指标收集 =============
+
+  protected async performProtocolHealthChecks(): Promise<Record<string, any>> {
+    const checks: Record<string, any> = {};
+    
+    // gRPC server specific health checks
+    checks.server = {
+      status: HealthStatus.HEALTHY,
+      message: 'gRPC server is running',
+      details: {
+        serverId: this.serverId,
+        protocol: this.options.protocol
+      }
+    };
+
+    // Connection pool health check
+    const poolHealth = this.connectionPool.getHealth();
+    checks.connectionPool = {
+      status: poolHealth.status === 'healthy' 
+        ? HealthStatus.HEALTHY 
+        : poolHealth.status === 'degraded' 
+          ? HealthStatus.DEGRADED 
+          : HealthStatus.UNHEALTHY,
+      message: poolHealth.message,
+      details: poolHealth
+    };
+
+    // SSL configuration health check
+    if (this.options.ssl?.enabled) {
+      checks.ssl = {
+        status: HealthStatus.HEALTHY,
+        message: 'SSL/TLS is enabled',
+        details: {
+          keyFile: !!this.options.ssl.keyFile,
+          certFile: !!this.options.ssl.certFile,
+          caFile: !!this.options.ssl.caFile,
+          clientCertRequired: this.options.ssl.clientCertRequired
+        }
+      };
+    }
+
+    // Channel options health check
+    const channelOptions = this.options.channelOptions;
+    if (channelOptions) {
+      checks.channelOptions = {
+        status: HealthStatus.HEALTHY,
+        message: 'Channel options configured',
+        details: {
+          keepAliveTime: channelOptions['grpc.keepalive_time_ms'],
+          keepAliveTimeout: channelOptions['grpc.keepalive_timeout_ms'],
+          maxReceiveMessageLength: channelOptions['grpc.max_receive_message_length'],
+          maxSendMessageLength: channelOptions['grpc.max_send_message_length']
+        }
+      };
+    }
+    
+    return checks;
+  }
+
+  protected collectProtocolMetrics(): Record<string, any> {
+    const poolMetrics = this.connectionPool.getMetrics();
+    const poolConfig = this.options.connectionPool;
+    
+    return {
+      protocol: 'grpc',
+      server: {
+        serverId: this.serverId,
+        ssl: this.options.ssl?.enabled || false
+      },
+      connectionPool: {
+        enabled: !!poolConfig,
+        ...poolMetrics,
+        configuration: poolConfig
+      },
+      channelOptions: this.options.channelOptions || {}
+    };
   }
 
   // ============= gRPC 特有的辅助方法 =============
@@ -523,7 +589,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   private startConnectionMonitoring() {
     const monitoringInterval = setInterval(() => {
-      const stats = this.connectionManager.getStats();
+      const stats = this.connectionPool.getMetrics();
       this.logger.debug('Connection pool statistics', {}, stats);
     }, 30000); // Every 30 seconds
 
@@ -557,13 +623,17 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
         });
 
         // Add connection to manager
-        this.connectionManager.addConnection(connectionId, call);
+        this.connectionPool.addConnection(call, {
+          connectionId,
+          serviceName: impl.service.serviceName,
+          methodName,
+          peer: call.getPeer ? call.getPeer() : 'unknown'
+        }).catch((error: any) => {
+          this.logger.error('Failed to add gRPC connection to pool', {}, error);
+        });
 
         // Wrap callback for monitoring
         const wrappedCallback = (err: any, response: any) => {
-          const success = !err;
-          this.connectionManager.recordRequest(connectionId, success);
-          
           if (err) {
             this.logger.error('gRPC method error', { traceId: methodTraceId, connectionId }, {
               serviceName: impl.service.serviceName,
@@ -578,7 +648,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           }
           
           // Remove connection after completion
-          this.connectionManager.removeConnection(connectionId);
+          this.connectionPool.removeConnection(call);
           
           if (callback) callback(err, response);
         };
@@ -588,8 +658,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           handler(call, wrappedCallback);
         } catch (error) {
           this.logger.error('gRPC method handler error', { traceId: methodTraceId, connectionId }, error);
-          this.connectionManager.recordRequest(connectionId, false);
-          this.connectionManager.removeConnection(connectionId);
+          this.connectionPool.removeConnection(call);
           if (callback) callback(error, null);
         }
       };
@@ -606,7 +675,28 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    * Get connection statistics
    */
   getConnectionStats(): ConnectionStats {
-    return this.connectionManager.getStats();
+    const poolMetrics = this.connectionPool.getMetrics();
+    return {
+      activeConnections: poolMetrics.activeConnections,
+      totalConnections: poolMetrics.totalConnections,
+      connectionsPerSecond: poolMetrics.connectionsPerSecond,
+      averageLatency: poolMetrics.averageLatency,
+      errorRate: poolMetrics.errorRate
+    };
+  }
+
+  /**
+   * Get connection pool health
+   */
+  getConnectionPoolHealth() {
+    return this.connectionPool.getHealth();
+  }
+
+  /**
+   * Get connection pool metrics
+   */
+  getConnectionPoolMetrics() {
+    return this.connectionPool.getMetrics();
   }
 
   /**

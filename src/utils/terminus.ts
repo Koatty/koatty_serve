@@ -82,7 +82,8 @@ const asyncEvent = async (event: EventEmitter, eventName: string) => {
  */
 export async function onSignal(event: string, server: KoattyServer, forceTimeout: number) {
   Logger.Warn(`Received kill signal (${event}), shutting down...`);
-  server.status = 503;
+  // Set status to service unavailable (if server has status property)
+  (server as any).status = 503;
   await asyncEvent(process, 'beforeExit');
   // Don't bother with graceful shutdown in development
   if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
