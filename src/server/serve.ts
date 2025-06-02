@@ -145,10 +145,9 @@ export class MultiProtocolServer implements KoattyServer {
   }
 
   /**
-   * Register service(exp: gRPC])
-   * @param impl 
+   * Register Service for gRPC server
    */
-  RegisterService(impl: Function, protocolType?: KoattyProtocol, port?: number) {
+  RegisterService(impl: (...args: any[]) => any, protocolType?: KoattyProtocol, port?: number) {
     return this.getServer(protocolType, port).RegisterService(impl);
   }
 

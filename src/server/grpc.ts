@@ -11,7 +11,7 @@ import {
 } from "@grpc/grpc-js";
 import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
-import { BaseServer, ListeningOptions } from "./base";
+import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats } from "./base";
 import { createLogger, generateTraceId } from "../utils/structured-logger";
 import { CreateTerminus } from "../utils/terminus";
 
@@ -32,17 +32,6 @@ interface ServiceImplementation {
  */
 interface Implementation {
   [methodName: string]: UntypedHandleCall;
-}
-
-/**
- * Connection Pool Statistics
- */
-interface ConnectionStats {
-  activeConnections: number;
-  totalConnections: number;
-  connectionsPerSecond: number;
-  averageLatency: number;
-  errorRate: number;
 }
 
 /**
@@ -166,9 +155,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   protected logger = createLogger({ module: 'grpc', protocol: 'grpc' });
   private serverId = `grpc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   private connectionManager: GrpcConnectionManager;
-  private isShuttingDown = false;
-  private shutdownTimeout = 30000; // 30秒关闭超时
-  private drainDelay = 5000; // 5秒停止接受新连接的延迟
 
   constructor(app: KoattyApplication, options: GrpcServerOptions) {
     super(app, options);
@@ -217,70 +203,184 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     CreateTerminus(this);
   }
 
-  /**
-   * Enhanced configuration hot reload with intelligent change detection
-   */
-  protected applyConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>
-  ) {
-    const traceId = generateTraceId();
-    const oldConfig = { ...this.options };
-    this.options = { ...this.options, ...newConfig };
+  // ============= 实现 BaseServer 抽象方法 =============
 
-    this.logger.info('Analyzing configuration changes', { traceId }, {
-      changedKeys,
-      oldConfig: this.extractRelevantConfig(oldConfig),
-      newConfig: this.extractRelevantConfig(this.options)
-    });
-
-    const requiresRestart = this.determineRestartRequirement(changedKeys, oldConfig, this.options as GrpcServerOptions);
-    
-    if (requiresRestart) {
-      this.logger.info('Configuration changes require server restart', { traceId }, {
-        changedKeys,
-        reason: 'Critical configuration changed'
-      });
-      this.performGracefulRestart(traceId);
-    } else {
-      this.logger.info('Applying configuration changes without restart', { traceId }, {
-        changedKeys
-      });
-      this.applyRuntimeConfigChanges(changedKeys, newConfig, traceId);
-    }
-  }
-
-  /**
-   * Determine if server restart is required based on configuration changes
-   */
-  private determineRestartRequirement(
+  protected analyzeConfigChanges(
     changedKeys: (keyof ListeningOptions)[],
     oldConfig: GrpcServerOptions,
     newConfig: GrpcServerOptions
-  ): boolean {
+  ): ConfigChangeAnalysis {
     // Critical changes that require restart
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
     
     if (changedKeys.some(key => criticalKeys.includes(key))) {
-      return true;
+      return {
+        requiresRestart: true,
+        changedKeys,
+        restartReason: 'Critical network configuration changed',
+        canApplyRuntime: false
+      };
     }
 
     // SSL configuration changes
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
-      return true;
+      return {
+        requiresRestart: true,
+        changedKeys,
+        restartReason: 'SSL/TLS configuration changed',
+        canApplyRuntime: false
+      };
     }
 
     // Channel options changes (affects gRPC server creation)
     if (this.hasChannelOptionsChanged(oldConfig, newConfig)) {
-      return true;
+      return {
+        requiresRestart: true,
+        changedKeys,
+        restartReason: 'Connection pool configuration changed',
+        canApplyRuntime: false
+      };
     }
 
-    return false;
+    return {
+      requiresRestart: false,
+      changedKeys,
+      canApplyRuntime: true
+    };
   }
 
-  /**
-   * Check if SSL configuration has changed
-   */
+  protected applyConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    newConfig: Partial<ListeningOptions>
+  ): void {
+    // This is now handled by the base class's restart logic
+    this.options = { ...this.options, ...newConfig };
+  }
+
+  protected onRuntimeConfigChange(
+    analysis: ConfigChangeAnalysis,
+    newConfig: Partial<ListeningOptions>,
+    traceId: string
+  ): void {
+    // Handle gRPC-specific runtime changes
+    const grpcConfig = newConfig as Partial<GrpcServerOptions>;
+    if (grpcConfig.connectionPool?.maxConnections) {
+      this.logger.info('Updating connection pool limits', { traceId }, {
+        oldLimit: 'current',
+        newLimit: grpcConfig.connectionPool.maxConnections
+      });
+      // Note: This would require additional implementation to actually enforce limits
+    }
+
+    this.logger.debug('gRPC runtime configuration changes applied', { traceId });
+  }
+
+  protected extractRelevantConfig(config: GrpcServerOptions) {
+    return {
+      hostname: config.hostname,
+      port: config.port,
+      protocol: config.protocol,
+      sslEnabled: config.ssl?.enabled || false,
+      connectionPool: config.connectionPool ? {
+        maxConnections: config.connectionPool.maxConnections,
+        keepAliveTime: config.connectionPool.keepAliveTime,
+        keepAliveTimeout: config.connectionPool.keepAliveTimeout
+      } : null
+    };
+  }
+
+  protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
+    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
+    
+    // gRPC server doesn't have a direct way to stop accepting new connections
+    // without shutting down, so we'll use a flag to reject new service calls
+    (this.server as any)._acceptingNewConnections = false;
+    
+    this.logger.debug('New connection acceptance stopped', { traceId });
+  }
+
+  protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
+    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
+      activeConnections: this.connectionManager.getConnectionCount(),
+      timeout: timeout
+    });
+
+    const startTime = Date.now();
+    
+    while (this.connectionManager.getConnectionCount() > 0) {
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed >= timeout) {
+        this.logger.warn('Connection completion timeout reached', { traceId }, {
+          remainingConnections: this.connectionManager.getConnectionCount(),
+          elapsed: elapsed
+        });
+        break;
+      }
+      
+      // Log progress every 5 seconds
+      if (elapsed % 5000 < 100) {
+        this.logger.debug('Waiting for connections to complete', { traceId }, {
+          remainingConnections: this.connectionManager.getConnectionCount(),
+          elapsed: elapsed
+        });
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.logger.debug('Connection completion wait finished', { traceId }, {
+      remainingConnections: this.connectionManager.getConnectionCount()
+    });
+  }
+
+  protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
+    const remainingConnections = this.connectionManager.getConnectionCount();
+    
+    if (remainingConnections > 0) {
+      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
+        remainingConnections
+      });
+      
+      // Force shutdown the gRPC server
+      this.server.forceShutdown();
+      
+      this.logger.warn('Forced closure of remaining connections', { traceId }, {
+        forcedConnections: remainingConnections
+      });
+    } else {
+      this.logger.debug('Step 4: No remaining connections to close', { traceId });
+    }
+  }
+
+  protected stopMonitoringAndCleanup(traceId: string): void {
+    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
+    
+    // Clear monitoring interval
+    if ((this.server as any)._monitoringInterval) {
+      clearInterval((this.server as any)._monitoringInterval);
+      (this.server as any)._monitoringInterval = null;
+    }
+
+    // Log final connection statistics
+    const finalStats = this.connectionManager.getStats();
+    this.logger.info('Final connection statistics', { traceId }, finalStats);
+    
+    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
+  }
+
+  protected forceShutdown(traceId: string): void {
+    this.logger.warn('Force shutdown initiated', { traceId });
+    this.server.forceShutdown();
+    this.stopMonitoringAndCleanup(traceId);
+  }
+
+  protected getActiveConnectionCount(): number {
+    return this.connectionManager.getConnectionCount();
+  }
+
+  // ============= gRPC 特有的辅助方法 =============
+
   private hasSSLConfigChanged(oldConfig: GrpcServerOptions, newConfig: GrpcServerOptions): boolean {
     const oldSSL = oldConfig.ssl;
     const newSSL = newConfig.ssl;
@@ -297,9 +397,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     );
   }
 
-  /**
-   * Check if channel options have changed
-   */
   private hasChannelOptionsChanged(oldConfig: GrpcServerOptions, newConfig: GrpcServerOptions): boolean {
     const oldPool = oldConfig.connectionPool;
     const newPool = newConfig.connectionPool;
@@ -315,65 +412,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     );
   }
 
-  /**
-   * Apply runtime configuration changes that don't require restart
-   */
-  private applyRuntimeConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>,
-    traceId: string
-  ) {
-    // Handle max connections change
-    const grpcConfig = newConfig as Partial<GrpcServerOptions>;
-    if (grpcConfig.connectionPool?.maxConnections) {
-      this.logger.info('Updating connection pool limits', { traceId }, {
-        oldLimit: 'current',
-        newLimit: grpcConfig.connectionPool.maxConnections
-      });
-      // Note: This would require additional implementation to actually enforce limits
-    }
-
-    // Handle other runtime changes
-    this.logger.debug('Runtime configuration changes applied successfully', { traceId });
-  }
-
-  /**
-   * Perform graceful restart with connection draining
-   */
-  private async performGracefulRestart(traceId: string) {
-    try {
-      this.logger.info('Starting graceful server restart', { traceId });
-      
-      await this.gracefulStop();
-      
-      this.logger.info('Server stopped successfully, restarting', { traceId });
-      this.Start(this.listenCallback);
-      
-    } catch (error) {
-      this.logger.error('Graceful restart failed', { traceId }, error);
-      // Force restart as fallback
-      this.Stop(() => {
-        this.Start(this.listenCallback);
-      });
-    }
-  }
-
-  /**
-   * Extract relevant configuration for logging
-   */
-  private extractRelevantConfig(config: GrpcServerOptions) {
-    return {
-      hostname: config.hostname,
-      port: config.port,
-      protocol: config.protocol,
-      sslEnabled: config.ssl?.enabled || false,
-      connectionPool: config.connectionPool ? {
-        maxConnections: config.connectionPool.maxConnections,
-        keepAliveTime: config.connectionPool.keepAliveTime,
-        keepAliveTimeout: config.connectionPool.keepAliveTimeout
-      } : null
-    };
-  }
+  // ============= 原有的 gRPC 功能方法 =============
 
   /**
    * Create SSL credentials from configuration
@@ -437,9 +476,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
   /**
    * Start Server with enhanced connection management
-   *
-   * @param {() => void} listenCallback
-   * @memberof GrpcServer
    */
   Start(listenCallback?: () => void): Server {
     const traceId = generateTraceId();
@@ -496,191 +532,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   }
 
   /**
-   * Enhanced graceful stop with detailed shutdown steps
-   */
-  async gracefulStop(timeout: number = this.shutdownTimeout): Promise<void> {
-    const traceId = generateTraceId();
-    
-    if (this.isShuttingDown) {
-      this.logger.warn('Shutdown already in progress', { traceId });
-      return;
-    }
-
-    this.isShuttingDown = true;
-    
-    this.logger.info('Shutdown initiated', { traceId, action: 'shutdown_initiated' }, {
-      activeConnections: this.connectionManager.getConnectionCount(),
-      timeout: timeout
-    });
-
-    try {
-      // Step 1: Stop accepting new connections
-      await this.stopAcceptingNewConnections(traceId);
-      
-      // Step 2: Wait for drain delay
-      await this.waitForDrainDelay(traceId);
-      
-      // Step 3: Wait for existing connections to complete
-      await this.waitForConnectionCompletion(traceId, timeout);
-      
-      // Step 4: Force close remaining connections
-      await this.forceCloseRemainingConnections(traceId);
-      
-      // Step 5: Stop monitoring and cleanup
-      this.stopMonitoringAndCleanup(traceId);
-      
-      this.logger.info('Shutdown completed successfully', { traceId, action: 'shutdown_completed' });
-      
-    } catch (error) {
-      this.logger.error('Error during graceful shutdown', { traceId }, error);
-      throw error;
-    } finally {
-      this.isShuttingDown = false;
-    }
-  }
-
-  /**
-   * Step 1: Stop accepting new connections
-   */
-  private async stopAcceptingNewConnections(traceId: string): Promise<void> {
-    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
-    
-    // gRPC server doesn't have a direct way to stop accepting new connections
-    // without shutting down, so we'll use a flag to reject new service calls
-    (this.server as any)._acceptingNewConnections = false;
-    
-    this.logger.debug('New connection acceptance stopped', { traceId });
-  }
-
-  /**
-   * Step 2: Wait for drain delay
-   */
-  private async waitForDrainDelay(traceId: string): Promise<void> {
-    this.logger.info('Step 2: Waiting for drain delay', { traceId }, {
-      drainDelay: this.drainDelay
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, this.drainDelay));
-    
-    this.logger.debug('Drain delay completed', { traceId });
-  }
-
-  /**
-   * Step 3: Wait for existing connections to complete
-   */
-  private async waitForConnectionCompletion(traceId: string, timeout: number): Promise<void> {
-    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connectionManager.getConnectionCount(),
-      timeout: timeout - this.drainDelay
-    });
-
-    const startTime = Date.now();
-    const maxWaitTime = timeout - this.drainDelay;
-    
-    while (this.connectionManager.getConnectionCount() > 0) {
-      const elapsed = Date.now() - startTime;
-      
-      if (elapsed >= maxWaitTime) {
-        this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
-          elapsed: elapsed
-        });
-        break;
-      }
-      
-      // Log progress every 5 seconds
-      if (elapsed % 5000 < 100) {
-        this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connectionManager.getConnectionCount(),
-          elapsed: elapsed
-        });
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connectionManager.getConnectionCount()
-    });
-  }
-
-  /**
-   * Step 4: Force close remaining connections
-   */
-  private async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connectionManager.getConnectionCount();
-    
-    if (remainingConnections > 0) {
-      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
-        remainingConnections
-      });
-      
-      // Force shutdown the gRPC server
-      this.server.forceShutdown();
-      
-      this.logger.warn('Forced closure of remaining connections', { traceId }, {
-        forcedConnections: remainingConnections
-      });
-    } else {
-      this.logger.debug('Step 4: No remaining connections to close', { traceId });
-    }
-  }
-
-  /**
-   * Step 5: Stop monitoring and cleanup
-   */
-  private stopMonitoringAndCleanup(traceId: string): void {
-    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
-    
-    // Clear monitoring interval
-    if ((this.server as any)._monitoringInterval) {
-      clearInterval((this.server as any)._monitoringInterval);
-      (this.server as any)._monitoringInterval = null;
-    }
-
-    // Log final connection statistics
-    const finalStats = this.connectionManager.getStats();
-    this.logger.info('Final connection statistics', { traceId }, finalStats);
-    
-    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
-  }
-
-  /**
-   * Enhanced Stop method with backward compatibility
-   */
-  Stop(callback?: (err?: Error) => void): void {
-    const traceId = generateTraceId();
-    this.logger.logServerEvent('stopping', { traceId });
-
-    this.gracefulStop()
-      .then(() => {
-        this.logger.logServerEvent('stopped', { traceId }, { 
-          gracefulShutdown: true,
-          finalConnectionCount: this.connectionManager.getConnectionCount()
-        });
-        if (callback) callback();
-      })
-      .catch((err: Error) => {
-        this.logger.error('Graceful shutdown failed, attempting force shutdown', { traceId }, err);
-        
-        // Fallback to immediate shutdown
-        this.server.forceShutdown();
-        this.stopMonitoringAndCleanup(traceId);
-        
-        this.logger.logServerEvent('stopped', { traceId }, { 
-          forcedShutdown: true,
-          finalConnectionCount: this.connectionManager.getConnectionCount()
-        });
-        
-        if (callback) callback(err);
-      });
-  }
-
-  /**
    * Register Service with enhanced logging and monitoring
-   *
-   * @param {ServiceImplementation} impl
-   * @memberof GrpcServer
    */
   RegisterService(impl: ServiceImplementation) {
     const traceId = generateTraceId();
@@ -752,7 +604,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
   /**
    * Get connection statistics
-   * @returns Connection pool statistics
    */
   getConnectionStats(): ConnectionStats {
     return this.connectionManager.getStats();
@@ -760,7 +611,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
   /**
    * Get status
-   * @returns 
    */
   getStatus(): number {
     return this.status;
@@ -768,7 +618,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
   /**
    * Get native server
-   * @returns 
    */
   getNativeServer(): NativeServer {
     return this.server;

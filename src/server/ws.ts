@@ -10,7 +10,7 @@ import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions
 import { KoattyApplication, NativeServer } from 'koatty_core';
 import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
 import { CreateTerminus } from "../utils/terminus";
-import { BaseServer, ListeningOptions } from "./base";
+import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats } from "./base";
 import { createLogger, generateConnectionId, generateTraceId, LogContext } from "../utils/structured-logger";
 
 export interface WebSocketServerOptions extends ListeningOptions {
@@ -31,6 +31,14 @@ class ConnectionManager {
     traceId: string;
   }>();
   private logger = createLogger({ module: 'websocket', action: 'connection_manager' });
+  private stats: ConnectionStats = {
+    activeConnections: 0,
+    totalConnections: 0,
+    connectionsPerSecond: 0,
+    averageLatency: 0,
+    errorRate: 0
+  };
+  private startTime = Date.now();
   
   constructor(
     private maxConnections: number = 1000,
@@ -66,6 +74,9 @@ class ConnectionManager {
       traceId
     });
 
+    this.stats.activeConnections++;
+    this.stats.totalConnections++;
+
     this.logger.logConnectionEvent('connected', { connectionId, traceId }, {
       totalConnections: this.connections.size,
       maxConnections: this.maxConnections
@@ -83,6 +94,7 @@ class ConnectionManager {
     if (this.connections.has(ws)) {
       this.connections.delete(ws);
       this.connectionData.delete(ws);
+      this.stats.activeConnections--;
       
       if (data) {
         const duration = Date.now() - data.connectTime;
@@ -124,6 +136,20 @@ class ConnectionManager {
    */
   getConnectionCount(): number {
     return this.connections.size;
+  }
+
+  /**
+   * Get connection statistics
+   */
+  getStats(): ConnectionStats {
+    const now = Date.now();
+    const timeDiff = (now - this.startTime) / 1000;
+    
+    if (timeDiff > 0) {
+      this.stats.connectionsPerSecond = this.stats.totalConnections / timeDiff;
+    }
+    
+    return { ...this.stats };
   }
 
   /**
@@ -224,7 +250,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   private cleanupInterval?: NodeJS.Timeout;
   private upgradeHandler?: (request: any, socket: any, head: any) => void;
   private clientErrorHandler?: (err: any, sock: any) => void;
-  private logger = createLogger({ module: 'websocket', protocol: 'ws' });
+  protected logger = createLogger({ module: 'websocket', protocol: 'ws' });
   private serverId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   socket: any;
 
@@ -287,19 +313,253 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     CreateTerminus(this);
   }
 
+  // ============= 实现 BaseServer 抽象方法 =============
+
+  protected analyzeConfigChanges(
+    changedKeys: (keyof ListeningOptions)[],
+    oldConfig: WebSocketServerOptions,
+    newConfig: WebSocketServerOptions
+  ): ConfigChangeAnalysis {
+    // Critical changes that require restart for WebSocket server
+    const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
+    
+    if (changedKeys.some(key => criticalKeys.includes(key))) {
+      return {
+        requiresRestart: true,
+        changedKeys,
+        restartReason: 'Critical network configuration changed',
+        canApplyRuntime: false
+      };
+    }
+
+    // SSL certificate changes (for WSS)
+    if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
+      return {
+        requiresRestart: true,
+        changedKeys,
+        restartReason: 'SSL certificate configuration changed',
+        canApplyRuntime: false
+      };
+    }
+
+    // Connection pool changes
+    if (this.hasConnectionConfigChanged(oldConfig, newConfig)) {
+      return {
+        requiresRestart: false,
+        changedKeys,
+        canApplyRuntime: true
+      };
+    }
+
+    return {
+      requiresRestart: false,
+      changedKeys,
+      canApplyRuntime: true
+    };
+  }
+
   protected applyConfigChanges(
     changedKeys: (keyof ListeningOptions)[],
     newConfig: Partial<ListeningOptions>
-  ) {
+  ): void {
+    // This is now handled by the base class's restart logic
     this.options = { ...this.options, ...newConfig };
+  }
 
-    if (changedKeys.includes('port') || changedKeys.includes('hostname')) {
-      this.logger.info('Restarting server with new address configuration');
-      this.Stop().then(() => {
-        this.Start();
+  protected onRuntimeConfigChange(
+    analysis: ConfigChangeAnalysis,
+    newConfig: Partial<WebSocketServerOptions>,
+    traceId: string
+  ): void {
+    // Handle WebSocket-specific runtime changes
+    if (newConfig.maxConnections || newConfig.connectionTimeout) {
+      this.logger.info('Updating connection management configuration', { traceId }, {
+        oldMaxConnections: this.options.maxConnections,
+        newMaxConnections: newConfig.maxConnections,
+        oldTimeout: this.options.connectionTimeout,
+        newTimeout: newConfig.connectionTimeout
       });
+      
+      // Update connection manager limits
+      if (newConfig.maxConnections) {
+        (this.connectionManager as any).maxConnections = newConfig.maxConnections;
+      }
+      if (newConfig.connectionTimeout) {
+        (this.connectionManager as any).connectionTimeout = newConfig.connectionTimeout;
+      }
+    }
+
+    this.logger.debug('WebSocket runtime configuration changes applied', { traceId });
+  }
+
+  protected extractRelevantConfig(config: WebSocketServerOptions) {
+    return {
+      hostname: config.hostname,
+      port: config.port,
+      protocol: config.protocol,
+      maxConnections: config.maxConnections,
+      connectionTimeout: config.connectionTimeout,
+      ssl: config.protocol === 'wss' ? {
+        keyFile: config.ext?.key,
+        certFile: config.ext?.cert
+      } : null
+    };
+  }
+
+  protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
+    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
+    
+    // Close the HTTP server to stop accepting new connections
+    this.httpServer.close();
+    
+    this.logger.debug('New connection acceptance stopped', { traceId });
+  }
+
+  protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
+    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
+      activeConnections: this.connectionManager.getConnectionCount(),
+      timeout: timeout
+    });
+
+    const startTime = Date.now();
+    
+    while (this.connectionManager.getConnectionCount() > 0) {
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed >= timeout) {
+        this.logger.warn('Connection completion timeout reached', { traceId }, {
+          remainingConnections: this.connectionManager.getConnectionCount(),
+          elapsed: elapsed
+        });
+        break;
+      }
+      
+      // Log progress every 5 seconds
+      if (elapsed % 5000 < 100) {
+        this.logger.debug('Waiting for connections to complete', { traceId }, {
+          remainingConnections: this.connectionManager.getConnectionCount(),
+          elapsed: elapsed
+        });
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.logger.debug('Connection completion wait finished', { traceId }, {
+      remainingConnections: this.connectionManager.getConnectionCount()
+    });
+  }
+
+  protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
+    const remainingConnections = this.connectionManager.getConnectionCount();
+    
+    if (remainingConnections > 0) {
+      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
+        remainingConnections
+      });
+      
+      // Force close all remaining connections
+      await this.connectionManager.closeAllConnections();
+      
+      this.logger.warn('Forced closure of remaining connections', { traceId }, {
+        forcedConnections: remainingConnections
+      });
+    } else {
+      this.logger.debug('Step 4: No remaining connections to close', { traceId });
     }
   }
+
+  protected stopMonitoringAndCleanup(traceId: string): void {
+    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
+    
+    // Stop cleanup interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    
+    // Log final connection statistics
+    const finalStats = this.connectionManager.getStats();
+    this.logger.info('Final connection statistics', { traceId }, finalStats);
+    
+    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
+  }
+
+  protected forceShutdown(traceId: string): void {
+    this.logger.warn('Force shutdown initiated', { traceId });
+    
+    // Force close HTTP server
+    this.httpServer.close();
+    
+    // Force close all WebSocket connections
+    this.connectionManager.closeAllConnections();
+    
+    this.stopMonitoringAndCleanup(traceId);
+  }
+
+  protected getActiveConnectionCount(): number {
+    return this.connectionManager.getConnectionCount();
+  }
+
+  // ============= WebSocket 特有的辅助方法 =============
+
+  private hasSSLConfigChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
+    if (oldConfig.protocol !== 'wss' && newConfig.protocol !== 'wss') {
+      return false;
+    }
+
+    const oldSSL = oldConfig.ext;
+    const newSSL = newConfig.ext;
+
+    if (!oldSSL && !newSSL) return false;
+    if (!oldSSL || !newSSL) return true;
+
+    return (
+      oldSSL.key !== newSSL.key ||
+      oldSSL.cert !== newSSL.cert
+    );
+  }
+
+  private hasConnectionConfigChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
+    return (
+      oldConfig.maxConnections !== newConfig.maxConnections ||
+      oldConfig.connectionTimeout !== newConfig.connectionTimeout
+    );
+  }
+
+  // ============= 覆盖 BaseServer 的 Stop 方法以保持兼容性 =============
+
+  /**
+   * Stop Server (override to maintain backward compatibility)
+   */
+  Stop(callback?: () => void): void {
+    const traceId = generateTraceId();
+    this.logger.logServerEvent('stopping', { traceId });
+
+    this.gracefulShutdown()
+      .then(() => {
+        this.logger.logServerEvent('stopped', { traceId }, { 
+          gracefulShutdown: true,
+          finalConnectionCount: this.getActiveConnectionCount()
+        });
+        if (callback) callback();
+      })
+      .catch((err: Error) => {
+        this.logger.error('Graceful shutdown failed, attempting force shutdown', { traceId }, err);
+        
+        // 回退到强制关闭
+        this.forceShutdown(traceId);
+        
+        this.logger.logServerEvent('stopped', { traceId }, { 
+          forcedShutdown: true,
+          finalConnectionCount: this.getActiveConnectionCount()
+        });
+        
+        if (callback) callback();
+      });
+  }
+
+  // ============= 原有的 WebSocket 功能方法 =============
 
   /**
    * Return an HTTP server
@@ -347,49 +607,6 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   }
 
   /**
-   * Stop Server
-   */
-  Stop(): Promise<any> {
-    const traceId = generateTraceId();
-    this.logger.logServerEvent('stopping', { traceId });
-
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Clear cleanup interval
-        if (this.cleanupInterval) {
-          clearInterval(this.cleanupInterval);
-          this.cleanupInterval = undefined;
-        }
-
-        // Close all WebSocket connections
-        await this.connectionManager.closeAllConnections();
-
-        // Remove HTTP server event listeners
-        if (this.upgradeHandler) {
-          (this.httpServer as any).removeListener('upgrade', this.upgradeHandler);
-        }
-        if (this.clientErrorHandler) {
-          (this.httpServer as any).removeListener('clientError', this.clientErrorHandler);
-        }
-
-        // Close HTTP server if it was created by this class
-        if (!this.options.ext?.server) {
-          this.httpServer.close(() => {
-            this.logger.logServerEvent('stopped', { traceId });
-            resolve(void 0);
-          });
-        } else {
-          this.logger.logServerEvent('stopped', { traceId });
-          resolve(void 0);
-        }
-      } catch (error) {
-        this.logger.logServerEvent('error', { traceId }, error);
-        reject(error);
-      }
-    });
-  }
-
-  /**
    * Get status
    * @returns 
    */
@@ -402,13 +619,17 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * @returns 
    */
   getNativeServer(): NativeServer {
-    return this.server;
+    return this.httpServer;
   }
 
   /**
    * Get connection statistics
    */
-  getConnectionStats(): { current: number; max: number } {
+  getConnectionStats(): ConnectionStats {
+    return this.connectionManager.getStats();
+  }
+
+  getConnectionsStatus(): { current: number; max: number } {
     return {
       current: this.connectionManager.getConnectionCount(),
       max: this.options.maxConnections || 1000

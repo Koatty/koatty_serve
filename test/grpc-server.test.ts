@@ -360,13 +360,13 @@ describe("GrpcServer Enhanced Features", () => {
 
       const server = new GrpcServer(app, options);
       
-      // Mock the gracefulStop method to resolve successfully
-      jest.spyOn(server as any, 'gracefulStop').mockResolvedValue(undefined);
+      // Mock the gracefulShutdown method to resolve successfully
+      jest.spyOn(server as any, 'gracefulShutdown').mockResolvedValue(undefined);
       
       server.Stop((err) => {
         expect(err).toBeUndefined();
-        // Since we're now using gracefulStop, the test should verify that
-        expect((server as any).gracefulStop).toHaveBeenCalled();
+        // Since we're now using gracefulShutdown, the test should verify that
+        expect((server as any).gracefulShutdown).toHaveBeenCalled();
         done();
       });
     });
@@ -391,12 +391,12 @@ describe("GrpcServer Enhanced Features", () => {
 
       const server = new GrpcServer(app, options);
       
-      // Mock gracefulStop to reject with an error
-      jest.spyOn(server as any, 'gracefulStop').mockRejectedValue(new Error("Graceful stop failed"));
+      // Mock gracefulShutdown to reject with an error
+      jest.spyOn(server as any, 'gracefulShutdown').mockRejectedValue(new Error("Graceful stop failed"));
       
       server.Stop((err) => {
         expect(err).toBeInstanceOf(Error);
-        expect((server as any).gracefulStop).toHaveBeenCalled();
+        expect((server as any).gracefulShutdown).toHaveBeenCalled();
         expect(mockServer.forceShutdown).toHaveBeenCalled();
         done();
       });
@@ -404,7 +404,7 @@ describe("GrpcServer Enhanced Features", () => {
   });
 
   describe("Configuration Hot Reload", () => {
-    test("should handle port changes by restarting server", () => {
+    test("should handle port changes by restarting server", async () => {
       const options: GrpcServerOptions = {
         hostname: "127.0.0.1",
         port: 50051,
@@ -412,13 +412,22 @@ describe("GrpcServer Enhanced Features", () => {
       };
 
       const server = new GrpcServer(app, options);
-      const stopSpy = jest.spyOn(server, 'Stop');
+      
+      // Mock gracefulShutdown instead of Stop
+      const gracefulShutdownSpy = jest.spyOn(server as any, 'gracefulShutdown').mockResolvedValue(undefined);
+      const startSpy = jest.spyOn(server, 'Start').mockReturnValue(server.server);
 
       const newConfig = { port: 50052 };
       const updated = server.updateConfig(newConfig);
 
       expect(updated).toBe(true);
-      expect(stopSpy).toHaveBeenCalled();
+      
+      // Wait a bit for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // The graceful restart should be called
+      expect(gracefulShutdownSpy).toHaveBeenCalled();
+      expect(startSpy).toHaveBeenCalled();
     });
 
     test("should not restart for non-critical config changes", () => {
@@ -429,7 +438,9 @@ describe("GrpcServer Enhanced Features", () => {
       };
 
       const server = new GrpcServer(app, options);
-      const stopSpy = jest.spyOn(server, 'Stop');
+      
+      // Mock gracefulShutdown to ensure it's not called
+      const gracefulShutdownSpy = jest.spyOn(server as any, 'gracefulShutdown').mockResolvedValue(undefined);
 
       // Update a non-critical setting
       const newConfig = { 
@@ -440,7 +451,7 @@ describe("GrpcServer Enhanced Features", () => {
       const updated = server.updateConfig(newConfig);
 
       expect(updated).toBe(true);
-      expect(stopSpy).not.toHaveBeenCalled();
+      expect(gracefulShutdownSpy).not.toHaveBeenCalled();
     });
   });
 }); 
