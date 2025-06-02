@@ -4,6 +4,17 @@
 
 ## koatty\_serve package
 
+## Classes
+
+|  Class | Description |
+|  --- | --- |
+|  [GrpcServer](./koatty_serve.grpcserver.md) |  |
+|  [Http2Server](./koatty_serve.http2server.md) | HTTP2 Server with enhanced SSL/TLS configuration management and graceful shutdown |
+|  [HttpServer](./koatty_serve.httpserver.md) | HTTP Server with enhanced connection pool management and graceful shutdown |
+|  [HttpsServer](./koatty_serve.httpsserver.md) | HTTPS Server with enhanced SSL/TLS configuration management and graceful shutdown |
+|  [MultiProtocolServer](./koatty_serve.multiprotocolserver.md) | Multi-protocol server manager |
+|  [WsServer](./koatty_serve.wsserver.md) |  |
+
 ## Functions
 
 |  Function | Description |
@@ -17,5 +28,12 @@
 
 |  Interface | Description |
 |  --- | --- |
+|  [ListeningOptions](./koatty_serve.listeningoptions.md) | <p>listening options</p><p> ListeningOptions</p> |
 |  [TerminusOptions](./koatty_serve.terminusoptions.md) |  |
+
+## Type Aliases
+
+|  Type Alias | Description |
+|  --- | --- |
+|  [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
 
