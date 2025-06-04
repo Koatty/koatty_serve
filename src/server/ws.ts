@@ -36,7 +36,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     // 创建或使用现有的HTTP/HTTPS服务器
     this.httpServer = this.createHttpServer();
     
-    CreateTerminus(this);
+    CreateTerminus(app, this);
   }
 
   /**

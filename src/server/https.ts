@@ -27,7 +27,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   constructor(app: KoattyApplication, options: HttpsServerOptions) {
     super(app, options);
     this.options = ConfigHelper.createHttpsConfig(options);
-    CreateTerminus(this);
+    CreateTerminus(app, this);
   }
 
   /**

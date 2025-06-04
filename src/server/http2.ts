@@ -29,7 +29,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   constructor(app: KoattyApplication, options: Http2ServerOptions) {
     super(app, options);
     this.options = ConfigHelper.createHttp2Config(options);
-    CreateTerminus(this);
+    CreateTerminus(app, this);
   }
 
   /**

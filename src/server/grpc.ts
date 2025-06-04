@@ -46,7 +46,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   constructor(app: KoattyApplication, options: GrpcServerOptions) {
     super(app, options);
     this.options = ConfigHelper.createGrpcConfig(options);
-    CreateTerminus(this);
+    CreateTerminus(app, this);
   }
 
 

@@ -9,7 +9,7 @@
  */
 
 import EventEmitter from "events";
-import { KoattyServer } from "koatty_core";
+import { KoattyApplication, KoattyServer } from "koatty_core";
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
 
@@ -24,21 +24,22 @@ const terminusOptions = {
 export interface TerminusOptions {
   timeout: number;
   signals?: string[];
-  onSignal?: (event: string, server: KoattyServer, forceTimeout: number) => Promise<any>;
+  onSignal?: (event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number) => Promise<any>;
 }
 
 /**
  * Create terminus event
  *
  * @export
+ * @param {KoattyApplication} app
  * @param {(Server | Http2SecureServer)} server
  * @param {TerminusOptions} [options]
  */
-export function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void {
+export function CreateTerminus(app: KoattyApplication, server: KoattyServer, options?: TerminusOptions): void {
   const opt = { ...terminusOptions, ...options };
   opt.signals.forEach(event => {
     process.on(event, () => {
-      opt.onSignal(event, server, opt.timeout).catch(err => Logger.Error(err));
+      opt.onSignal(event, app, server, opt.timeout).catch(err => Logger.Error(err));
     });
   });
 }
@@ -80,10 +81,11 @@ const asyncEvent = async (event: EventEmitter, eventName: string) => {
  *
  * @returns {*}  
  */
-export async function onSignal(event: string, server: KoattyServer, forceTimeout: number) {
+export async function onSignal(event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number) {
   Logger.Warn(`Received kill signal (${event}), shutting down...`);
   // Set status to service unavailable (if server has status property)
   (server as any).status = 503;
+  await asyncEvent(app, 'appStop');
   await asyncEvent(process, 'beforeExit');
   // Don't bother with graceful shutdown in development
   if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {

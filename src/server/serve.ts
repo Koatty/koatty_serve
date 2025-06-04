@@ -57,7 +57,7 @@ export class MultiProtocolServer implements KoattyServer {
       basePort: this.options.port
     });
 
-    CreateTerminus(this);
+    CreateTerminus(app, this);
   }
 
   /**
