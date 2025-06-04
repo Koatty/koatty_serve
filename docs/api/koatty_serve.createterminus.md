@@ -10,13 +10,14 @@ Create terminus event
 **Signature:**
 
 ```typescript
-export declare function CreateTerminus(server: KoattyServer, options?: TerminusOptions): void;
+export declare function CreateTerminus(app: KoattyApplication, server: KoattyServer, options?: TerminusOptions): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
+|  app | KoattyApplication |  |
 |  server | KoattyServer |  |
 |  options | [TerminusOptions](./koatty_serve.terminusoptions.md) | _(Optional)_ |
 

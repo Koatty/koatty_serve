@@ -7,5 +7,5 @@
 **Signature:**
 
 ```typescript
-onSignal?: (event: string, server: KoattyServer, forceTimeout: number) => Promise<any>;
+onSignal?: (event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number) => Promise<any>;
 ```

@@ -9,7 +9,7 @@ cleanup function, returning a promise (used to be onSigterm)
 **Signature:**
 
 ```typescript
-export declare function onSignal(event: string, server: KoattyServer, forceTimeout: number): Promise<never>;
+export declare function onSignal(event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number): Promise<never>;
 ```
 
 ## Parameters
@@ -17,6 +17,7 @@ export declare function onSignal(event: string, server: KoattyServer, forceTimeo
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  event | string |  |
+|  app | KoattyApplication |  |
 |  server | KoattyServer |  |
 |  forceTimeout | number |  |
 
