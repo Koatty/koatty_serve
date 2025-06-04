@@ -382,20 +382,10 @@ await server.gracefulShutdown({
 
 ### 信号处理
 
-```typescript
-// 自动注册优雅关闭信号处理
-process.on('SIGTERM', async () => {
-  console.log('收到SIGTERM信号，开始优雅关闭...');
-  await server.gracefulShutdown();
-  process.exit(0);
-});
+terminus模块会自动处理进程信号（SIGTERM、SIGINT等），并调用`server.Stop()`方法执行优雅关闭流程。
 
-process.on('SIGINT', async () => {
-  console.log('收到SIGINT信号，开始优雅关闭...');
-  await server.gracefulShutdown();
-  process.exit(0);
-});
-```
+`server.Stop()`方法内部会自动调用`gracefulShutdown()`，无需应用层手动处理：
+
 
 ## 🔐 SSL/TLS配置
 
