@@ -38,7 +38,7 @@ interface Implementation {
   [methodName: string]: UntypedHandleCall;
 }
 
-export class GrpcServer extends BaseServer {
+export class GrpcServer extends BaseServer<GrpcServerOptions> {
   declare readonly server: Server;
   declare protected connectionPool: GrpcConnectionPoolManager;
   options: GrpcServerOptions;
@@ -70,11 +70,11 @@ export class GrpcServer extends BaseServer {
       ...opts.channelOptions,
       ...opts.ext,
       // Connection pool configuration
-      'grpc.keepalive_time_ms': opts.connectionPool?.keepAliveTime || 30000,
+      'grpc.keepalive_time_ms': opts.connectionPool?.protocolSpecific?.keepAliveTime || 30000,
       'grpc.keepalive_timeout_ms': opts.connectionPool?.keepAliveTimeout || 5000,
       'grpc.keepalive_permit_without_calls': 1,
-      'grpc.max_receive_message_length': opts.connectionPool?.maxReceiveMessageLength || 4 * 1024 * 1024,
-      'grpc.max_send_message_length': opts.connectionPool?.maxSendMessageLength || 4 * 1024 * 1024,
+      'grpc.max_receive_message_length': opts.connectionPool?.protocolSpecific?.maxReceiveMessageLength || 4 * 1024 * 1024,
+      'grpc.max_send_message_length': opts.connectionPool?.protocolSpecific?.maxSendMessageLength || 4 * 1024 * 1024,
       'grpc.max_connection_idle_ms': 300000, // 5 minutes
       'grpc.max_connection_age_ms': 3600000, // 1 hour
       'grpc.max_connection_age_grace_ms': 30000, // 30 seconds
@@ -184,7 +184,7 @@ export class GrpcServer extends BaseServer {
       sslEnabled: config.ssl?.enabled || false,
       connectionPool: config.connectionPool ? {
         maxConnections: config.connectionPool.maxConnections,
-        keepAliveTime: config.connectionPool.keepAliveTime,
+        keepAliveTime: config.connectionPool.protocolSpecific?.keepAliveTime,
         keepAliveTimeout: config.connectionPool.keepAliveTimeout
       } : null
     };
@@ -384,10 +384,9 @@ export class GrpcServer extends BaseServer {
     if (!oldPool || !newPool) return true;
 
     return (
-      oldPool.keepAliveTime !== newPool.keepAliveTime ||
-      oldPool.keepAliveTimeout !== newPool.keepAliveTimeout ||
-      oldPool.maxReceiveMessageLength !== newPool.maxReceiveMessageLength ||
-      oldPool.maxSendMessageLength !== newPool.maxSendMessageLength
+      oldPool.protocolSpecific?.keepAliveTime !== newPool.protocolSpecific?.keepAliveTime ||
+      oldPool.protocolSpecific?.maxReceiveMessageLength !== newPool.protocolSpecific?.maxReceiveMessageLength ||
+      oldPool.protocolSpecific?.maxSendMessageLength !== newPool.protocolSpecific?.maxSendMessageLength
     );
   }
 
@@ -641,9 +640,9 @@ export class GrpcServer extends BaseServer {
       maxConnections: options?.maxConnections,
       connectionTimeout: 30000, // 30秒连接超时
       protocolSpecific: {
-        keepAliveTime: options?.keepAliveTime,
-        maxReceiveMessageLength: options?.maxReceiveMessageLength,
-        maxSendMessageLength: options?.maxSendMessageLength
+        keepAliveTime: options?.protocolSpecific?.keepAliveTime,
+        maxReceiveMessageLength: options?.protocolSpecific?.maxReceiveMessageLength,
+        maxSendMessageLength: options?.protocolSpecific?.maxSendMessageLength
       }
     };
   }

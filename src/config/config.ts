@@ -13,45 +13,42 @@ import { ConnectionPoolConfig } from "./pool";
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
 
 /**
- * SSL/TLS Configuration
+ * 基础SSL配置
  */
-export interface SSLConfig {
+export interface BaseSSLConfig {
+  key?: string;                             // Private key file path or content
+  cert?: string;                            // Certificate file path or content
+  ca?: string;                              // CA certificate file path or content
+  passphrase?: string;                      // Private key passphrase
+  ciphers?: string;                         // Allowed cipher suites
+  honorCipherOrder?: boolean;               // Honor cipher order
+  secureProtocol?: string;                  // SSL/TLS protocol version
+}
+
+/**
+ * gRPC和WebSocket使用的简单SSL配置
+ */
+export interface SSLConfig extends BaseSSLConfig {
   enabled: boolean;
   keyFile?: string;
   certFile?: string;
   caFile?: string;
   clientCertRequired?: boolean;
 }
+
 /**
- * SSL/TLS Configuration with enhanced security modes
+ * HTTPS使用的高级SSL配置
  */
-export interface SSL1Config {
+export interface SSL1Config extends BaseSSLConfig {
   mode: 'auto' | 'manual' | 'mutual_tls';  // SSL mode
-  key?: string;                             // Private key file path or content
-  cert?: string;                            // Certificate file path or content
-  ca?: string;                              // CA certificate file path or content
-  passphrase?: string;                      // Private key passphrase
-  ciphers?: string;                         // Allowed cipher suites
-  honorCipherOrder?: boolean;               // Honor cipher order
-  secureProtocol?: string;                  // SSL/TLS protocol version
   requestCert?: boolean;                    // Request client certificate
   rejectUnauthorized?: boolean;             // Reject unauthorized connections
 }
 
 /**
- * SSL/TLS Configuration with enhanced security modes for HTTP/2
+ * HTTP/2使用的SSL配置（支持HTTP/1.1降级）
  */
-export interface SSL2Config {
-  mode: 'auto' | 'manual' | 'mutual_tls';  // SSL mode
-  key?: string;                             // Private key file path or content
-  cert?: string;                            // Certificate file path or content
-  ca?: string;                              // CA certificate file path or content
-  passphrase?: string;                      // Private key passphrase
-  ciphers?: string;                         // Allowed cipher suites
-  honorCipherOrder?: boolean;               // Honor cipher order
-  secureProtocol?: string;                  // SSL/TLS protocol version
-  requestCert?: boolean;                    // Request client certificate
-  rejectUnauthorized?: boolean;             // Reject unauthorized connections
+export interface SSL2Config extends SSL1Config {
   allowHTTP1?: boolean;                     // Allow HTTP/1.1 fallback
 }
 
@@ -150,13 +147,7 @@ export interface WebSocketServerOptions extends BaseServerOptions {
 export interface GrpcServerOptions extends BaseServerOptions {
   channelOptions?: ChannelOptions;
   ssl?: SSLConfig;
-  connectionPool?: {
-    maxConnections?: number;
-    keepAliveTime?: number;
-    keepAliveTimeout?: number;
-    maxReceiveMessageLength?: number;
-    maxSendMessageLength?: number;
-  };
+  connectionPool?: ConnectionPoolConfig;
   ext?: {
     key?: string;
     cert?: string;
@@ -267,26 +258,25 @@ export class ConfigHelper {
     ext?: Record<string, any>;
     connectionPool?: ConnectionPoolConfig;
   } = {}): GrpcServerOptions {
+    // 处理gRPC特定的连接池配置
+    const connectionPool: ConnectionPoolConfig = {
+      ...options.connectionPool,
+      maxConnections: options.connectionPool?.maxConnections || 1000,
+      connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
+      protocolSpecific: {
+        ...options.connectionPool?.protocolSpecific,
+        // gRPC特定的配置
+        keepAliveTime: (options.connectionPool?.protocolSpecific as any)?.keepAliveTime || 30000,
+        maxReceiveMessageLength: (options.connectionPool?.protocolSpecific as any)?.maxReceiveMessageLength || 4 * 1024 * 1024,
+        maxSendMessageLength: (options.connectionPool?.protocolSpecific as any)?.maxSendMessageLength || 4 * 1024 * 1024
+      }
+    };
+
     return {
       ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        keepAliveTime: options.connectionPool?.protocolSpecific?.keepAliveTime || 10000,
-        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
-        maxReceiveMessageLength: options.connectionPool?.protocolSpecific?.maxReceiveMessageLength || 1024 * 1024 * 10,
-        maxSendMessageLength: options.connectionPool?.protocolSpecific?.maxSendMessageLength || 1024 * 1024 * 10,
-      },
-      ssl: {
-        ...options.ssl,
-        enabled: options.ssl?.enabled || false,
-        keyFile: options.ext?.keyFile || '',
-        certFile: options.ext?.certFile || '',
-        caFile: options.ext?.caFile || '',
-        clientCertRequired: options.ssl?.clientCertRequired || false
-      },
+      connectionPool,
       hostname: options.hostname || 'localhost',
-      port: options.port || 50051,
+      port: options.port || 50051, // gRPC默认端口
       protocol: options.protocol || 'grpc',
       trace: options.trace || false,
       ext: options.ext || {}
