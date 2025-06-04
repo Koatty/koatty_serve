@@ -4,8 +4,6 @@
 
 ## WsServer.Start() method
 
-Return an HTTP server
-
 **Signature:**
 
 ```typescript

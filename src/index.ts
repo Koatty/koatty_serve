@@ -19,25 +19,12 @@ export { WsServer } from "./server/ws";
 export { 
   NewServe, 
   MultiProtocolServer,
+} from "./server/serve";
+
+export {
   type KoattyProtocol,
   type ListeningOptions
-} from "./server/serve";
+} from "./config/config";
 
 // Export utilities
 export * from "./utils/terminus";
-
-
-// TODO: 修改KoattyServer接口
-// export declare interface KoattyServer {
-//   options: any;
-//   readonly Start: (listenCallback: () => void) => NativeServer;
-//   readonly Stop: (callback?: () => void) => void;
-
-//   readonly getStatus?: (protocolType?: string, port?: number) => number;
-//   readonly getNativeServer?: (protocolType?: string, port?: number) => NativeServer;
-//   /**
-//    * service register(exp: gRPC)
-//    * @param {ServiceImplementation} impl
-//    */
-//   readonly RegisterService?: (impl: any) => void;
-// }

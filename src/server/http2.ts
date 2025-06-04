@@ -1,518 +1,332 @@
 /*
- * @Description:
- * @Usage:
+ * @Description: HTTP/2 Server implementation using template method pattern
+ * @Usage: HTTP/2协议服务器实现
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2024-11-27 17:46:37
+ * @LastEditTime: 2024-11-27 23:30:00
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
 import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
-import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
-import { createLogger, generateTraceId } from "../utils/logger";
+import { BaseServer, ConfigChangeAnalysis } from "./base";
+import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { Http2ConnectionPoolManager } from "../pools/http2";
+import { ConnectionPoolConfig } from "../config/pool";
+import { ConfigHelper, Http2ServerOptions, ListeningOptions, SSL2Config } from "../config/config";
+
+
+
 
 /**
- * SSL/TLS Configuration with enhanced security modes for HTTP/2
- */
-interface SSL2Config {
-  mode: 'auto' | 'manual' | 'mutual_tls';  // SSL mode
-  key?: string;                             // Private key file path or content
-  cert?: string;                            // Certificate file path or content
-  ca?: string;                              // CA certificate file path or content
-  passphrase?: string;                      // Private key passphrase
-  ciphers?: string;                         // Allowed cipher suites
-  honorCipherOrder?: boolean;               // Honor cipher order
-  secureProtocol?: string;                  // SSL/TLS protocol version
-  checkServerIdentity?: boolean;            // Check server identity
-  requestCert?: boolean;                    // Request client certificate
-  rejectUnauthorized?: boolean;             // Reject unauthorized connections
-  allowHTTP1?: boolean;                     // Allow HTTP/1.1 fallback
-}
-
-/**
- * Enhanced HTTP2 Server Options
- */
-export interface Http2ServerOptions extends ListeningOptions {
-  ssl?: SSL2Config;
-  http2?: {
-    maxHeaderListSize?: number;
-    maxSessionMemory?: number;
-    settings?: {
-      headerTableSize?: number;
-      enablePush?: boolean;
-      maxConcurrentStreams?: number;
-      initialWindowSize?: number;
-      maxFrameSize?: number;
-      maxHeaderListSize?: number;
-    };
-  };
-  connectionPool?: {
-    maxConnections?: number;
-    keepAliveTimeout?: number;
-    headersTimeout?: number;
-    requestTimeout?: number;
-  };
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
-}
-
-/**
- * HTTP2 Server with enhanced SSL/TLS configuration management and graceful shutdown
+ * HTTP/2 Server implementation using template method pattern
+ * 继承BaseServer，只实现HTTP/2特定的逻辑
  */
 export class Http2Server extends BaseServer<Http2ServerOptions> {
-  readonly server: Http2SecureServer;
-  protected logger = createLogger({ module: 'http2', protocol: 'http2' });
-  private serverId = `http2_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  private connections = new Set<any>();
-  private sessions = new Set<any>();
-  private activeStreams = new Map<number, any>();
-  private connectionStats: ConnectionStats = {
-    activeConnections: 0,
-    totalConnections: 0,
-    connectionsPerSecond: 0,
-    averageLatency: 0,
-    errorRate: 0
-  };
-  private http2Stats = {
-    activeSessions: 0,
-    totalSessions: 0,
-    activeStreams: 0,
-    totalStreams: 0,
-    streamErrors: 0,
-    sessionErrors: 0
-  };
+  declare readonly server: Http2SecureServer;
+  declare protected connectionPool: Http2ConnectionPoolManager;
 
   constructor(app: KoattyApplication, options: Http2ServerOptions) {
     super(app, options);
-    
-    // Set server context for logging
-    this.logger = createLogger({ 
-      module: 'http2', 
-      protocol: options.protocol,
-      serverId: this.serverId
-    });
-
-    this.logger.info('Initializing HTTP2 server', {}, {
-      hostname: options.hostname,
-      port: options.port,
-      protocol: options.protocol,
-      sslMode: options.ssl?.mode || 'auto',
-      allowHTTP1: options.ssl?.allowHTTP1 !== false
-    });
-
-    // Create SSL options with enhanced HTTP/2 configuration
-    const http2Options = this.createHTTP2Options();
-    
-    this.server = createSecureServer(http2Options, (req, res) => {
-      const startTime = Date.now();
-      app.callback()(req, res);
-      
-      // Record request metrics
-      res.on('finish', () => {
-        const responseTime = Date.now() - startTime;
-        const success = res.statusCode < 400;
-        this.recordRequest(success, responseTime);
-      });
-    });
-
-    // Enhanced connection tracking with error monitoring
-    this.server.on('connection', (socket) => {
-      this.connections.add(socket);
-      this.connectionStats.activeConnections++;
-      this.connectionStats.totalConnections++;
-      
-      socket.on('close', () => {
-        this.connections.delete(socket);
-        this.connectionStats.activeConnections--;
-      });
-
-      socket.on('error', (error: Error) => {
-        this.logger.error('HTTP2 connection error', {}, {
-          error: error.message,
-          remoteAddress: (socket as any).remoteAddress
-        });
-        this.connectionStats.errorRate += 0.01; // Increment error rate
-      });
-    });
-
-    // Configure connection pool settings - Note: HTTP2 server doesn't have these properties
-    // We'll store the configuration for monitoring purposes only
-    if (options.connectionPool) {
-      this.logger.info('Connection pool configuration noted for HTTP2', {}, {
-        keepAliveTimeout: options.connectionPool.keepAliveTimeout,
-        headersTimeout: options.connectionPool.headersTimeout,
-        requestTimeout: options.connectionPool.requestTimeout
-      });
-    }
-
-    // HTTP/2 specific event monitoring
-    this.server.on('secureConnection', (tlsSocket) => {
-      this.logger.debug('HTTP2 secure connection established', {}, {
-        authorized: tlsSocket.authorized,
-        protocol: tlsSocket.getProtocol(),
-        cipher: tlsSocket.getCipher()?.name,
-        alpnProtocol: tlsSocket.alpnProtocol,
-        remoteAddress: tlsSocket.remoteAddress
-      });
-    });
-
-    this.server.on('tlsClientError', (err, tlsSocket) => {
-      this.logger.warn('HTTP2 TLS client error', {}, {
-        error: err.message,
-        remoteAddress: tlsSocket?.remoteAddress
-      });
-    });
-
-    // HTTP/2 session management
-    this.server.on('session', (session) => {
-      this.sessions.add(session);
-      this.http2Stats.activeSessions++;
-      this.http2Stats.totalSessions++;
-      
-      this.logger.debug('HTTP2 session created', {}, {
-        sessionId: (session as any).id || 'unknown',
-        type: session.type,
-        activeSessions: this.http2Stats.activeSessions
-      });
-
-      session.on('error', (error) => {
-        this.http2Stats.sessionErrors++;
-        this.logger.warn('HTTP2 session error', {}, {
-          error: error.message,
-          sessionId: (session as any).id || 'unknown',
-          totalSessionErrors: this.http2Stats.sessionErrors
-        });
-      });
-
-      session.on('close', () => {
-        this.sessions.delete(session);
-        this.http2Stats.activeSessions--;
-        this.logger.debug('HTTP2 session closed', {}, {
-          sessionId: (session as any).id || 'unknown',
-          activeSessions: this.http2Stats.activeSessions
-        });
-      });
-    });
-
-    // HTTP/2 stream monitoring
-    this.server.on('stream', (stream, headers) => {
-      this.activeStreams.set(stream.id, stream);
-      this.http2Stats.activeStreams++;
-      this.http2Stats.totalStreams++;
-      
-      this.logger.debug('HTTP2 stream created', {}, {
-        streamId: stream.id,
-        method: headers[':method'],
-        path: headers[':path'],
-        activeStreams: this.http2Stats.activeStreams
-      });
-
-      stream.on('error', (error) => {
-        this.http2Stats.streamErrors++;
-        this.logger.warn('HTTP2 stream error', {}, {
-          error: error.message,
-          streamId: stream.id,
-          totalStreamErrors: this.http2Stats.streamErrors
-        });
-      });
-
-      stream.on('close', () => {
-        this.activeStreams.delete(stream.id);
-        this.http2Stats.activeStreams--;
-        this.logger.debug('HTTP2 stream closed', {}, {
-          streamId: stream.id,
-          activeStreams: this.http2Stats.activeStreams
-        });
-      });
-    });
-    
-    this.logger.debug('HTTP2 server initialized successfully');
+    this.options = ConfigHelper.createHttp2Config(options);
     CreateTerminus(this);
   }
 
   /**
-   * Create HTTP/2 server options with enhanced SSL/TLS configuration
+   * 初始化HTTP/2连接池
+   */
+  protected initializeConnectionPool(): void {
+    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
+    this.connectionPool = new Http2ConnectionPoolManager(poolConfig);
+    
+    this.logger.debug('HTTP/2 connection pool initialized', {}, {
+      maxConnections: poolConfig.maxConnections || 'unlimited',
+      maxSessionMemory: poolConfig.protocolSpecific?.maxSessionMemory,
+      maxHeaderListSize: poolConfig.protocolSpecific?.maxHeaderListSize
+    });
+  }
+
+  /**
+   * 创建HTTP/2服务器实例
+   */
+  protected createProtocolServer(): void {
+    const http2Options = this.createHTTP2Options();
+    
+    (this as any).server = createSecureServer(http2Options, (req, res) => {
+      this.app.callback()(req, res);
+      
+      // 记录请求指标
+      res.on('finish', () => {
+        // HTTP/2连接池会自动处理流的统计
+        if ((req as any).stream && (req as any).stream.session) {
+          // 连接池已在session事件中处理
+        }
+      });
+    });
+    
+    this.logger.debug('HTTP/2 server instance created');
+  }
+
+  /**
+   * 配置HTTP/2服务器选项
+   */
+  protected configureServerOptions(): void {
+    this.setupSessionHandling();
+  }
+
+  /**
+   * HTTP/2特定的额外初始化
+   */
+  protected performProtocolSpecificInitialization(): void {
+    this.logger.info('HTTP/2 server initialization completed', {}, {
+      hostname: this.options.hostname,
+      port: this.options.port,
+      protocol: this.options.protocol,
+      serverId: this.serverId,
+      sslMode: this.options.ssl?.mode || 'auto',
+      allowHTTP1: this.options.ssl?.allowHTTP1 !== false,
+      maxConnections: this.options.connectionPool?.maxConnections
+    });
+  }
+
+  /**
+   * 创建HTTP/2选项
    */
   private createHTTP2Options(): SecureServerOptions {
-    const sslConfig = this.options.ssl || { mode: 'auto' };
-    const extConfig = this.options.ext || {};
-    const http2Config = this.options.http2 || {};
+    const sslConfig = this.options.ssl;
+    const extConfig = this.options.ext;
+    const http2Config = this.options.http2;
+
+    let sslOptions: SecureServerOptions = {};
     
-    let serverOptions: SecureServerOptions = {
-      allowHTTP1: sslConfig.allowHTTP1 !== false, // Enable HTTP/1.1 fallback by default
+    if (sslConfig) {
+      sslOptions = this.createSSLOptions(sslConfig, extConfig);
+    } else if (extConfig) {
+      sslOptions = this.createAutoSSLOptions({ mode: 'auto' }, extConfig);
+    }
+
+    // HTTP/2 specific options
+    const http2Options: SecureServerOptions = {
+      ...sslOptions,
+      allowHTTP1: sslConfig?.allowHTTP1 !== false, // 默认允许HTTP/1.1回退
     };
 
-    try {
-      // Create SSL configuration
-      const sslOptions = this.createSSLOptions(sslConfig, extConfig);
-      serverOptions = { ...serverOptions, ...sslOptions };
-
-      // Apply HTTP/2 specific settings via settings object
-      if (http2Config.settings) {
-        serverOptions.settings = http2Config.settings;
-      }
-
-      // Note: HTTP2 server doesn't support maxHeaderListSize and maxSessionMemory at server level
-      // These are handled at the session/stream level
-
-      this.logger.info('HTTP2 server options created successfully', {}, {
-        allowHTTP1: serverOptions.allowHTTP1,
-        sslMode: sslConfig.mode,
-        settingsProvided: !!http2Config.settings,
-        http2ConfigProvided: !!http2Config
-      });
-
-      return serverOptions;
-      
-    } catch (error) {
-      this.logger.error('Failed to create HTTP2 server options', {}, error);
-      throw new Error(`HTTP2 server configuration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // 添加HTTP/2设置
+    if (http2Config?.settings) {
+      http2Options.settings = http2Config.settings;
     }
+
+    return http2Options;
   }
 
   /**
-   * Create SSL options with enhanced security configuration
+   * 创建SSL选项
    */
   private createSSLOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
-    let sslOptions: SecureServerOptions = {};
-
-    try {
-      // Determine SSL mode
-      const mode = sslConfig.mode || 'auto';
-      
-      this.logger.info('Creating SSL configuration for HTTP2', {}, {
-        mode: mode,
-        keyProvided: !!(sslConfig.key || extConfig.key),
-        certProvided: !!(sslConfig.cert || extConfig.cert),
-        caProvided: !!(sslConfig.ca || extConfig.ca)
-      });
-
-      switch (mode) {
-        case 'auto':
-          sslOptions = this.createAutoSSLOptions(sslConfig, extConfig);
-          break;
-          
-        case 'manual':
-          sslOptions = this.createManualSSLOptions(sslConfig, extConfig);
-          break;
-          
-        case 'mutual_tls':
-          sslOptions = this.createMutualTLSOptions(sslConfig, extConfig);
-          break;
-          
-        default:
-          this.logger.warn('Unknown SSL mode for HTTP2, falling back to auto', {}, { mode });
-          sslOptions = this.createAutoSSLOptions(sslConfig, extConfig);
-      }
-
-      // Apply additional SSL settings
-      if (sslConfig.ciphers) {
-        sslOptions.ciphers = sslConfig.ciphers;
-      }
-      
-      if (sslConfig.honorCipherOrder !== undefined) {
-        sslOptions.honorCipherOrder = sslConfig.honorCipherOrder;
-      }
-      
-      if (sslConfig.secureProtocol) {
-        sslOptions.secureProtocol = sslConfig.secureProtocol;
-      }
-
-      this.logger.info('SSL configuration for HTTP2 created successfully', {}, {
-        mode: mode,
-        ciphers: !!sslOptions.ciphers,
-        honorCipherOrder: sslOptions.honorCipherOrder,
-        secureProtocol: sslOptions.secureProtocol,
-        requestCert: sslOptions.requestCert,
-        rejectUnauthorized: sslOptions.rejectUnauthorized
-      });
-
-      return sslOptions;
-      
-    } catch (error) {
-      this.logger.error('Failed to create SSL configuration for HTTP2', {}, error);
-      throw new Error(`HTTP2 SSL configuration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    switch (sslConfig.mode) {
+      case 'manual':
+        return this.createManualSSLOptions(sslConfig, extConfig);
+      case 'mutual_tls':
+        return this.createMutualTLSOptions(sslConfig, extConfig);
+      case 'auto':
+      default:
+        return this.createAutoSSLOptions(sslConfig, extConfig);
     }
   }
 
   /**
-   * Create auto SSL options (detect from available certificates)
+   * 自动SSL配置
    */
   private createAutoSSLOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
-    const keyFile = sslConfig.key || extConfig.key;
-    const certFile = sslConfig.cert || extConfig.cert;
-
-    if (!keyFile || !certFile) {
-      throw new Error('Auto SSL mode requires both key and cert files');
+    const keyPath = sslConfig.key || extConfig?.key;
+    const certPath = sslConfig.cert || extConfig?.cert;
+    
+    if (!keyPath || !certPath) {
+      throw new Error('SSL key and cert are required for HTTP/2');
     }
-
+    
     return {
-      key: this.loadCertificate(keyFile, 'private key'),
-      cert: this.loadCertificate(certFile, 'certificate'),
-      passphrase: sslConfig.passphrase
+      key: this.loadCertificate(keyPath, 'private key'),
+      cert: this.loadCertificate(certPath, 'certificate')
     };
   }
 
   /**
-   * Create manual SSL options
+   * 手动SSL配置
    */
   private createManualSSLOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
-    const options: SecureServerOptions = {};
-
-    // Private key
-    const keyFile = sslConfig.key || extConfig.key;
-    if (keyFile) {
-      options.key = this.loadCertificate(keyFile, 'private key');
+    const keyPath = sslConfig.key || extConfig?.key;
+    const certPath = sslConfig.cert || extConfig?.cert;
+    const caPath = sslConfig.ca || extConfig?.ca;
+    
+    if (!keyPath || !certPath) {
+      throw new Error('SSL key and cert are required for manual SSL mode');
     }
-
-    // Certificate
-    const certFile = sslConfig.cert || extConfig.cert;
-    if (certFile) {
-      options.cert = this.loadCertificate(certFile, 'certificate');
+    
+    const options: SecureServerOptions = {
+      key: this.loadCertificate(keyPath, 'private key'),
+      cert: this.loadCertificate(certPath, 'certificate'),
+      passphrase: sslConfig.passphrase,
+      ciphers: sslConfig.ciphers,
+      honorCipherOrder: sslConfig.honorCipherOrder,
+      secureProtocol: sslConfig.secureProtocol
+    };
+    
+    if (caPath) {
+      options.ca = this.loadCertificate(caPath, 'CA certificate');
     }
-
-    // CA certificate
-    const caFile = sslConfig.ca || extConfig.ca;
-    if (caFile) {
-      options.ca = this.loadCertificate(caFile, 'CA certificate');
-    }
-
-    if (sslConfig.passphrase) {
-      options.passphrase = sslConfig.passphrase;
-    }
-
+    
     return options;
   }
 
   /**
-   * Create mutual TLS options (client certificate required)
+   * 双向TLS配置
    */
   private createMutualTLSOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
-    const options = this.createManualSSLOptions(sslConfig, extConfig);
+    const manualOptions = this.createManualSSLOptions(sslConfig, extConfig);
     
-    // Enable client certificate verification
-    options.requestCert = true;
-    options.rejectUnauthorized = sslConfig.rejectUnauthorized !== false;
-    
-    // CA is required for mutual TLS
-    if (!options.ca) {
-      this.logger.warn('Mutual TLS mode recommended with CA certificate for HTTP2');
-    }
-
-    return options;
+    return {
+      ...manualOptions,
+      requestCert: sslConfig.requestCert !== false,
+      rejectUnauthorized: sslConfig.rejectUnauthorized !== false
+    };
   }
 
   /**
-   * Load certificate from file or return as-is if it's content
+   * 加载证书文件
    */
   private loadCertificate(keyOrPath: string, type: string): string {
     try {
-      // If it starts with '-----', treat as certificate content
-      if (keyOrPath.startsWith('-----')) {
-        this.logger.debug(`Using ${type} content directly for HTTP2`);
+      // 如果是文件路径，读取文件内容
+      if (keyOrPath.includes('\n') || keyOrPath.includes('-----')) {
+        // 直接是证书内容
         return keyOrPath;
+      } else {
+        // 是文件路径
+        return readFileSync(keyOrPath, 'utf8');
       }
-      
-      // Otherwise, treat as file path
-      this.logger.debug(`Loading ${type} from file for HTTP2`, {}, { path: keyOrPath });
-      return readFileSync(keyOrPath, 'utf8');
-      
     } catch (error) {
-      this.logger.error(`Failed to load ${type} for HTTP2`, {}, {
-        path: keyOrPath,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw new Error(`Failed to load ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to load ${type}`, {}, { path: keyOrPath, error });
+      throw new Error(`Failed to load ${type}: ${(error as Error).message}`);
     }
   }
 
-  // ============= 实现 BaseServer 抽象方法 =============
+  /**
+   * 设置会话处理
+   */
+  private setupSessionHandling(): void {
+    // HTTP/2 session management through connection pool
+    this.server.on('session', (session) => {
+      this.connectionPool.addHttp2Session(session).catch((error: Error) => {
+        this.logger.error('Failed to add HTTP/2 session to pool', {}, error);
+        try {
+          session.close();
+        } catch (closeError) {
+          this.logger.debug('Error closing failed session', {}, closeError);
+        }
+      });
+    });
+
+    this.server.on('sessionError', (error: Error, session: any) => {
+      this.logger.warn('HTTP/2 session error', {}, {
+        error: error.message,
+        sessionId: session.id
+      });
+    });
+  }
+
+  /**
+   * 提取连接池配置
+   */
+  private extractConnectionPoolConfig(): ConnectionPoolConfig {
+    const options = this.options.connectionPool;
+    const http2Options = this.options.http2;
+    return {
+      maxConnections: options?.maxConnections,
+      connectionTimeout: 30000, // 30秒连接超时
+      keepAliveTimeout: options?.keepAliveTimeout,
+      requestTimeout: options?.requestTimeout,
+      headersTimeout: options?.headersTimeout,
+      protocolSpecific: {
+        maxSessionMemory: http2Options?.maxSessionMemory || options?.maxSessionMemory,
+        maxHeaderListSize: http2Options?.maxHeaderListSize || options?.maxHeaderListSize
+      }
+    };
+  }
 
   protected analyzeConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
+    changedKeys: (keyof Http2ServerOptions)[],
     oldConfig: Http2ServerOptions,
     newConfig: Http2ServerOptions
   ): ConfigChangeAnalysis {
-    // Critical changes that require restart for HTTP2 server
+    // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
     
-    if (changedKeys.some(key => criticalKeys.includes(key))) {
+    if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
     }
 
-    // Enhanced SSL configuration changes detection
+    // SSL配置变更
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys,
-        restartReason: 'SSL certificate or security configuration changed',
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        restartReason: 'SSL/TLS configuration changed',
         canApplyRuntime: false
       };
     }
 
-    // HTTP/2 specific configuration changes
+    // HTTP/2配置变更
     if (this.hasHTTP2ConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         restartReason: 'HTTP/2 protocol configuration changed',
         canApplyRuntime: false
       };
     }
 
-    // Connection pool configuration changes
+    // 连接池配置变更
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys,
+      changedKeys: changedKeys as (keyof ListeningOptions)[],
       canApplyRuntime: true
     };
   }
 
-  protected applyConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>
-  ): void {
-    // This is now handled by the base class's restart logic
-    this.options = { ...this.options, ...newConfig } as Http2ServerOptions;
-  }
-
   protected onRuntimeConfigChange(
     analysis: ConfigChangeAnalysis,
-    newConfig: Partial<ListeningOptions>,
+    newConfig: Partial<Http2ServerOptions>,
     traceId: string
   ): void {
-    const newHttp2Config = newConfig as Partial<Http2ServerOptions>;
+    // 处理HTTP/2特定的运行时配置变更
+    const http2Config = newConfig as Partial<Http2ServerOptions>;
     
-    // Note: HTTP2 server doesn't support runtime changes to keepAliveTimeout, headersTimeout, requestTimeout
-    // We store the configuration for monitoring and future restart scenarios
-    if (newHttp2Config.connectionPool) {
-      this.logger.info('HTTP2 connection pool configuration updated (stored for monitoring)', { traceId }, {
-        keepAliveTimeout: newHttp2Config.connectionPool.keepAliveTimeout,
-        headersTimeout: newHttp2Config.connectionPool.headersTimeout,
-        requestTimeout: newHttp2Config.connectionPool.requestTimeout,
-        note: 'HTTP2 server does not support runtime timeout changes, will take effect after restart'
+    // 更新连接池配置
+    if (http2Config.connectionPool) {
+      this.logger.info('Updating HTTP/2 connection pool configuration', { traceId }, {
+        oldConfig: this.options.connectionPool,
+        newConfig: http2Config.connectionPool
       });
+      
+      const newPoolConfig = this.extractConnectionPoolConfig();
+      this.connectionPool.updateConfig(newPoolConfig);
     }
-    
-    this.logger.debug('HTTP2 runtime configuration changes applied', { traceId });
+
+    this.logger.debug('HTTP/2 runtime configuration changes applied', { traceId });
   }
 
   protected extractRelevantConfig(config: Http2ServerOptions) {
@@ -520,178 +334,38 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       hostname: config.hostname,
       port: config.port,
       protocol: config.protocol,
-      ssl: {
-        mode: config.ssl?.mode || 'auto',
-        keyFile: config.ssl?.key || config.ext?.key,
-        certFile: config.ssl?.cert || config.ext?.cert,
-        caFile: config.ssl?.ca || config.ext?.ca,
-        ciphers: config.ssl?.ciphers,
-        secureProtocol: config.ssl?.secureProtocol,
-        allowHTTP1: config.ssl?.allowHTTP1 !== false
-      },
-      http2: config.http2,
-      connectionPool: config.connectionPool
+      sslMode: config.ssl?.mode || 'auto',
+      allowHTTP1: config.ssl?.allowHTTP1 !== false,
+      connectionPool: config.connectionPool ? {
+        maxConnections: config.connectionPool.maxConnections,
+        maxSessionMemory: config.connectionPool.maxSessionMemory,
+        maxHeaderListSize: config.connectionPool.maxHeaderListSize
+      } : null,
+      http2Settings: config.http2?.settings
     };
   }
 
-  protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
-    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
-    
-    // Close the server to stop accepting new connections
-    this.server.close();
-    
-    this.logger.debug('New connection acceptance stopped', { traceId });
-  }
-
-  protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
-    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connections.size,
-      activeSessions: this.http2Stats.activeSessions,
-      activeStreams: this.http2Stats.activeStreams,
-      timeout: timeout
-    });
-
-    // First, close all active streams gracefully
-    try {
-      await this.closeAllStreams(Math.min(timeout / 3, 5000));
-    } catch (error) {
-      this.logger.warn('Error closing streams', { traceId }, error);
-    }
-
-    // Then, close all active sessions gracefully
-    try {
-      await this.closeAllSessions(Math.min(timeout / 3, 5000));
-    } catch (error) {
-      this.logger.warn('Error closing sessions', { traceId }, error);
-    }
-
-    // Finally, wait for TCP connections to complete
-    const startTime = Date.now();
-    const remainingTimeout = timeout - (Date.now() - startTime);
-    
-    while (this.connections.size > 0 && (Date.now() - startTime) < remainingTimeout) {
-      const elapsed = Date.now() - startTime;
-      
-      if (elapsed >= remainingTimeout) {
-        this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connections.size,
-          elapsed: elapsed
-        });
-        break;
-      }
-      
-      // Log progress every 5 seconds
-      if (elapsed % 5000 < 100) {
-        this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connections.size,
-          elapsed: elapsed,
-          remainingSessions: this.http2Stats.activeSessions,
-          remainingStreams: this.http2Stats.activeStreams
-        });
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connections.size,
-      remainingSessions: this.http2Stats.activeSessions,
-      remainingStreams: this.http2Stats.activeStreams
-    });
-  }
-
-  protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connections.size;
-    
-    if (remainingConnections > 0) {
-      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
-        remainingConnections
-      });
-      
-      // Force close all remaining connections
-      for (const connection of this.connections) {
-        try {
-          connection.destroy();
-        } catch (error) {
-          this.logger.warn('Failed to destroy connection', { traceId }, error);
-        }
-      }
-      
-      this.connections.clear();
-      
-      this.logger.warn('Forced closure of remaining connections', { traceId }, {
-        forcedConnections: remainingConnections
-      });
-    } else {
-      this.logger.debug('Step 4: No remaining connections to close', { traceId });
-    }
-  }
-
-  protected stopMonitoringAndCleanup(traceId: string): void {
-    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
-    
-    // Log final connection statistics
-    this.logger.info('Final connection statistics', { traceId }, this.connectionStats);
-    
-    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
-  }
-
-  protected forceShutdown(traceId: string): void {
-    this.logger.warn('Force shutdown initiated', { traceId });
-    
-    // Force close server
-    this.server.close();
-    
-    // Force close all connections
-    for (const connection of this.connections) {
-      try {
-        connection.destroy();
-      } catch (error) {
-        this.logger.warn('Failed to destroy connection during force shutdown', { traceId }, error);
-      }
-    }
-    this.connections.clear();
-    
-    this.stopMonitoringAndCleanup(traceId);
-  }
-
-  protected getActiveConnectionCount(): number {
-    return this.connections.size;
-  }
-
-  // ============= HTTP2 特有的辅助方法 =============
-
   /**
-   * Enhanced SSL configuration change detection
+   * 检查SSL配置是否变更
    */
   private hasSSLConfigChanged(oldConfig: Http2ServerOptions, newConfig: Http2ServerOptions): boolean {
     const oldSSL = oldConfig.ssl;
     const newSSL = newConfig.ssl;
-    const oldExt = oldConfig.ext;
-    const newExt = newConfig.ext;
 
-    // Check SSL configuration object
-    if (oldSSL?.mode !== newSSL?.mode) return true;
-    if (oldSSL?.key !== newSSL?.key) return true;
-    if (oldSSL?.cert !== newSSL?.cert) return true;
-    if (oldSSL?.ca !== newSSL?.ca) return true;
-    if (oldSSL?.ciphers !== newSSL?.ciphers) return true;
-    if (oldSSL?.secureProtocol !== newSSL?.secureProtocol) return true;
-    if (oldSSL?.honorCipherOrder !== newSSL?.honorCipherOrder) return true;
-    if (oldSSL?.requestCert !== newSSL?.requestCert) return true;
-    if (oldSSL?.rejectUnauthorized !== newSSL?.rejectUnauthorized) return true;
-    if (oldSSL?.allowHTTP1 !== newSSL?.allowHTTP1) return true;
+    if (!oldSSL && !newSSL) return false;
+    if (!oldSSL || !newSSL) return true;
 
-    // Check ext configuration (backward compatibility)
-    if (oldExt?.key !== newExt?.key) return true;
-    if (oldExt?.cert !== newExt?.cert) return true;
-    if (oldExt?.ca !== newExt?.ca) return true;
-
-    return false;
+    return (
+      oldSSL.mode !== newSSL.mode ||
+      oldSSL.key !== newSSL.key ||
+      oldSSL.cert !== newSSL.cert ||
+      oldSSL.ca !== newSSL.ca ||
+      oldSSL.allowHTTP1 !== newSSL.allowHTTP1
+    );
   }
 
   /**
-   * Check if HTTP/2 specific configuration changed
+   * 检查HTTP/2配置是否变更
    */
   private hasHTTP2ConfigChanged(oldConfig: Http2ServerOptions, newConfig: Http2ServerOptions): boolean {
     const oldHttp2 = oldConfig.http2;
@@ -700,29 +374,15 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     if (!oldHttp2 && !newHttp2) return false;
     if (!oldHttp2 || !newHttp2) return true;
 
-    // Check HTTP/2 specific settings
-    if (oldHttp2.maxHeaderListSize !== newHttp2.maxHeaderListSize) return true;
-    if (oldHttp2.maxSessionMemory !== newHttp2.maxSessionMemory) return true;
-
-    // Check HTTP/2 settings object
-    const oldSettings = oldHttp2.settings;
-    const newSettings = newHttp2.settings;
-    
-    if (!oldSettings && !newSettings) return false;
-    if (!oldSettings || !newSettings) return true;
-
     return (
-      oldSettings.headerTableSize !== newSettings.headerTableSize ||
-      oldSettings.enablePush !== newSettings.enablePush ||
-      oldSettings.maxConcurrentStreams !== newSettings.maxConcurrentStreams ||
-      oldSettings.initialWindowSize !== newSettings.initialWindowSize ||
-      oldSettings.maxFrameSize !== newSettings.maxFrameSize ||
-      oldSettings.maxHeaderListSize !== newSettings.maxHeaderListSize
+      oldHttp2.maxHeaderListSize !== newHttp2.maxHeaderListSize ||
+      oldHttp2.maxSessionMemory !== newHttp2.maxSessionMemory ||
+      JSON.stringify(oldHttp2.settings) !== JSON.stringify(newHttp2.settings)
     );
   }
 
   /**
-   * Check if connection pool configuration changed
+   * 检查连接池配置是否变更
    */
   private hasConnectionPoolChanged(oldConfig: Http2ServerOptions, newConfig: Http2ServerOptions): boolean {
     const oldPool = oldConfig.connectionPool;
@@ -733,258 +393,181 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
 
     return (
       oldPool.maxConnections !== newPool.maxConnections ||
-      oldPool.keepAliveTimeout !== newPool.keepAliveTimeout ||
-      oldPool.headersTimeout !== newPool.headersTimeout ||
-      oldPool.requestTimeout !== newPool.requestTimeout
+      oldPool.maxSessionMemory !== newPool.maxSessionMemory ||
+      oldPool.maxHeaderListSize !== newPool.maxHeaderListSize ||
+      oldPool.keepAliveTimeout !== newPool.keepAliveTimeout
     );
   }
 
-  // ============= 实现健康检查和指标收集 =============
+  // ============= 实现优雅关闭抽象方法 =============
 
-  protected async performProtocolHealthChecks(): Promise<Record<string, any>> {
-    const checks: Record<string, any> = {};
+  protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
+    this.logger.info('Step 1: Stopping acceptance of new HTTP/2 connections', { traceId });
     
-    // HTTP2 server specific health checks
-    const serverListening = this.server.listening;
-    const serverAddress = this.server.address();
-    
-    checks.server = {
-      status: serverListening ? HealthStatus.HEALTHY : HealthStatus.UNHEALTHY,
-      message: serverListening ? 'HTTP2 server is listening' : 'HTTP2 server is not listening',
-      details: {
-        listening: serverListening,
-        address: serverAddress,
-        allowHTTP1: this.options.ssl?.allowHTTP1 !== false
-      }
-    };
-    
-    // Enhanced SSL certificate health check
-    checks.ssl = {
-      status: HealthStatus.HEALTHY,
-      message: 'SSL certificates configured for HTTP2',
-      details: {
-        mode: this.options.ssl?.mode || 'auto',
-        keyConfigured: !!(this.options.ssl?.key || this.options.ext?.key),
-        certConfigured: !!(this.options.ssl?.cert || this.options.ext?.cert),
-        caConfigured: !!(this.options.ssl?.ca || this.options.ext?.ca),
-        mutualTLS: this.options.ssl?.mode === 'mutual_tls',
-        allowHTTP1: this.options.ssl?.allowHTTP1 !== false
-      }
-    };
-
-    // HTTP/2 protocol health check
-    const http2Config = this.options.http2;
-    checks.http2Protocol = {
-      status: HealthStatus.HEALTHY,
-      message: 'HTTP/2 protocol configured and monitoring',
-      details: {
-        maxHeaderListSize: http2Config?.maxHeaderListSize,
-        maxSessionMemory: http2Config?.maxSessionMemory,
-        settingsConfigured: !!http2Config?.settings,
-        activeSessions: this.http2Stats.activeSessions,
-        totalSessions: this.http2Stats.totalSessions,
-        activeStreams: this.http2Stats.activeStreams,
-        totalStreams: this.http2Stats.totalStreams,
-        sessionErrors: this.http2Stats.sessionErrors,
-        streamErrors: this.http2Stats.streamErrors,
-        activeConnections: this.connections.size
-      }
-    };
-
-    // Connection pool health check
-    const connectionPool = this.options.connectionPool;
-    if (connectionPool) {
-      checks.connectionPool = {
-        status: HealthStatus.HEALTHY,
-        message: 'Connection pool configured for HTTP2',
-        details: {
-          configuredKeepAliveTimeout: connectionPool.keepAliveTimeout,
-          configuredHeadersTimeout: connectionPool.headersTimeout,
-          configuredRequestTimeout: connectionPool.requestTimeout,
-          activeConnections: this.connections.size,
-          note: 'HTTP2 server timeouts are configured but not accessible at runtime'
-        }
-      };
+    // 停止HTTP/2服务器监听
+    if (this.server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        this.server.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
     }
     
-    return checks;
+    this.logger.debug('New HTTP/2 connection acceptance stopped', { traceId });
   }
 
-  protected collectProtocolMetrics(): Record<string, any> {
-    const connectionPool = this.options.connectionPool;
+  protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
+    this.logger.info('Step 3: Waiting for existing HTTP/2 sessions to complete', { traceId }, {
+      activeSessions: this.getActiveConnectionCount(),
+      timeout: timeout
+    });
+
+    const startTime = Date.now();
     
-    return {
-      protocol: 'http2',
-      server: {
-        listening: this.server.listening,
-        address: this.server.address(),
-        allowHTTP1: this.options.ssl?.allowHTTP1 !== false,
-        note: 'HTTP2 server does not expose timeout properties at runtime'
-      },
-      ssl: {
-        mode: this.options.ssl?.mode || 'auto',
-        keyConfigured: !!(this.options.ssl?.key || this.options.ext?.key),
-        certConfigured: !!(this.options.ssl?.cert || this.options.ext?.cert),
-        caConfigured: !!(this.options.ssl?.ca || this.options.ext?.ca),
-        mutualTLS: this.options.ssl?.mode === 'mutual_tls',
-        ciphers: this.options.ssl?.ciphers,
-        secureProtocol: this.options.ssl?.secureProtocol,
-        allowHTTP1: this.options.ssl?.allowHTTP1 !== false
-      },
-      http2: {
-        config: this.options.http2 || {},
-        sessions: {
-          active: this.http2Stats.activeSessions,
-          total: this.http2Stats.totalSessions,
-          errors: this.http2Stats.sessionErrors
-        },
-        streams: {
-          active: this.http2Stats.activeStreams,
-          total: this.http2Stats.totalStreams,
-          errors: this.http2Stats.streamErrors
-        }
-      },
-      connectionPool: connectionPool ? {
-        ...connectionPool,
-        note: 'Configuration values, not runtime values'
-      } : {}
-    };
+    while (this.getActiveConnectionCount() > 0) {
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed >= timeout) {
+        this.logger.warn('HTTP/2 session completion timeout reached', { traceId }, {
+          remainingSessions: this.getActiveConnectionCount(),
+          elapsed: elapsed
+        });
+        break;
+      }
+      
+      // 每5秒记录一次进度
+      if (elapsed % 5000 < 100) {
+        this.logger.debug('Waiting for HTTP/2 sessions to complete', { traceId }, {
+          remainingSessions: this.getActiveConnectionCount(),
+          elapsed: elapsed
+        });
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.logger.debug('HTTP/2 session completion wait finished', { traceId }, {
+      remainingSessions: this.getActiveConnectionCount()
+    });
   }
 
-  // ============= 原有的 HTTP2 功能方法 =============
+  protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
+    const remainingConnections = this.getActiveConnectionCount();
+    
+    if (remainingConnections > 0) {
+      this.logger.info('Step 4: Force closing remaining HTTP/2 sessions', { traceId }, {
+        remainingSessions: remainingConnections
+      });
+      
+      // 使用连接池强制关闭所有会话
+      await this.connectionPool.closeAllConnections(5000);
+      
+      this.logger.warn('Forced closure of remaining HTTP/2 sessions', { traceId }, {
+        forcedSessions: remainingConnections
+      });
+    } else {
+      this.logger.debug('Step 4: No remaining HTTP/2 sessions to close', { traceId });
+    }
+  }
 
-  /**
-   * Start Server with enhanced HTTP/2 and SSL configuration
-   */
+  protected forceShutdown(traceId: string): void {
+    this.logger.warn('Force HTTP/2 server shutdown initiated', { traceId });
+    
+    // 强制关闭HTTP/2服务器
+    this.server.close();
+    
+    // 停止监控和清理
+    this.stopMonitoringAndCleanup(traceId);
+  }
+
+  // ============= 实现KoattyServer接口 =============
+
   Start(listenCallback?: () => void): Http2SecureServer {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
-      protocol: this.options.protocol,
-      sslMode: this.options.ssl?.mode || 'auto',
-      allowHTTP1: this.options.ssl?.allowHTTP1 !== false
+      protocol: this.options.protocol
     });
 
-    listenCallback = listenCallback ? listenCallback : this.listenCallback;
-    
-    const server = this.server.listen({
-      port: this.options.port,
-      host: this.options.hostname,
-    }, () => {
+    this.server.listen(this.options.port, this.options.hostname, () => {
       this.logger.logServerEvent('started', { traceId }, {
-        address: this.server.address(),
+        address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
         port: this.options.port,
         protocol: this.options.protocol,
+        connectionPoolEnabled: !!this.connectionPool,
+        serverId: this.serverId,
         sslMode: this.options.ssl?.mode || 'auto',
         allowHTTP1: this.options.ssl?.allowHTTP1 !== false
       });
       
-      // Start monitoring after server is successfully started
-      this.startMonitoring();
+      // 启动连接池监控
+      this.startConnectionPoolMonitoring();
       
-      if (listenCallback) listenCallback();
-    }).on("error", (err: Error) => {
-      this.logger.logServerEvent('error', { traceId }, err);
+      if (listenCallback) {
+        listenCallback();
+      }
     });
 
-    return server;
+    return this.server;
   }
 
-  /**
-   * Get HTTP/2 specific statistics
-   */
-  getHttp2Stats() {
-    return {
-      ...this.http2Stats,
-      sessionsList: Array.from(this.sessions).map(session => ({
-        id: (session as any).id || 'unknown',
-        type: session.type,
-        state: session.state
-      })),
-      activeStreamIds: Array.from(this.activeStreams.keys())
-    };
-  }
-
-  /**
-   * Get connection statistics
-   */
-  getConnectionStats(): ConnectionStats {
-    return { ...this.connectionStats };
-  }
-
-  /**
-   * Get status
-   */
   getStatus(): number {
     return this.status;
   }
 
-  /**
-   * Get native server
-   */
   getNativeServer(): NativeServer {
     return this.server;
   }
 
+  // ============= HTTP/2特定的方法 =============
+
   /**
-   * Close all active HTTP/2 sessions gracefully
+   * 启动连接池监控
    */
-  private async closeAllSessions(timeout: number): Promise<void> {
-    if (this.sessions.size === 0) return;
+  private startConnectionPoolMonitoring(): void {
+    const monitoringInterval = setInterval(() => {
+      const stats = this.getConnectionStats();
+      this.logger.debug('HTTP/2 connection pool statistics', {}, stats);
+    }, 30000); // 每30秒
 
-    this.logger.debug('Closing all HTTP/2 sessions', {}, {
-      activeSessions: this.sessions.size
-    });
-
-    const promises: Promise<void>[] = [];
-    
-    for (const session of this.sessions) {
-      promises.push(new Promise((resolve) => {
-        const timer = setTimeout(() => {
-          this.logger.warn('Session close timeout, forcing close');
-          resolve();
-        }, timeout);
-
-        session.close(() => {
-          clearTimeout(timer);
-          resolve();
-        });
-      }));
-    }
-
-    await Promise.all(promises);
-    this.logger.debug('All HTTP/2 sessions closed');
+    // 存储间隔以供清理
+    (this.server as any)._monitoringInterval = monitoringInterval;
   }
 
   /**
-   * Close all active streams gracefully
+   * 获取HTTP/2统计信息
    */
-  private async closeAllStreams(timeout: number): Promise<void> {
-    if (this.activeStreams.size === 0) return;
+  getHttp2Stats() {
+    return this.connectionPool ? this.connectionPool.getConnectionStats() : null;
+  }
 
-    this.logger.debug('Closing all HTTP/2 streams', {}, {
-      activeStreams: this.activeStreams.size
-    });
+  /**
+   * 获取当前连接状态
+   */
+  getConnectionsStatus(): { current: number; max: number } {
+    const poolConfig = this.connectionPool?.getConfig();
+    return {
+      current: this.getActiveConnectionCount(),
+      max: poolConfig?.maxConnections || 0
+    };
+  }
 
-    const promises: Promise<void>[] = [];
-    
-    for (const [streamId, stream] of this.activeStreams) {
-      promises.push(new Promise((resolve) => {
-        const timer = setTimeout(() => {
-          this.logger.warn('Stream close timeout, forcing close', {}, { streamId });
-          resolve();
-        }, timeout);
+  /**
+   * 销毁服务器
+   */
+  async destroy(): Promise<void> {
+    const traceId = generateTraceId();
+    this.logger.info('Destroying HTTP/2 server', { traceId });
 
-        stream.close(0, () => {
-          clearTimeout(timer);
-          resolve();
-        });
-      }));
+    try {
+      await this.gracefulShutdown();
+      this.logger.info('HTTP/2 server destroyed successfully', { traceId });
+    } catch (error) {
+      this.logger.error('Error destroying HTTP/2 server', { traceId }, error);
+      throw error;
     }
-
-    await Promise.all(promises);
-    this.logger.debug('All HTTP/2 streams closed');
   }
 }

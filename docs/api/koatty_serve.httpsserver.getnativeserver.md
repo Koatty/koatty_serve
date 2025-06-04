@@ -4,8 +4,6 @@
 
 ## HttpsServer.getNativeServer() method
 
-Get native server
-
 **Signature:**
 
 ```typescript

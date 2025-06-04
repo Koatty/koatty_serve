@@ -7,14 +7,14 @@
 **Signature:**
 
 ```typescript
-protected analyzeConfigChanges(changedKeys: (keyof ListeningOptions)[], oldConfig: Http2ServerOptions, newConfig: Http2ServerOptions): ConfigChangeAnalysis;
+protected analyzeConfigChanges(changedKeys: (keyof Http2ServerOptions)[], oldConfig: Http2ServerOptions, newConfig: Http2ServerOptions): ConfigChangeAnalysis;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  changedKeys | (keyof ListeningOptions)\[\] |  |
+|  changedKeys | (keyof Http2ServerOptions)\[\] |  |
 |  oldConfig | Http2ServerOptions |  |
 |  newConfig | Http2ServerOptions |  |
 

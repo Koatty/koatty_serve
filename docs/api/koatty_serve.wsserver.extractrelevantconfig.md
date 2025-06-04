@@ -11,12 +11,14 @@ protected extractRelevantConfig(config: WebSocketServerOptions): {
         hostname: string;
         port: number;
         protocol: import("./base").KoattyProtocol;
-        maxConnections: number;
-        connectionTimeout: number;
-        ssl: {
-            keyFile: any;
-            certFile: any;
+        isSecure: boolean;
+        connectionPool: {
+            maxConnections: number;
+            pingInterval: number;
+            pongTimeout: number;
+            heartbeatInterval: number;
         };
+        wsOptions: WS.ServerOptions<typeof import("ws"), typeof IncomingMessage>;
     };
 ```
 
@@ -28,5 +30,5 @@ protected extractRelevantConfig(config: WebSocketServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; maxConnections: number; connectionTimeout: number; ssl: { keyFile: any; certFile: any; }; }
+{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; isSecure: boolean; connectionPool: { maxConnections: number; pingInterval: number; pongTimeout: number; heartbeatInterval: number; }; wsOptions: WS.ServerOptions&lt;typeof import("ws"), typeof IncomingMessage&gt;; }
 

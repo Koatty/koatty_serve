@@ -1,111 +1,115 @@
 /*
- * @Description: 
- * @Usage: 
+ * @Description: WebSocket Server implementation using template method pattern
+ * @Usage: WebSocket协议服务器实现
  * @Author: richen
  * @Date: 2021-11-12 11:29:16
- * @LastEditTime: 2024-11-27 21:20:00
+ * @LastEditTime: 2024-11-27 23:30:00
  */
 import { Server as HttpServer, IncomingMessage, createServer } from "http";
 import { Server as HttpsServer, createServer as httpsCreateServer, ServerOptions as httpsServerOptions } from "https";
 import { KoattyApplication, NativeServer } from 'koatty_core';
-import { ServerOptions, WebSocketServer, WebSocket } from 'ws';
+import * as WS from 'ws';
 import { CreateTerminus } from "../utils/terminus";
-import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
-import { createLogger, generateTraceId } from "../utils/logger";
-import { WebSocketConnectionPoolManager } from "./pools/ws";
-import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
+import { BaseServer, ConfigChangeAnalysis } from "./base";
+import { generateTraceId } from "../utils/logger";
+import { WebSocketConnectionPoolManager } from "../pools/ws";
+import { ConnectionPoolConfig } from "../config/pool";
+import { ConfigHelper, ListeningOptions, WebSocketServerOptions } from "../config/config";
 
-export interface WebSocketServerOptions extends ListeningOptions {
-  wsOptions?: ServerOptions;
-  maxConnections?: number; // 最大连接数限制
-  connectionTimeout?: number; // 连接超时时间(ms)
-  connectionPool?: {
-    maxConnections?: number;
-    pingInterval?: number;
-    pongTimeout?: number;
-    heartbeatInterval?: number;
-  };
-}
 
+/**
+ * WebSocket Server implementation using template method pattern
+ * 继承BaseServer，只实现WebSocket特定的逻辑
+ */
 export class WsServer extends BaseServer<WebSocketServerOptions> {
-  readonly server: WebSocketServer;
+  declare readonly server: WS.WebSocketServer;
+  declare protected connectionPool: WebSocketConnectionPoolManager;
+  
   readonly httpServer: HttpServer | HttpsServer;
-  private connectionPool: WebSocketConnectionPoolManager;
-  private cleanupInterval?: NodeJS.Timeout;
   private upgradeHandler?: (request: any, socket: any, head: any) => void;
   private clientErrorHandler?: (err: any, sock: any) => void;
-  protected logger = createLogger({ module: 'websocket', protocol: 'ws' });
-  private serverId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   socket: any;
 
   constructor(app: KoattyApplication, options: WebSocketServerOptions) {
     super(app, options);
-    options.ext = options.ext || {};
+    this.options = ConfigHelper.createWebSocketConfig(options);
+    // 创建或使用现有的HTTP/HTTPS服务器
+    this.httpServer = this.createHttpServer();
     
-    // Set server context for logging
-    this.logger = createLogger({ 
-      module: 'websocket', 
-      protocol: options.protocol,
-      serverId: this.serverId
-    });
-
-    this.logger.info('Initializing WebSocket server with connection pool', {}, {
-      hostname: options.hostname,
-      port: options.port,
-      protocol: options.protocol,
-      maxConnections: options.connectionPool?.maxConnections || options.maxConnections || 1000,
-      connectionTimeout: options.connectionTimeout || 30000
-    });
-
-    // 初始化连接池
-    this.initializeConnectionPool();
-
-    if (options.ext.server){
-      this.httpServer = options.ext.server;
-      this.logger.debug('Using external HTTP server');
-    } else {
-      if (this.options.protocol == "wss") {
-        const opt: httpsServerOptions = {
-          key: this.options.ext.key,
-          cert: this.options.ext.cert,
-        };
-        this.httpServer = httpsCreateServer(opt);
-        this.logger.debug('Created HTTPS server for WSS');
-      } else {
-        this.httpServer = createServer();
-        this.logger.debug('Created HTTP server for WS');
-      }
-    }
-
-    // Configure WebSocket server with noServer: true to handle upgrade manually
-    this.options.wsOptions = {
-      noServer: true,
-    };
-
-    this.server = new WebSocketServer(this.options.wsOptions);
-
-    // 设置连接池事件监听
-    this.setupConnectionPoolEventListeners();
-
-    // Set up periodic cleanup of stale connections
-    this.cleanupInterval = setInterval(() => {
-      const cleaned = this.connectionPool.cleanupStaleConnections();
-      if (cleaned > 0) {
-        this.logger.debug('Cleaned up stale WebSocket connections', {}, { count: cleaned });
-      }
-    }, 10000); // Check every 10 seconds
-
-    this.logger.debug('WebSocket server initialized successfully');
-
     CreateTerminus(this);
   }
 
   /**
-   * 初始化连接池
+   * 初始化WebSocket连接池
    */
-  private initializeConnectionPool(): void {
+  protected initializeConnectionPool(): void {
     const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
     this.connectionPool = new WebSocketConnectionPoolManager(poolConfig);
+    
+    this.logger.debug('WebSocket connection pool initialized', {}, {
+      maxConnections: poolConfig.maxConnections || 'unlimited',
+      pingInterval: poolConfig.protocolSpecific?.pingInterval || 30000,
+      pongTimeout: poolConfig.protocolSpecific?.pongTimeout || 5000,
+      heartbeatInterval: poolConfig.protocolSpecific?.heartbeatInterval || 60000
+    });
+  }
+
+  /**
+   * 创建WebSocket服务器实例
+   */
+  protected createProtocolServer(): void {
+    // 配置WebSocket服务器，使用noServer模式手动处理升级
+    this.options.wsOptions = {
+      ...this.options.wsOptions,
+      noServer: true,
+    };
+
+    (this as any).server = new WS.WebSocketServer(this.options.wsOptions);
+    
+    this.logger.debug('WebSocket server instance created');
+  }
+
+  /**
+   * 配置WebSocket服务器选项
+   */
+  protected configureServerOptions(): void {
+    this.setupUpgradeHandling();
+    this.setupConnectionHandling();
+  }
+
+  /**
+   * WebSocket特定的额外初始化
+   */
+  protected performProtocolSpecificInitialization(): void {
+    this.logger.info('WebSocket server initialization completed', {}, {
+      hostname: this.options.hostname,
+      port: this.options.port,
+      protocol: this.options.protocol,
+      serverId: this.serverId,
+      isSecure: this.options.protocol === 'wss'
+    });
+  }
+
+  /**
+   * 创建HTTP/HTTPS服务器
+   */
+  private createHttpServer(): HttpServer | HttpsServer {
+    if (this.options.ext?.server) {
+      this.logger.debug('Using external HTTP server');
+      return this.options.ext.server;
+    }
+    
+    if (this.options.protocol === "wss") {
+      const opt: httpsServerOptions = {
+        key: this.options.ext?.key,
+        cert: this.options.ext?.cert,
+      };
+      this.logger.debug('Created HTTPS server for WSS');
+      return httpsCreateServer(opt);
+    } else {
+      this.logger.debug('Created HTTP server for WS');
+      return createServer();
+    }
   }
 
   /**
@@ -114,86 +118,184 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   private extractConnectionPoolConfig(): ConnectionPoolConfig {
     const options = this.options.connectionPool;
     return {
-      maxConnections: options?.maxConnections || this.options.maxConnections,
-      connectionTimeout: this.options.connectionTimeout || 30000,
+      maxConnections: options?.maxConnections,
+      connectionTimeout: options?.connectionTimeout || 30000,
       protocolSpecific: {
-        pingInterval: options?.pingInterval,
-        pongTimeout: options?.pongTimeout
+        pingInterval: options?.pingInterval || 30000,
+        pongTimeout: options?.pongTimeout || 5000,
+        heartbeatInterval: options?.heartbeatInterval || 60000
       }
     };
   }
 
   /**
-   * 设置连接池事件监听
+   * 设置WebSocket升级处理
    */
-  private setupConnectionPoolEventListeners(): void {
-    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
-      this.logger.warn('WebSocket connection pool limit reached', {}, data);
-    });
+  private setupUpgradeHandling(): void {
+    this.upgradeHandler = (request: any, socket: any, head: any) => {
+      this.server.handleUpgrade(request, socket, head, (ws: WS.WebSocket) => {
+        this.server.emit('connection', ws, request);
+      });
+    };
 
-    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
-      this.logger.info('WebSocket connection pool health status changed', {}, data);
-    });
+    this.clientErrorHandler = (err: any, socket: any) => {
+      this.logger.error('Client error during upgrade', {}, {
+        error: err.message,
+        remoteAddress: socket.remoteAddress
+      });
+      socket.destroy();
+    };
 
-    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
-      this.logger.warn('WebSocket connection pool error', {}, {
-        error: data.error?.message,
-        connectionId: data.connectionId
+    // 绑定升级事件处理器，使用类型断言
+    (this.httpServer as any).on('upgrade', this.upgradeHandler);
+    (this.httpServer as any).on('clientError', this.clientErrorHandler);
+  }
+
+  /**
+   * 设置WebSocket连接处理
+   */
+  private setupConnectionHandling(): void {
+    this.server.on('connection', (ws: WS.WebSocket, request: IncomingMessage) => {
+      this.onConnection(ws, request).catch(error => {
+        this.logger.error('Error handling WebSocket connection', {}, error);
+        ws.close(1011, 'Server error');
       });
     });
   }
 
-  // ============= 实现 BaseServer 抽象方法 =============
+  /**
+   * 处理新的WebSocket连接
+   */
+  private async onConnection(ws: WS.WebSocket, request: IncomingMessage): Promise<void> {
+    const connectionId = generateTraceId();
+    
+    try {
+      // 使用连接池注册连接
+      const success = await this.connectionPool.registerConnection(ws, {
+        connectionId,
+        remoteAddress: request.socket.remoteAddress,
+        remotePort: request.socket.remotePort,
+        userAgent: request.headers['user-agent'],
+        origin: request.headers.origin,
+        protocol: request.headers['sec-websocket-protocol'],
+        createdAt: Date.now()
+      });
+
+      if (!success) {
+        this.logger.warn('Failed to register WebSocket connection in pool', {}, { connectionId });
+        ws.close(1013, 'Service overloaded');
+        return;
+      }
+
+      this.logger.debug('New WebSocket connection established', {}, {
+        connectionId,
+        remoteAddress: request.socket.remoteAddress,
+        userAgent: request.headers['user-agent']
+      });
+
+      // 设置WebSocket事件处理
+      this.setupWebSocketEventHandlers(ws, connectionId);
+
+      // 触发应用层事件
+      (this.app as any).emit('connection', ws, request);
+
+    } catch (error) {
+      this.logger.error('Failed to handle WebSocket connection', {}, {
+        connectionId,
+        error: (error as Error).message
+      });
+      ws.close(1011, 'Server error');
+    }
+  }
+
+  /**
+   * 设置WebSocket事件处理器
+   */
+  private setupWebSocketEventHandlers(ws: WS.WebSocket, connectionId: string): void {
+    // 处理消息
+    ws.on('message', (data: WS.RawData) => {
+      let dataLength = 0;
+      if (Buffer.isBuffer(data)) {
+        dataLength = data.length;
+      } else if (data instanceof ArrayBuffer) {
+        dataLength = data.byteLength;
+      } else if (Array.isArray(data)) {
+        dataLength = data.reduce((total, chunk) => total + chunk.length, 0);
+      }
+      
+      this.logger.debug('WebSocket message received', {}, {
+        connectionId,
+        dataLength
+      });
+    });
+
+    // 处理错误
+    ws.on('error', (error: Error) => {
+      this.logger.warn('WebSocket connection error', {}, {
+        connectionId,
+        error: error.message
+      });
+    });
+
+    // 处理关闭
+    ws.on('close', (code: number, reason: Buffer) => {
+      this.logger.debug('WebSocket connection closed', {}, {
+        connectionId,
+        code,
+        reason: reason.toString()
+      });
+
+      // 从连接池中移除连接
+      this.connectionPool.releaseConnection(ws, { destroy: true });
+    });
+
+    // 处理pong
+    ws.on('pong', () => {
+      this.logger.debug('WebSocket pong received', {}, { connectionId });
+    });
+  }
 
   protected analyzeConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
+    changedKeys: (keyof WebSocketServerOptions)[],
     oldConfig: WebSocketServerOptions,
     newConfig: WebSocketServerOptions
   ): ConfigChangeAnalysis {
-    // Critical changes that require restart for WebSocket server
+    // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
     
-    if (changedKeys.some(key => criticalKeys.includes(key))) {
+    if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
     }
 
-    // SSL certificate changes (for WSS)
+    // SSL配置变更 (对于WSS)
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         restartReason: 'SSL certificate configuration changed',
         canApplyRuntime: false
       };
     }
 
-    // Connection pool changes
-    if (this.hasConnectionConfigChanged(oldConfig, newConfig)) {
+    // 连接池配置变更
+    if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys,
+        changedKeys: changedKeys as (keyof ListeningOptions)[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys,
+      changedKeys: changedKeys as (keyof ListeningOptions)[],
       canApplyRuntime: true
     };
-  }
-
-  protected applyConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>
-  ): void {
-    // This is now handled by the base class's restart logic
-    this.options = { ...this.options, ...newConfig };
   }
 
   protected onRuntimeConfigChange(
@@ -201,22 +303,19 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     newConfig: Partial<WebSocketServerOptions>,
     traceId: string
   ): void {
-    // Handle WebSocket-specific runtime changes
-    if (newConfig.maxConnections || newConfig.connectionTimeout) {
-      this.logger.info('Updating connection management configuration', { traceId }, {
-        oldMaxConnections: this.options.maxConnections,
-        newMaxConnections: newConfig.maxConnections,
-        oldTimeout: this.options.connectionTimeout,
-        newTimeout: newConfig.connectionTimeout
+    // 处理WebSocket特定的运行时配置变更
+    const wsConfig = newConfig as Partial<WebSocketServerOptions>;
+    
+    // 更新连接池配置
+    if (wsConfig.connectionPool) {
+      this.logger.info('Updating WebSocket connection pool configuration', { traceId }, {
+        oldConfig: this.options.connectionPool,
+        newConfig: wsConfig.connectionPool
       });
       
-      // Update connection pool limits
-      if (newConfig.maxConnections) {
-        (this.connectionPool as any).maxConnections = newConfig.maxConnections;
-      }
-      if (newConfig.connectionTimeout) {
-        (this.connectionPool as any).connectionTimeout = newConfig.connectionTimeout;
-      }
+      // 更新连接池配置
+      const newPoolConfig = this.extractConnectionPoolConfig();
+      this.connectionPool.updateConfig(newPoolConfig);
     }
 
     this.logger.debug('WebSocket runtime configuration changes applied', { traceId });
@@ -227,47 +326,95 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       hostname: config.hostname,
       port: config.port,
       protocol: config.protocol,
-      maxConnections: config.maxConnections,
-      connectionTimeout: config.connectionTimeout,
-      ssl: config.protocol === 'wss' ? {
-        keyFile: config.ext?.key,
-        certFile: config.ext?.cert
-      } : null
+      isSecure: config.protocol === 'wss',
+      connectionPool: config.connectionPool ? {
+        maxConnections: config.connectionPool.maxConnections,
+        pingInterval: config.connectionPool.pingInterval,
+        pongTimeout: config.connectionPool.pongTimeout,
+        heartbeatInterval: config.connectionPool.heartbeatInterval
+      } : null,
+      wsOptions: config.wsOptions
     };
   }
 
+  /**
+   * 检查SSL配置是否变更
+   */
+  private hasSSLConfigChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
+    if (oldConfig.protocol !== 'wss' && newConfig.protocol !== 'wss') return false;
+    
+    return (
+      oldConfig.ext?.key !== newConfig.ext?.key ||
+      oldConfig.ext?.cert !== newConfig.ext?.cert ||
+      oldConfig.ext?.ca !== newConfig.ext?.ca
+    );
+  }
+
+  /**
+   * 检查连接池配置是否变更
+   */
+  private hasConnectionPoolChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
+    const oldPool = oldConfig.connectionPool;
+    const newPool = newConfig.connectionPool;
+
+    if (!oldPool && !newPool) return false;
+    if (!oldPool || !newPool) return true;
+
+    return (
+      oldPool.maxConnections !== newPool.maxConnections ||
+      oldPool.pingInterval !== newPool.pingInterval ||
+      oldPool.pongTimeout !== newPool.pongTimeout ||
+      oldPool.heartbeatInterval !== newPool.heartbeatInterval
+    );
+  }
+
+  // ============= 实现优雅关闭抽象方法 =============
+
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
-    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
+    this.logger.info('Step 1: Stopping acceptance of new WebSocket connections', { traceId });
     
-    // Close the HTTP server to stop accepting new connections
-    this.httpServer.close();
+    // 移除升级处理器以停止接受新的WebSocket连接
+    if (this.upgradeHandler) {
+      (this.httpServer as any).removeListener('upgrade', this.upgradeHandler);
+      this.logger.debug('WebSocket upgrade handler removed', { traceId });
+    }
     
-    this.logger.debug('New connection acceptance stopped', { traceId });
+    // 停止HTTP服务器监听
+    if (this.httpServer.listening) {
+      await new Promise<void>((resolve, reject) => {
+        this.httpServer.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+    
+    this.logger.debug('New WebSocket connection acceptance stopped', { traceId });
   }
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
-    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connectionPool.getActiveConnectionCount(),
+    this.logger.info('Step 3: Waiting for existing WebSocket connections to complete', { traceId }, {
+      activeConnections: this.getActiveConnectionCount(),
       timeout: timeout
     });
 
     const startTime = Date.now();
     
-    while (this.connectionPool.getActiveConnectionCount() > 0) {
+    while (this.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
-        this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connectionPool.getActiveConnectionCount(),
+        this.logger.warn('WebSocket connection completion timeout reached', { traceId }, {
+          remainingConnections: this.getActiveConnectionCount(),
           elapsed: elapsed
         });
         break;
       }
       
-      // Log progress every 5 seconds
+      // 每5秒记录一次进度
       if (elapsed % 5000 < 100) {
-        this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connectionPool.getActiveConnectionCount(),
+        this.logger.debug('Waiting for WebSocket connections to complete', { traceId }, {
+          remainingConnections: this.getActiveConnectionCount(),
           elapsed: elapsed
         });
       }
@@ -275,125 +422,45 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connectionPool.getActiveConnectionCount()
+    this.logger.debug('WebSocket connection completion wait finished', { traceId }, {
+      remainingConnections: this.getActiveConnectionCount()
     });
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connectionPool.getActiveConnectionCount();
+    const remainingConnections = this.getActiveConnectionCount();
     
     if (remainingConnections > 0) {
-      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
+      this.logger.info('Step 4: Force closing remaining WebSocket connections', { traceId }, {
         remainingConnections
       });
       
-      // Force close all remaining connections
+      // 使用连接池强制关闭所有连接
       await this.connectionPool.closeAllConnections(5000);
       
-      this.logger.warn('Forced closure of remaining connections', { traceId }, {
+      this.logger.warn('Forced closure of remaining WebSocket connections', { traceId }, {
         forcedConnections: remainingConnections
       });
     } else {
-      this.logger.debug('Step 4: No remaining connections to close', { traceId });
+      this.logger.debug('Step 4: No remaining WebSocket connections to close', { traceId });
     }
-  }
-
-  protected stopMonitoringAndCleanup(traceId: string): void {
-    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
-    
-    // Clear cleanup interval
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = undefined;
-    }
-    
-    // Log final connection statistics
-    const finalStats = this.connectionPool.getMetrics();
-    this.logger.info('Final connection statistics', { traceId }, finalStats);
-    
-    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
   }
 
   protected forceShutdown(traceId: string): void {
-    this.logger.warn('Force shutdown initiated', { traceId });
+    this.logger.warn('Force WebSocket server shutdown initiated', { traceId });
     
-    // Force close the HTTP server
+    // 强制关闭WebSocket服务器
+    this.server.close();
+    
+    // 强制关闭HTTP服务器
     this.httpServer.close();
     
-    // Force close all WebSocket connections
-    this.connectionPool.closeAllConnections(1000);
-    
+    // 停止监控和清理
     this.stopMonitoringAndCleanup(traceId);
   }
 
-  protected getActiveConnectionCount(): number {
-    return this.connectionPool.getActiveConnectionCount();
-  }
+  // ============= 实现KoattyServer接口 =============
 
-  // ============= WebSocket 特有的辅助方法 =============
-
-  private hasSSLConfigChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
-    if (oldConfig.protocol !== 'wss' && newConfig.protocol !== 'wss') {
-      return false;
-    }
-
-    const oldSSL = oldConfig.ext;
-    const newSSL = newConfig.ext;
-
-    if (!oldSSL && !newSSL) return false;
-    if (!oldSSL || !newSSL) return true;
-
-    return (
-      oldSSL.key !== newSSL.key ||
-      oldSSL.cert !== newSSL.cert
-    );
-  }
-
-  private hasConnectionConfigChanged(oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): boolean {
-    return (
-      oldConfig.maxConnections !== newConfig.maxConnections ||
-      oldConfig.connectionTimeout !== newConfig.connectionTimeout
-    );
-  }
-
-  // ============= 覆盖 BaseServer 的 Stop 方法以保持兼容性 =============
-
-  /**
-   * Stop Server (override to maintain backward compatibility)
-   */
-  Stop(callback?: () => void): void {
-    const traceId = generateTraceId();
-    this.logger.logServerEvent('stopping', { traceId });
-
-    this.gracefulShutdown()
-      .then(() => {
-        this.logger.logServerEvent('stopped', { traceId }, { 
-          gracefulShutdown: true,
-          finalConnectionCount: this.getActiveConnectionCount()
-        });
-        if (callback) callback();
-      })
-      .catch((err: Error) => {
-        this.logger.error('Graceful shutdown failed, attempting force shutdown', { traceId }, err);
-        
-        // 回退到强制关闭
-        this.forceShutdown(traceId);
-        
-        this.logger.logServerEvent('stopped', { traceId }, { 
-          forcedShutdown: true,
-          finalConnectionCount: this.getActiveConnectionCount()
-        });
-        
-        if (callback) callback();
-      });
-  }
-
-  // ============= 原有的 WebSocket 功能方法 =============
-
-  /**
-   * Return an HTTP server
-   */
   Start(): NativeServer {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
@@ -402,217 +469,88 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       protocol: this.options.protocol
     });
 
-    // Set up upgrade handler for HTTP server
-    this.upgradeHandler = (request: IncomingMessage, socket: any, head: Buffer) => {
-      try {
-        this.server.handleUpgrade(request, socket, head, (ws) => {
-          this.onConnection(ws, request);
-        });
-      } catch (error) {
-        this.logger.error('WebSocket upgrade failed', { traceId }, error);
-        socket.destroy();
-      }
-    };
-
-    // Set up client error handler
-    this.clientErrorHandler = (err: Error, socket: any) => {
-      this.logger.error('HTTP client error', { traceId }, err);
-      socket.destroy();
-    };
-
-    (this.httpServer as any).on('upgrade', this.upgradeHandler);
-    (this.httpServer as any).on('clientError', this.clientErrorHandler);
-
-    return this.httpServer.listen(this.options.port, this.options.hostname, () => {
-      const addr = this.httpServer.address();
+    this.httpServer.listen(this.options.port, this.options.hostname, () => {
       this.logger.logServerEvent('started', { traceId }, {
-        address: addr,
+        address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
         port: this.options.port,
-        protocol: this.options.protocol
+        protocol: this.options.protocol,
+        connectionPoolEnabled: !!this.connectionPool,
+        serverId: this.serverId,
+        isSecure: this.options.protocol === 'wss'
       });
-    }).on("error", (err: Error) => {
-      this.logger.logServerEvent('error', { traceId }, err);
+      
+      // 启动连接池监控
+      this.startConnectionPoolMonitoring();
     });
+
+    return this.httpServer;
   }
 
-  /**
-   * Get status
-   * @returns 
-   */
   getStatus(): number {
     return this.status;
   }
 
-  /**
-   * Get native server
-   * @returns 
-   */
   getNativeServer(): NativeServer {
     return this.httpServer;
   }
 
+  // ============= WebSocket特定的方法 =============
+
   /**
-   * Get connection statistics
+   * 启动连接池监控
    */
-  getConnectionStats(): ConnectionStats {
-    return this.connectionPool.getMetrics();
+  private startConnectionPoolMonitoring(): void {
+    const monitoringInterval = setInterval(() => {
+      const stats = this.getConnectionStats();
+      this.logger.debug('WebSocket connection pool statistics', {}, stats);
+    }, 30000); // 每30秒
+
+    // 存储间隔以供清理
+    (this.httpServer as any)._monitoringInterval = monitoringInterval;
   }
 
+  /**
+   * 获取WebSocket连接统计信息
+   */
+  getWebSocketConnectionStats() {
+    return this.connectionPool ? this.connectionPool.getConnectionStats() : null;
+  }
+
+  /**
+   * 获取当前连接状态
+   */
   getConnectionsStatus(): { current: number; max: number } {
+    const poolConfig = this.connectionPool?.getConfig();
     return {
-      current: this.connectionPool.getActiveConnectionCount(),
-      max: this.options.maxConnections || 1000
+      current: this.getActiveConnectionCount(),
+      max: poolConfig?.maxConnections || 0
     };
   }
 
   /**
-   * Handle WebSocket connection
+   * 销毁服务器
    */
-  private onConnection(ws: WebSocket, request: IncomingMessage): void {
-    // Check connection limits and add to manager
-    if (!this.connectionPool.addConnection(ws, {
-      remoteAddress: request.socket.remoteAddress,
-      userAgent: request.headers['user-agent'],
-      url: request.url
-    })) {
-      ws.close(1013, 'Server overloaded');
-      return;
-    }
+  async destroy(): Promise<void> {
+    const traceId = generateTraceId();
+    this.logger.info('Destroying WebSocket server', { traceId });
 
-    const connectionInfo = this.connectionPool.getConnectionInfo(ws);
-    const connectionContext = connectionInfo ? {
-      connectionId: connectionInfo.connectionId,
-      traceId: generateTraceId()
-    } : {};
-    
-    const clientInfo = {
-      url: request.url,
-      userAgent: request.headers['user-agent'],
-      origin: request.headers.origin,
-      ip: request.socket.remoteAddress
-    };
-
-    this.logger.logConnectionEvent('connected', connectionContext, clientInfo);
-
-    // Handle messages
-    ws.on('message', (message: Buffer) => {
-      this.connectionPool.updateConnectionActivity(ws);
+    try {
+      await this.gracefulShutdown();
       
-      try {
-        this.logger.debug('Message received', connectionContext, {
-          size: message.length,
-          type: typeof message
-        });
-        
-        // 触发应用层的消息处理
-        this.app.emit('websocket_message', ws, message, request);
-      } catch (error) {
-        this.logger.logConnectionEvent('error', connectionContext, error);
+      // 清理事件监听器
+      if (this.upgradeHandler) {
+        (this.httpServer as any).removeListener('upgrade', this.upgradeHandler);
       }
-    });
-
-    // Handle connection close
-    ws.on('close', (code: number, reason: Buffer) => {
-      this.logger.debug('Connection closing', connectionContext, {
-        code,
-        reason: reason.toString()
-      });
-      this.connectionPool.removeConnection(ws);
-    });
-
-    // Handle errors
-    ws.on('error', (error: Error) => {
-      this.logger.logConnectionEvent('error', connectionContext, error);
-      this.connectionPool.removeConnection(ws);
-    });
-
-    // 触发应用层的连接事件
-    this.app.emit('websocket_connection', ws, request);
-  }
-
-  // ============= 实现健康检查和指标收集 =============
-
-  protected async performProtocolHealthChecks(): Promise<Record<string, any>> {
-    const checks: Record<string, any> = {};
-    
-    // WebSocket server specific health checks
-    const nativeServer = (this.httpServer as any).server || this.httpServer;
-    const serverListening = nativeServer.listening;
-    
-    checks.server = {
-      status: serverListening ? HealthStatus.HEALTHY : HealthStatus.UNHEALTHY,
-      message: serverListening ? 'WebSocket server is listening' : 'WebSocket server is not listening',
-      details: {
-        listening: serverListening,
-        protocol: this.options.protocol,
-        serverId: this.serverId
+      if (this.clientErrorHandler) {
+        (this.httpServer as any).removeListener('clientError', this.clientErrorHandler);
       }
-    };
-
-    // Connection pool health check
-    const connectionStats = this.connectionPool.getMetrics();
-    const maxConnections = this.options.maxConnections || 1000;
-    const utilizationRatio = connectionStats.activeConnections / maxConnections;
-    
-    checks.connectionPool = {
-      status: utilizationRatio > 0.9 
-        ? HealthStatus.DEGRADED 
-        : utilizationRatio > 0.95 
-          ? HealthStatus.UNHEALTHY 
-          : HealthStatus.HEALTHY,
-      message: `Connection pool utilization: ${(utilizationRatio * 100).toFixed(1)}%`,
-      details: {
-        activeConnections: connectionStats.activeConnections,
-        maxConnections,
-        utilizationRatio: utilizationRatio.toFixed(3),
-        freeConnections: maxConnections - connectionStats.activeConnections
-      }
-    };
-
-    // WebSocket performance health
-    const errorRate = connectionStats.errorRate;
-    checks.performance = {
-      status: errorRate > 0.1 
-        ? HealthStatus.UNHEALTHY 
-        : errorRate > 0.05 
-          ? HealthStatus.DEGRADED 
-          : HealthStatus.HEALTHY,
-      message: `WebSocket error rate: ${(errorRate * 100).toFixed(2)}%`,
-      details: connectionStats
-    };
-    
-    return checks;
-  }
-
-  protected collectProtocolMetrics(): Record<string, any> {
-    const connectionStats = this.connectionPool.getMetrics();
-    const nativeServer = (this.httpServer as any).server || this.httpServer;
-    
-    return {
-      protocol: this.options.protocol,
-      server: {
-        listening: nativeServer.listening,
-        serverId: this.serverId,
-        address: nativeServer.address()
-      },
-      connectionPool: {
-        enabled: true,
-        maxConnections: this.options.maxConnections || 1000,
-        activeConnections: connectionStats.activeConnections,
-        totalConnections: connectionStats.totalConnections,
-        utilizationRatio: (connectionStats.activeConnections / (this.options.maxConnections || 1000)).toFixed(3),
-        configuration: {
-          maxConnections: this.options.maxConnections || 1000,
-          connectionTimeout: this.options.connectionTimeout || 30000
-        }
-      },
-      performance: {
-        connectionsPerSecond: connectionStats.connectionsPerSecond,
-        averageLatency: connectionStats.averageLatency,
-        errorRate: connectionStats.errorRate,
-        connectionStats: connectionStats
-      }
-    };
+      
+      this.logger.info('WebSocket server destroyed successfully', { traceId });
+    } catch (error) {
+      this.logger.error('Error destroying WebSocket server', { traceId }, error);
+      throw error;
+    }
   }
 }
+

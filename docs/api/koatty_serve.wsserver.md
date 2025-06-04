@@ -4,6 +4,8 @@
 
 ## WsServer class
 
+WebSocket Server implementation using template method pattern 继承BaseServer，只实现WebSocket特定的逻辑
+
 **Signature:**
 
 ```typescript
@@ -21,9 +23,9 @@ export declare class WsServer extends BaseServer<WebSocketServerOptions>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
+|  [connectionPool](./koatty_serve.wsserver.connectionpool.md) | <code>protected</code> | WebSocketConnectionPoolManager |  |
 |  [httpServer](./koatty_serve.wsserver.httpserver.md) | <code>readonly</code> | HttpServer \| HttpsServer |  |
-|  [logger](./koatty_serve.wsserver.logger.md) | <code>protected</code> | import("../utils/logger").ChildLogger |  |
-|  [server](./koatty_serve.wsserver.server.md) | <code>readonly</code> | WebSocketServer |  |
+|  [server](./koatty_serve.wsserver.server.md) | <code>readonly</code> | WS.WebSocketServer |  |
 |  [socket](./koatty_serve.wsserver.socket.md) |  | any |  |
 
 ## Methods
@@ -31,21 +33,20 @@ export declare class WsServer extends BaseServer<WebSocketServerOptions>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.wsserver.analyzeconfigchanges.md) | <code>protected</code> |  |
-|  [applyConfigChanges(changedKeys, newConfig)](./koatty_serve.wsserver.applyconfigchanges.md) | <code>protected</code> |  |
-|  [collectProtocolMetrics()](./koatty_serve.wsserver.collectprotocolmetrics.md) | <code>protected</code> |  |
+|  [configureServerOptions()](./koatty_serve.wsserver.configureserveroptions.md) | <code>protected</code> | 配置WebSocket服务器选项 |
+|  [createProtocolServer()](./koatty_serve.wsserver.createprotocolserver.md) | <code>protected</code> | 创建WebSocket服务器实例 |
+|  [destroy()](./koatty_serve.wsserver.destroy.md) |  | 销毁服务器 |
 |  [extractRelevantConfig(config)](./koatty_serve.wsserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.wsserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.wsserver.forceshutdown.md) | <code>protected</code> |  |
-|  [getActiveConnectionCount()](./koatty_serve.wsserver.getactiveconnectioncount.md) | <code>protected</code> |  |
-|  [getConnectionsStatus()](./koatty_serve.wsserver.getconnectionsstatus.md) |  |  |
-|  [getConnectionStats()](./koatty_serve.wsserver.getconnectionstats.md) |  | Get connection statistics |
-|  [getNativeServer()](./koatty_serve.wsserver.getnativeserver.md) |  | Get native server |
-|  [getStatus()](./koatty_serve.wsserver.getstatus.md) |  | Get status |
+|  [getConnectionsStatus()](./koatty_serve.wsserver.getconnectionsstatus.md) |  | 获取当前连接状态 |
+|  [getNativeServer()](./koatty_serve.wsserver.getnativeserver.md) |  |  |
+|  [getStatus()](./koatty_serve.wsserver.getstatus.md) |  |  |
+|  [getWebSocketConnectionStats()](./koatty_serve.wsserver.getwebsocketconnectionstats.md) |  | 获取WebSocket连接统计信息 |
+|  [initializeConnectionPool()](./koatty_serve.wsserver.initializeconnectionpool.md) | <code>protected</code> | 初始化WebSocket连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.wsserver.onruntimeconfigchange.md) | <code>protected</code> |  |
-|  [performProtocolHealthChecks()](./koatty_serve.wsserver.performprotocolhealthchecks.md) | <code>protected</code> |  |
-|  [Start()](./koatty_serve.wsserver.start.md) |  | Return an HTTP server |
-|  [Stop(callback)](./koatty_serve.wsserver.stop.md) |  | Stop Server (override to maintain backward compatibility) |
+|  [performProtocolSpecificInitialization()](./koatty_serve.wsserver.performprotocolspecificinitialization.md) | <code>protected</code> | WebSocket特定的额外初始化 |
+|  [Start()](./koatty_serve.wsserver.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.wsserver.stopacceptingnewconnections.md) | <code>protected</code> |  |
-|  [stopMonitoringAndCleanup(traceId)](./koatty_serve.wsserver.stopmonitoringandcleanup.md) | <code>protected</code> |  |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.wsserver.waitforconnectioncompletion.md) | <code>protected</code> |  |
 

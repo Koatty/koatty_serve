@@ -12,12 +12,11 @@ protected extractRelevantConfig(config: HttpServerOptions): {
         port: number;
         protocol: import("./base").KoattyProtocol;
         connectionPool: {
-            maxConnections?: number;
-            keepAliveTimeout?: number;
-            headersTimeout?: number;
-            requestTimeout?: number;
+            maxConnections: number;
+            keepAliveTimeout: number;
+            headersTimeout: number;
+            requestTimeout: number;
         };
-        ext: Record<string, any>;
     };
 ```
 
@@ -29,5 +28,5 @@ protected extractRelevantConfig(config: HttpServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; connectionPool: { maxConnections?: number; keepAliveTimeout?: number; headersTimeout?: number; requestTimeout?: number; }; ext: Record&lt;string, any&gt;; }
+{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; connectionPool: { maxConnections: number; keepAliveTimeout: number; headersTimeout: number; requestTimeout: number; }; }
 

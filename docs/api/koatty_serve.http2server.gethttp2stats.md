@@ -4,27 +4,41 @@
 
 ## Http2Server.getHttp2Stats() method
 
-Get HTTP/2 specific statistics
+获取HTTP/2统计信息
 
 **Signature:**
 
 ```typescript
 getHttp2Stats(): {
-        sessionsList: {
-            id: any;
-            type: any;
-            state: any;
-        }[];
-        activeStreamIds: number[];
-        activeSessions: number;
-        totalSessions: number;
-        activeStreams: number;
+        availableSessions: number;
+        goingAwaySessions: number;
+        totalActiveStreams: number;
         totalStreams: number;
-        streamErrors: number;
-        sessionErrors: number;
+        totalStreamErrors: number;
+        averageStreamsPerSession: number;
+        utilizationRatio: number;
+        protocol: string;
+        poolConfig: ConnectionPoolConfig;
+        health: import("./pools/pool").ConnectionPoolHealth;
+        performance: {
+            throughput: number;
+            latency: {
+                p50: number;
+                p95: number;
+                p99: number;
+            };
+            memoryUsage: number;
+            cpuUsage: number;
+        };
+        uptime: number;
+        activeConnections: number;
+        totalConnections: number;
+        connectionsPerSecond: number;
+        averageLatency: number;
+        errorRate: number;
     };
 ```
 **Returns:**
 
-{ sessionsList: { id: any; type: any; state: any; }\[\]; activeStreamIds: number\[\]; activeSessions: number; totalSessions: number; activeStreams: number; totalStreams: number; streamErrors: number; sessionErrors: number; }
+{ availableSessions: number; goingAwaySessions: number; totalActiveStreams: number; totalStreams: number; totalStreamErrors: number; averageStreamsPerSession: number; utilizationRatio: number; protocol: string; poolConfig: ConnectionPoolConfig; health: import("./pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
 

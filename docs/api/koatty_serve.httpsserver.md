@@ -4,7 +4,7 @@
 
 ## HttpsServer class
 
-HTTPS Server with enhanced SSL/TLS configuration management and graceful shutdown
+HTTPS Server implementation using template method pattern 继承BaseServer，只实现HTTPS特定的逻辑
 
 **Signature:**
 
@@ -23,7 +23,7 @@ export declare class HttpsServer extends BaseServer<HttpsServerOptions>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [logger](./koatty_serve.httpsserver.logger.md) | <code>protected</code> | import("../utils/logger").ChildLogger |  |
+|  [connectionPool](./koatty_serve.httpsserver.connectionpool.md) | <code>protected</code> | HttpsConnectionPoolManager |  |
 |  [server](./koatty_serve.httpsserver.server.md) | <code>readonly</code> | Server |  |
 
 ## Methods
@@ -31,22 +31,20 @@ export declare class HttpsServer extends BaseServer<HttpsServerOptions>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.httpsserver.analyzeconfigchanges.md) | <code>protected</code> |  |
-|  [applyConfigChanges(changedKeys, newConfig)](./koatty_serve.httpsserver.applyconfigchanges.md) | <code>protected</code> |  |
-|  [collectProtocolMetrics()](./koatty_serve.httpsserver.collectprotocolmetrics.md) | <code>protected</code> |  |
+|  [configureServerOptions()](./koatty_serve.httpsserver.configureserveroptions.md) | <code>protected</code> | 配置HTTPS服务器选项 |
+|  [createProtocolServer()](./koatty_serve.httpsserver.createprotocolserver.md) | <code>protected</code> | 创建HTTPS服务器实例 |
+|  [destroy()](./koatty_serve.httpsserver.destroy.md) |  | 销毁服务器 |
 |  [extractRelevantConfig(config)](./koatty_serve.httpsserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.httpsserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.httpsserver.forceshutdown.md) | <code>protected</code> |  |
-|  [getActiveConnectionCount()](./koatty_serve.httpsserver.getactiveconnectioncount.md) | <code>protected</code> |  |
-|  [getConnectionPoolHealth()](./koatty_serve.httpsserver.getconnectionpoolhealth.md) |  | Get connection pool health |
-|  [getConnectionPoolMetrics()](./koatty_serve.httpsserver.getconnectionpoolmetrics.md) |  | Get connection pool metrics |
-|  [getConnectionStats()](./koatty_serve.httpsserver.getconnectionstats.md) |  | Get connection statistics |
-|  [getNativeServer()](./koatty_serve.httpsserver.getnativeserver.md) |  | Get native server |
-|  [getSecurityMetrics()](./koatty_serve.httpsserver.getsecuritymetrics.md) |  | Get SSL security metrics |
-|  [getStatus()](./koatty_serve.httpsserver.getstatus.md) |  | Get status |
+|  [getConnectionsStatus()](./koatty_serve.httpsserver.getconnectionsstatus.md) |  | 获取当前连接状态 |
+|  [getNativeServer()](./koatty_serve.httpsserver.getnativeserver.md) |  |  |
+|  [getSecurityMetrics()](./koatty_serve.httpsserver.getsecuritymetrics.md) |  | 获取安全统计信息 |
+|  [getStatus()](./koatty_serve.httpsserver.getstatus.md) |  |  |
+|  [initializeConnectionPool()](./koatty_serve.httpsserver.initializeconnectionpool.md) | <code>protected</code> | 初始化HTTPS连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.httpsserver.onruntimeconfigchange.md) | <code>protected</code> |  |
-|  [performProtocolHealthChecks()](./koatty_serve.httpsserver.performprotocolhealthchecks.md) | <code>protected</code> |  |
-|  [Start(listenCallback)](./koatty_serve.httpsserver.start.md) |  | Start Server |
+|  [performProtocolSpecificInitialization()](./koatty_serve.httpsserver.performprotocolspecificinitialization.md) | <code>protected</code> | HTTPS特定的额外初始化 |
+|  [Start(listenCallback)](./koatty_serve.httpsserver.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.httpsserver.stopacceptingnewconnections.md) | <code>protected</code> |  |
-|  [stopMonitoringAndCleanup(traceId)](./koatty_serve.httpsserver.stopmonitoringandcleanup.md) | <code>protected</code> |  |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.httpsserver.waitforconnectioncompletion.md) | <code>protected</code> |  |
 

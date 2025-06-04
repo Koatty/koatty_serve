@@ -11,19 +11,12 @@ protected extractRelevantConfig(config: HttpsServerOptions): {
         hostname: string;
         port: number;
         protocol: import("./base").KoattyProtocol;
-        ssl: {
-            mode: "auto" | "manual" | "mutual_tls";
-            keyFile: string;
-            certFile: string;
-            caFile: string;
-            ciphers: string;
-            secureProtocol: string;
-        };
+        sslMode: "auto" | "manual" | "mutual_tls";
         connectionPool: {
-            maxConnections?: number;
-            keepAliveTimeout?: number;
-            headersTimeout?: number;
-            requestTimeout?: number;
+            maxConnections: number;
+            keepAliveTimeout: number;
+            headersTimeout: number;
+            requestTimeout: number;
         };
     };
 ```
@@ -36,5 +29,5 @@ protected extractRelevantConfig(config: HttpsServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; ssl: { mode: "auto" \| "manual" \| "mutual\_tls"; keyFile: string; certFile: string; caFile: string; ciphers: string; secureProtocol: string; }; connectionPool: { maxConnections?: number; keepAliveTimeout?: number; headersTimeout?: number; requestTimeout?: number; }; }
+{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; sslMode: "auto" \| "manual" \| "mutual\_tls"; connectionPool: { maxConnections: number; keepAliveTimeout: number; headersTimeout: number; requestTimeout: number; }; }
 

@@ -9,11 +9,11 @@
 |  Class | Description |
 |  --- | --- |
 |  [GrpcServer](./koatty_serve.grpcserver.md) |  |
-|  [Http2Server](./koatty_serve.http2server.md) | HTTP2 Server with enhanced SSL/TLS configuration management and graceful shutdown |
-|  [HttpServer](./koatty_serve.httpserver.md) | HTTP Server with enhanced connection pool management and graceful shutdown |
-|  [HttpsServer](./koatty_serve.httpsserver.md) | HTTPS Server with enhanced SSL/TLS configuration management and graceful shutdown |
+|  [Http2Server](./koatty_serve.http2server.md) | HTTP/2 Server implementation using template method pattern 继承BaseServer，只实现HTTP/2特定的逻辑 |
+|  [HttpServer](./koatty_serve.httpserver.md) | HTTP Server implementation using template method pattern 继承BaseServer，只实现HTTP特定的逻辑 |
+|  [HttpsServer](./koatty_serve.httpsserver.md) | HTTPS Server implementation using template method pattern 继承BaseServer，只实现HTTPS特定的逻辑 |
 |  [MultiProtocolServer](./koatty_serve.multiprotocolserver.md) | Multi-protocol server manager |
-|  [WsServer](./koatty_serve.wsserver.md) |  |
+|  [WsServer](./koatty_serve.wsserver.md) | WebSocket Server implementation using template method pattern 继承BaseServer，只实现WebSocket特定的逻辑 |
 
 ## Functions
 

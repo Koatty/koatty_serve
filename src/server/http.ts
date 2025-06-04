@@ -1,112 +1,93 @@
 /*
- * @Description:
- * @Usage:
+ * @Description: HTTP Server implementation using template method pattern
+ * @Usage: HTTP协议服务器实现
  * @Author: richen
  * @Date: 2021-06-28 15:06:13
- * @LastEditTime: 2024-11-27 20:40:00
+ * @LastEditTime: 2024-11-27 23:00:00
  */
 import { createServer, Server } from "http";
 import { KoattyApplication, NativeServer } from "koatty_core";
-import { createLogger, generateTraceId } from "../utils/logger";
+import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
-import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats, HealthStatus } from "./base";
-import { HttpConnectionPoolManager } from "./pools/http";
-import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
+import { BaseServer, ConfigChangeAnalysis } from "./base";
+import { HttpConnectionPoolManager } from "../pools/http";
+import { ConnectionPoolConfig } from "../config/pool";
+import { ConfigHelper, HttpServerOptions, ListeningOptions } from "../config/config";
+
 
 /**
- * Enhanced HTTP Server Options with connection pool support
- */
-export interface HttpServerOptions extends ListeningOptions {
-  connectionPool?: {
-    maxConnections?: number;      // 最大连接数限制
-    keepAliveTimeout?: number;    // Keep-Alive超时时间 (毫秒)
-    headersTimeout?: number;      // 请求头超时时间 (毫秒)
-    requestTimeout?: number;      // 请求超时时间 (毫秒)
-  };
-}
-
-/**
- * HTTP Server with enhanced connection pool management and graceful shutdown
+ * HTTP Server implementation using template method pattern
+ * 继承BaseServer，只实现HTTP特定的逻辑
  */
 export class HttpServer extends BaseServer<HttpServerOptions> {
-  readonly server: Server;
-  protected logger = createLogger({ module: 'http', protocol: 'http' });
-  private serverId = `http_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  private connectionPool: HttpConnectionPoolManager;
-  private cleanupInterval?: NodeJS.Timeout;
+  declare readonly server: Server;
+  declare protected connectionPool: HttpConnectionPoolManager;
 
   constructor(app: KoattyApplication, options: HttpServerOptions) {
     super(app, options);
-    
-    // Set server context for logging
-    this.logger = createLogger({ 
-      module: 'http', 
-      protocol: options.protocol,
-      serverId: this.serverId
-    });
-
-    this.logger.info('Initializing HTTP server with connection pool', {}, {
-      hostname: options.hostname,
-      port: options.port,
-      protocol: options.protocol,
-      maxConnections: options.connectionPool?.maxConnections,
-      keepAliveTimeout: options.connectionPool?.keepAliveTimeout,
-      headersTimeout: options.connectionPool?.headersTimeout,
-      requestTimeout: options.connectionPool?.requestTimeout
-    });
-
-    // 初始化连接池
-    this.initializeConnectionPool();
-
-    this.server = createServer((req, res) => {
-      const startTime = Date.now();
-      app.callback()(req, res);
-      
-      // Record request metrics
-      res.on('finish', () => {
-        const responseTime = Date.now() - startTime;
-        const success = res.statusCode < 400;
-        this.recordRequest(success, responseTime);
-      });
-    });
-
-    // Enhanced connection tracking with connection pool management
-    this.server.on('connection', (socket) => {
-      // 使用连接池管理连接
-      this.connectionPool.addConnection(socket, {
-        remoteAddress: socket.remoteAddress,
-        userAgent: 'http-client'
-      }).catch(error => {
-        this.logger.error('Failed to add connection to pool', {}, error);
-        socket.destroy();
-      });
-
-      // 更新连接活动时间
-      socket.on('data', () => {
-        this.connectionPool.updateConnectionActivity(socket);
-      });
-    });
-
-    // Configure connection pool settings
-    this.configureConnectionPool();
-    
-    // 设置连接池事件监听
-    this.setupConnectionPoolEventListeners();
-    
-    // 设置定期清理
-    this.setupPeriodicCleanup();
-    
-    this.logger.debug('HTTP server initialized successfully');
+    this.options = ConfigHelper.createHttpConfig(options);
     CreateTerminus(this);
   }
 
   /**
-   * 初始化连接池
+   * 初始化HTTP连接池
    */
-  private initializeConnectionPool(): void {
+  protected initializeConnectionPool(): void {
     const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
     this.connectionPool = new HttpConnectionPoolManager(poolConfig);
+    
+    this.logger.debug('HTTP connection pool initialized', {}, {
+      maxConnections: poolConfig.maxConnections || 'unlimited',
+      keepAliveTimeout: poolConfig.keepAliveTimeout || 5000,
+      headersTimeout: poolConfig.headersTimeout || 60000,
+      requestTimeout: poolConfig.requestTimeout || 300000
+    });
   }
+
+  /**
+   * 创建HTTP服务器实例
+   */
+  protected createProtocolServer(): void {
+    (this as any).server = createServer((req, res) => {
+      this.app.callback()(req, res);
+      
+      // 记录请求指标
+      res.on('finish', () => {
+        if (req.socket) {
+          this.connectionPool.handleRequestComplete(
+            req.socket, 
+            res.getHeaders()['content-length'] as number || 0
+          ).catch(error => {
+            this.logger.debug('Error handling request complete', {}, error);
+          });
+        }
+      });
+    });
+
+    this.logger.debug('HTTP server instance created');
+  }
+
+  /**
+   * 配置HTTP服务器选项
+   */
+  protected configureServerOptions(): void {
+    this.configureConnectionPoolSettings();
+    this.setupConnectionTracking();
+  }
+
+  /**
+   * HTTP特定的额外初始化
+   */
+  protected performProtocolSpecificInitialization(): void {
+    this.logger.info('HTTP server initialization completed', {}, {
+      hostname: this.options.hostname,
+      port: this.options.port,
+      protocol: this.options.protocol,
+      serverId: this.serverId
+    });
+  }
+
+  // ============= HTTP特定的私有方法 =============
 
   /**
    * 提取连接池配置
@@ -123,41 +104,9 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   }
 
   /**
-   * 设置连接池事件监听
+   * 配置连接池设置
    */
-  private setupConnectionPoolEventListeners(): void {
-    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
-      this.logger.warn('HTTP connection pool limit reached', {}, data);
-    });
-
-    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
-      this.logger.info('HTTP connection pool health status changed', {}, data);
-    });
-
-    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
-      this.logger.warn('HTTP connection pool error', {}, {
-        error: data.error?.message,
-        remoteAddress: data.socket?.remoteAddress
-      });
-    });
-  }
-
-  /**
-   * 设置定期清理
-   */
-  private setupPeriodicCleanup(): void {
-    this.cleanupInterval = setInterval(() => {
-      const cleaned = this.connectionPool.cleanupStaleConnections();
-      if (cleaned > 0) {
-        this.logger.debug('Cleaned up stale connections', {}, { count: cleaned });
-      }
-    }, 30000); // 每30秒清理一次
-  }
-
-  /**
-   * Configure connection pool settings
-   */
-  private configureConnectionPool(): void {
+  private configureConnectionPoolSettings(): void {
     const poolConfig = this.options.connectionPool;
     
     if (!poolConfig) {
@@ -165,7 +114,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       return;
     }
 
-    // Apply keep-alive timeout
+    // 应用Keep-Alive超时
     if (poolConfig.keepAliveTimeout !== undefined) {
       this.server.keepAliveTimeout = poolConfig.keepAliveTimeout;
       this.logger.debug('Set keep-alive timeout', {}, {
@@ -173,7 +122,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       });
     }
 
-    // Apply headers timeout
+    // 应用请求头超时
     if (poolConfig.headersTimeout !== undefined) {
       this.server.headersTimeout = poolConfig.headersTimeout;
       this.logger.debug('Set headers timeout', {}, {
@@ -181,7 +130,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       });
     }
 
-    // Apply request timeout
+    // 应用请求超时
     if (poolConfig.requestTimeout !== undefined) {
       this.server.requestTimeout = poolConfig.requestTimeout;
       this.logger.debug('Set request timeout', {}, {
@@ -189,7 +138,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       });
     }
 
-    this.logger.info('Connection pool configured successfully', {}, {
+    this.logger.info('HTTP connection pool configured successfully', {}, {
       maxConnections: poolConfig.maxConnections || 'unlimited',
       keepAliveTimeout: poolConfig.keepAliveTimeout || this.server.keepAliveTimeout,
       headersTimeout: poolConfig.headersTimeout || this.server.headersTimeout,
@@ -197,17 +146,30 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     });
   }
 
-  // ============= 实现 BaseServer 抽象方法 =============
+  /**
+   * 设置连接跟踪
+   */
+  private setupConnectionTracking(): void {
+    // 增强的连接跟踪，集成连接池管理
+    this.server.on('connection', (socket) => {
+      // 使用连接池管理连接
+      this.connectionPool.addHttpConnection(socket).catch(error => {
+        this.logger.error('Failed to add connection to pool', {}, error);
+        socket.destroy();
+      });
+    });
+  }
+
+  // ============= 实现配置管理抽象方法 =============
 
   protected analyzeConfigChanges(
     changedKeys: (keyof HttpServerOptions)[],
     oldConfig: HttpServerOptions,
     newConfig: HttpServerOptions
   ): ConfigChangeAnalysis {
-    // Critical changes that require restart for HTTP server
+    // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
     
-    // Check if critical network configuration changed
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
@@ -217,13 +179,13 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       };
     }
 
-    // Check if connection pool configuration changed
+    // 连接池配置变更
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
-        requiresRestart: false,
+        requiresRestart: true,
         changedKeys: changedKeys as (keyof ListeningOptions)[],
-        restartReason: 'Connection pool configuration can be applied at runtime',
-        canApplyRuntime: true
+        restartReason: 'Connection pool configuration changed',
+        canApplyRuntime: false
       };
     }
 
@@ -234,43 +196,23 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     };
   }
 
-  protected applyConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>
-  ): void {
-    // Update the options
-    this.options = { ...this.options, ...(newConfig as Partial<HttpServerOptions>) };
-    
-    // Reconfigure connection pool if needed
-    const httpConfig = newConfig as Partial<HttpServerOptions>;
-    if (httpConfig.connectionPool) {
-      this.configureConnectionPool();
-      
-      // 更新连接池配置
-      const newPoolConfig = this.extractConnectionPoolConfig();
-      this.connectionPool.updateConfig(newPoolConfig);
-    }
-  }
-
   protected onRuntimeConfigChange(
     analysis: ConfigChangeAnalysis,
-    newConfig: Partial<ListeningOptions>,
+    newConfig: Partial<HttpServerOptions>,
     traceId: string
   ): void {
-    // Handle HTTP-specific runtime changes
+    // 处理HTTP特定的运行时配置变更
     const httpConfig = newConfig as Partial<HttpServerOptions>;
-    if (httpConfig.connectionPool) {
-      this.logger.info('Applying connection pool configuration changes', { traceId }, {
-        oldConfig: this.options.connectionPool,
-        newConfig: httpConfig.connectionPool
-      });
-      
-      // Update connection pool settings
-      this.configureConnectionPool();
-      
-      this.logger.info('Connection pool configuration updated successfully', { traceId });
-    }
     
+    // 更新连接池限制（如果支持）
+    if (httpConfig.connectionPool?.maxConnections) {
+      this.logger.info('Updating connection pool limits', { traceId }, {
+        oldLimit: 'current',
+        newLimit: httpConfig.connectionPool.maxConnections
+      });
+      // 注意：这需要额外的实现来实际执行限制
+    }
+
     this.logger.debug('HTTP runtime configuration changes applied', { traceId });
   }
 
@@ -279,25 +221,25 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       hostname: config.hostname,
       port: config.port,
       protocol: config.protocol,
-      connectionPool: config.connectionPool,
-      ext: config.ext
+      connectionPool: config.connectionPool ? {
+        maxConnections: config.connectionPool.maxConnections,
+        keepAliveTimeout: config.connectionPool.keepAliveTimeout,
+        headersTimeout: config.connectionPool.headersTimeout,
+        requestTimeout: config.connectionPool.requestTimeout
+      } : null
     };
   }
 
   /**
-   * Check if connection pool configuration has changed
+   * 检查连接池配置是否变更
    */
   private hasConnectionPoolChanged(oldConfig: HttpServerOptions, newConfig: HttpServerOptions): boolean {
     const oldPool = oldConfig.connectionPool;
     const newPool = newConfig.connectionPool;
-    
-    // If both are undefined or null, no change
+
     if (!oldPool && !newPool) return false;
-    
-    // If one is defined and the other isn't, there's a change
     if (!oldPool || !newPool) return true;
-    
-    // Compare individual settings
+
     return (
       oldPool.maxConnections !== newPool.maxConnections ||
       oldPool.keepAliveTimeout !== newPool.keepAliveTimeout ||
@@ -306,38 +248,47 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     );
   }
 
+  // ============= 实现优雅关闭抽象方法 =============
+
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
-    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
+    this.logger.info('Step 1: Stopping acceptance of new HTTP connections', { traceId });
     
-    // Close the server to stop accepting new connections
-    this.server.close();
+    // HTTP服务器停止监听新连接
+    if (this.server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        this.server.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
     
-    this.logger.debug('New connection acceptance stopped', { traceId });
+    this.logger.debug('New HTTP connection acceptance stopped', { traceId });
   }
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
-    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
-      activeConnections: this.connectionPool.getActiveConnectionCount(),
+    this.logger.info('Step 3: Waiting for existing HTTP connections to complete', { traceId }, {
+      activeConnections: this.getActiveConnectionCount(),
       timeout: timeout
     });
 
     const startTime = Date.now();
     
-    while (this.connectionPool.getActiveConnectionCount() > 0) {
+    while (this.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
-        this.logger.warn('Connection completion timeout reached', { traceId }, {
-          remainingConnections: this.connectionPool.getActiveConnectionCount(),
+        this.logger.warn('HTTP connection completion timeout reached', { traceId }, {
+          remainingConnections: this.getActiveConnectionCount(),
           elapsed: elapsed
         });
         break;
       }
       
-      // Log progress every 5 seconds
+      // 每5秒记录一次进度
       if (elapsed % 5000 < 100) {
-        this.logger.debug('Waiting for connections to complete', { traceId }, {
-          remainingConnections: this.connectionPool.getActiveConnectionCount(),
+        this.logger.debug('Waiting for HTTP connections to complete', { traceId }, {
+          remainingConnections: this.getActiveConnectionCount(),
           elapsed: elapsed
         });
       }
@@ -345,122 +296,42 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    this.logger.debug('Connection completion wait finished', { traceId }, {
-      remainingConnections: this.connectionPool.getActiveConnectionCount()
+    this.logger.debug('HTTP connection completion wait finished', { traceId }, {
+      remainingConnections: this.getActiveConnectionCount()
     });
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
-    const remainingConnections = this.connectionPool.getActiveConnectionCount();
+    const remainingConnections = this.getActiveConnectionCount();
     
     if (remainingConnections > 0) {
-      this.logger.info('Step 4: Force closing remaining connections', { traceId }, {
+      this.logger.info('Step 4: Force closing remaining HTTP connections', { traceId }, {
         remainingConnections
       });
       
-      // Use connection pool to close all connections
+      // 使用连接池强制关闭所有连接
       await this.connectionPool.closeAllConnections(5000);
       
-      this.logger.warn('Forced closure of remaining connections', { traceId }, {
+      this.logger.warn('Forced closure of remaining HTTP connections', { traceId }, {
         forcedConnections: remainingConnections
       });
     } else {
-      this.logger.debug('Step 4: No remaining connections to close', { traceId });
+      this.logger.debug('Step 4: No remaining HTTP connections to close', { traceId });
     }
-  }
-
-  protected stopMonitoringAndCleanup(traceId: string): void {
-    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
-    
-    // Stop cleanup interval
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = undefined;
-    }
-    
-    // Log final connection statistics
-    const finalStats = this.connectionPool.getMetrics();
-    this.logger.info('Final connection statistics', { traceId }, finalStats);
-    
-    this.logger.debug('Monitoring stopped and cleanup completed', { traceId });
   }
 
   protected forceShutdown(traceId: string): void {
-    this.logger.warn('Force shutdown initiated', { traceId });
+    this.logger.warn('Force HTTP server shutdown initiated', { traceId });
     
-    // Force close server
+    // 强制关闭HTTP服务器
     this.server.close();
     
-    // Force close all connections via connection pool
-    this.connectionPool.closeAllConnections(1000);
-    
+    // 停止监控和清理
     this.stopMonitoringAndCleanup(traceId);
   }
 
-  protected getActiveConnectionCount(): number {
-    return this.connectionPool.getActiveConnectionCount();
-  }
+  // ============= 实现KoattyServer接口 =============
 
-  // ============= 实现健康检查和指标收集 =============
-
-  protected async performProtocolHealthChecks(): Promise<Record<string, any>> {
-    const checks: Record<string, any> = {};
-    
-    // HTTP server specific health checks
-    const serverListening = this.server.listening;
-    const serverAddress = this.server.address();
-    
-    checks.server = {
-      status: serverListening ? HealthStatus.HEALTHY : HealthStatus.UNHEALTHY,
-      message: serverListening ? 'HTTP server is listening' : 'HTTP server is not listening',
-      details: {
-        listening: serverListening,
-        address: serverAddress
-      }
-    };
-
-    // Connection pool health check
-    const poolHealth = this.connectionPool.getHealth();
-    checks.connectionPool = {
-      status: poolHealth.status === 'healthy' 
-        ? HealthStatus.HEALTHY 
-        : poolHealth.status === 'degraded' 
-          ? HealthStatus.DEGRADED 
-          : HealthStatus.UNHEALTHY,
-      message: poolHealth.message,
-      details: poolHealth
-    };
-    
-    return checks;
-  }
-
-  protected collectProtocolMetrics(): Record<string, any> {
-    const poolMetrics = this.connectionPool.getMetrics();
-    const poolConfig = this.options.connectionPool;
-    
-    return {
-      protocol: 'http',
-      server: {
-        listening: this.server.listening,
-        address: this.server.address(),
-        keepAliveTimeout: this.server.keepAliveTimeout,
-        headersTimeout: this.server.headersTimeout,
-        requestTimeout: this.server.requestTimeout,
-        serverId: this.serverId
-      },
-      connectionPool: {
-        enabled: !!poolConfig,
-        ...poolMetrics,
-        configuration: poolConfig
-      }
-    };
-  }
-
-  // ============= 原有的 HTTP 功能方法 =============
-
-  /**
-   * Start Server
-   */
   Start(listenCallback?: () => void): Server {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
@@ -469,77 +340,56 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       protocol: this.options.protocol
     });
 
-    listenCallback = listenCallback ? listenCallback : this.listenCallback;
+    const finalCallback = listenCallback || this.listenCallback;
     
-    const server = this.server.listen({
-      port: this.options.port,
-      host: this.options.hostname,
-    }, () => {
+    this.server.listen(this.options.port, this.options.hostname, () => {
       this.logger.logServerEvent('started', { traceId }, {
-        address: this.server.address(),
+        address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
         port: this.options.port,
-        protocol: this.options.protocol
+        protocol: this.options.protocol,
+        connectionPoolEnabled: !!this.connectionPool,
+        serverId: this.serverId
       });
       
-      // Start monitoring after server is successfully started
-      this.startMonitoring();
+      // 启动连接池监控
+      this.startConnectionPoolMonitoring();
       
-      if (listenCallback) listenCallback();
-    }).on("clientError", (err: any, sock: any) => {
-      this.logger.error('HTTP client error', { traceId }, err);
-      this.recordRequest(false);
-      try {
-        sock.end('400 Bad Request\r\n\r\n');
-      } catch (socketError) {
-        this.logger.error('Failed to send error response', { traceId }, socketError);
+      if (finalCallback) {
+        finalCallback();
       }
-    }).on("error", (err: Error) => {
-      this.logger.logServerEvent('error', { traceId }, err);
     });
 
-    return server;
+    return this.server;
   }
 
-  /**
-   * Get connection statistics
-   */
-  getConnectionStats(): ConnectionStats {
-    const poolMetrics = this.connectionPool.getMetrics();
-    return {
-      activeConnections: poolMetrics.activeConnections,
-      totalConnections: poolMetrics.totalConnections,
-      connectionsPerSecond: poolMetrics.connectionsPerSecond,
-      averageLatency: poolMetrics.averageLatency,
-      errorRate: poolMetrics.errorRate
-    };
-  }
-
-  /**
-   * Get connection pool health
-   */
-  getConnectionPoolHealth() {
-    return this.connectionPool.getHealth();
-  }
-
-  /**
-   * Get connection pool metrics
-   */
-  getConnectionPoolMetrics() {
-    return this.connectionPool.getMetrics();
-  }
-
-  /**
-   * Get status
-   */
   getStatus(): number {
     return this.status;
   }
 
-  /**
-   * Get native server
-   */
   getNativeServer(): NativeServer {
     return this.server;
+  }
+
+  // ============= HTTP特定的方法 =============
+
+  /**
+   * 启动连接池监控
+   */
+  private startConnectionPoolMonitoring(): void {
+    const monitoringInterval = setInterval(() => {
+      const stats = this.getConnectionStats();
+      this.logger.debug('HTTP connection pool statistics', {}, stats);
+    }, 30000); // 每30秒
+
+    // 存储间隔以供清理
+    (this.server as any)._monitoringInterval = monitoringInterval;
+  }
+
+  /**
+   * 获取HTTP连接统计信息
+   */
+  getHttpConnectionStats() {
+    return this.connectionPool ? this.connectionPool.getConnectionStats() : null;
   }
 }

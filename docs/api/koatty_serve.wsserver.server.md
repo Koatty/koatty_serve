@@ -7,5 +7,5 @@
 **Signature:**
 
 ```typescript
-readonly server: WebSocketServer;
+readonly server: WS.WebSocketServer;
 ```

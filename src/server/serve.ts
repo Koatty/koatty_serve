@@ -17,22 +17,7 @@ import { Http2Server } from "./http2";
 import { HttpsServer as KoattyHttpsServer } from "./https";
 import { WsServer } from "./ws";
 import { CreateTerminus } from "../utils/terminus";
-
-// KoattyProtocol
-export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
-
-/**
- * listening options
- *
- * @interface ListeningOptions
- */
-export interface ListeningOptions {
-  hostname: string;
-  port: number;
-  protocol: KoattyProtocol | KoattyProtocol[]; // 支持单协议或协议数组
-  trace?: boolean; // Full stack debug & trace, default: false
-  ext?: any; // Other extended configuration
-}
+import { KoattyProtocol, ListeningOptions } from "../config/config";
 
 /**
  * Internal interface for single server instance

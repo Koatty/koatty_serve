@@ -4,14 +4,19 @@
 
 ## HttpsServer.getSecurityMetrics() method
 
-Get SSL security metrics
+获取安全统计信息
 
 **Signature:**
 
 ```typescript
-getSecurityMetrics(): Record<string, any>;
+getSecurityMetrics(): {
+        sslMode: "auto" | "manual" | "mutual_tls";
+        ciphers: string;
+        secureProtocol: string;
+        mutualTLS: boolean;
+    };
 ```
 **Returns:**
 
-Record&lt;string, any&gt;
+{ sslMode: "auto" \| "manual" \| "mutual\_tls"; ciphers: string; secureProtocol: string; mutualTLS: boolean; }
 

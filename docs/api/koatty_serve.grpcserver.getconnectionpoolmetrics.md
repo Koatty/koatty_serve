@@ -9,9 +9,9 @@ Get connection pool metrics
 **Signature:**
 
 ```typescript
-getConnectionPoolMetrics(): import("../utils/pool").ConnectionPoolMetrics;
+getConnectionPoolMetrics(): import("./pools/pool").ConnectionPoolMetrics;
 ```
 **Returns:**
 
-import("../utils/pool").ConnectionPoolMetrics
+import("./pools/pool").ConnectionPoolMetrics
 

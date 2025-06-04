@@ -7,7 +7,7 @@
 **Signature:**
 
 ```typescript
-protected onRuntimeConfigChange(analysis: ConfigChangeAnalysis, newConfig: Partial<ListeningOptions>, traceId: string): void;
+protected onRuntimeConfigChange(analysis: ConfigChangeAnalysis, newConfig: Partial<HttpServerOptions>, traceId: string): void;
 ```
 
 ## Parameters
@@ -15,7 +15,7 @@ protected onRuntimeConfigChange(analysis: ConfigChangeAnalysis, newConfig: Parti
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  analysis | ConfigChangeAnalysis |  |
-|  newConfig | Partial&lt;ListeningOptions&gt; |  |
+|  newConfig | Partial&lt;HttpServerOptions&gt; |  |
 |  traceId | string |  |
 
 **Returns:**

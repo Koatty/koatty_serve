@@ -4,8 +4,6 @@
 
 ## Http2Server.Start() method
 
-Start Server with enhanced HTTP/2 and SSL configuration
-
 **Signature:**
 
 ```typescript

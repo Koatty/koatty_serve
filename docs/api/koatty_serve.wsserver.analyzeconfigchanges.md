@@ -7,14 +7,14 @@
 **Signature:**
 
 ```typescript
-protected analyzeConfigChanges(changedKeys: (keyof ListeningOptions)[], oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): ConfigChangeAnalysis;
+protected analyzeConfigChanges(changedKeys: (keyof WebSocketServerOptions)[], oldConfig: WebSocketServerOptions, newConfig: WebSocketServerOptions): ConfigChangeAnalysis;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  changedKeys | (keyof ListeningOptions)\[\] |  |
+|  changedKeys | (keyof WebSocketServerOptions)\[\] |  |
 |  oldConfig | WebSocketServerOptions |  |
 |  newConfig | WebSocketServerOptions |  |
 

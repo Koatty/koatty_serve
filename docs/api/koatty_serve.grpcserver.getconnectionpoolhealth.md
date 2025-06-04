@@ -9,9 +9,9 @@ Get connection pool health
 **Signature:**
 
 ```typescript
-getConnectionPoolHealth(): import("../utils/pool").ConnectionPoolHealth;
+getConnectionPoolHealth(): import("./pools/pool").ConnectionPoolHealth;
 ```
 **Returns:**
 
-import("../utils/pool").ConnectionPoolHealth
+import("./pools/pool").ConnectionPoolHealth
 

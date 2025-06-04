@@ -4,7 +4,7 @@
 
 ## HttpServer class
 
-HTTP Server with enhanced connection pool management and graceful shutdown
+HTTP Server implementation using template method pattern 继承BaseServer，只实现HTTP特定的逻辑
 
 **Signature:**
 
@@ -23,7 +23,7 @@ export declare class HttpServer extends BaseServer<HttpServerOptions>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [logger](./koatty_serve.httpserver.logger.md) | <code>protected</code> | import("../utils/logger").ChildLogger |  |
+|  [connectionPool](./koatty_serve.httpserver.connectionpool.md) | <code>protected</code> | HttpConnectionPoolManager |  |
 |  [server](./koatty_serve.httpserver.server.md) | <code>readonly</code> | Server |  |
 
 ## Methods
@@ -31,21 +31,18 @@ export declare class HttpServer extends BaseServer<HttpServerOptions>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.httpserver.analyzeconfigchanges.md) | <code>protected</code> |  |
-|  [applyConfigChanges(changedKeys, newConfig)](./koatty_serve.httpserver.applyconfigchanges.md) | <code>protected</code> |  |
-|  [collectProtocolMetrics()](./koatty_serve.httpserver.collectprotocolmetrics.md) | <code>protected</code> |  |
+|  [configureServerOptions()](./koatty_serve.httpserver.configureserveroptions.md) | <code>protected</code> | 配置HTTP服务器选项 |
+|  [createProtocolServer()](./koatty_serve.httpserver.createprotocolserver.md) | <code>protected</code> | 创建HTTP服务器实例 |
 |  [extractRelevantConfig(config)](./koatty_serve.httpserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.httpserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.httpserver.forceshutdown.md) | <code>protected</code> |  |
-|  [getActiveConnectionCount()](./koatty_serve.httpserver.getactiveconnectioncount.md) | <code>protected</code> |  |
-|  [getConnectionPoolHealth()](./koatty_serve.httpserver.getconnectionpoolhealth.md) |  | Get connection pool health |
-|  [getConnectionPoolMetrics()](./koatty_serve.httpserver.getconnectionpoolmetrics.md) |  | Get connection pool metrics |
-|  [getConnectionStats()](./koatty_serve.httpserver.getconnectionstats.md) |  | Get connection statistics |
-|  [getNativeServer()](./koatty_serve.httpserver.getnativeserver.md) |  | Get native server |
-|  [getStatus()](./koatty_serve.httpserver.getstatus.md) |  | Get status |
+|  [getHttpConnectionStats()](./koatty_serve.httpserver.gethttpconnectionstats.md) |  | 获取HTTP连接统计信息 |
+|  [getNativeServer()](./koatty_serve.httpserver.getnativeserver.md) |  |  |
+|  [getStatus()](./koatty_serve.httpserver.getstatus.md) |  |  |
+|  [initializeConnectionPool()](./koatty_serve.httpserver.initializeconnectionpool.md) | <code>protected</code> | 初始化HTTP连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.httpserver.onruntimeconfigchange.md) | <code>protected</code> |  |
-|  [performProtocolHealthChecks()](./koatty_serve.httpserver.performprotocolhealthchecks.md) | <code>protected</code> |  |
-|  [Start(listenCallback)](./koatty_serve.httpserver.start.md) |  | Start Server |
+|  [performProtocolSpecificInitialization()](./koatty_serve.httpserver.performprotocolspecificinitialization.md) | <code>protected</code> | HTTP特定的额外初始化 |
+|  [Start(listenCallback)](./koatty_serve.httpserver.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.httpserver.stopacceptingnewconnections.md) | <code>protected</code> |  |
-|  [stopMonitoringAndCleanup(traceId)](./koatty_serve.httpserver.stopmonitoringandcleanup.md) | <code>protected</code> |  |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.httpserver.waitforconnectioncompletion.md) | <code>protected</code> |  |
 

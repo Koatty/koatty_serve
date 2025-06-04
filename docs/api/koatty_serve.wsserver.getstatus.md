@@ -4,8 +4,6 @@
 
 ## WsServer.getStatus() method
 
-Get status
-
 **Signature:**
 
 ```typescript
@@ -14,5 +12,4 @@ getStatus(): number;
 **Returns:**
 
 number
-
 

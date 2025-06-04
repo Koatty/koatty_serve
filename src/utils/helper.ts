@@ -30,3 +30,28 @@ export function deepEqual(obj1: any, obj2: any): boolean {
 
   return false;
 }
+
+  /**
+   * Execute operation with timeout
+   */
+ export function executeWithTimeout<T>(
+    operation: () => Promise<T> | T,
+    timeout: number,
+    operationName: string
+  ): Promise < T > {
+    return new Promise<T>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`${operationName} timed out after ${timeout}ms`));
+      }, timeout);
+
+      Promise.resolve(operation())
+        .then((result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+    });
+  }

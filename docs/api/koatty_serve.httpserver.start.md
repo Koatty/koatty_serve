@@ -4,8 +4,6 @@
 
 ## HttpServer.Start() method
 
-Start Server
-
 **Signature:**
 
 ```typescript

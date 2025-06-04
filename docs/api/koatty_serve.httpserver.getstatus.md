@@ -4,8 +4,6 @@
 
 ## HttpServer.getStatus() method
 
-Get status
-
 **Signature:**
 
 ```typescript

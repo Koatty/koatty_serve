@@ -4,7 +4,7 @@
 
 ## Http2Server class
 
-HTTP2 Server with enhanced SSL/TLS configuration management and graceful shutdown
+HTTP/2 Server implementation using template method pattern 继承BaseServer，只实现HTTP/2特定的逻辑
 
 **Signature:**
 
@@ -23,7 +23,7 @@ export declare class Http2Server extends BaseServer<Http2ServerOptions>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [logger](./koatty_serve.http2server.logger.md) | <code>protected</code> | import("../utils/logger").ChildLogger |  |
+|  [connectionPool](./koatty_serve.http2server.connectionpool.md) | <code>protected</code> | Http2ConnectionPoolManager |  |
 |  [server](./koatty_serve.http2server.server.md) | <code>readonly</code> | Http2SecureServer |  |
 
 ## Methods
@@ -31,20 +31,20 @@ export declare class Http2Server extends BaseServer<Http2ServerOptions>
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.http2server.analyzeconfigchanges.md) | <code>protected</code> |  |
-|  [applyConfigChanges(changedKeys, newConfig)](./koatty_serve.http2server.applyconfigchanges.md) | <code>protected</code> |  |
-|  [collectProtocolMetrics()](./koatty_serve.http2server.collectprotocolmetrics.md) | <code>protected</code> |  |
+|  [configureServerOptions()](./koatty_serve.http2server.configureserveroptions.md) | <code>protected</code> | 配置HTTP/2服务器选项 |
+|  [createProtocolServer()](./koatty_serve.http2server.createprotocolserver.md) | <code>protected</code> | 创建HTTP/2服务器实例 |
+|  [destroy()](./koatty_serve.http2server.destroy.md) |  | 销毁服务器 |
 |  [extractRelevantConfig(config)](./koatty_serve.http2server.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.http2server.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.http2server.forceshutdown.md) | <code>protected</code> |  |
-|  [getActiveConnectionCount()](./koatty_serve.http2server.getactiveconnectioncount.md) | <code>protected</code> |  |
-|  [getConnectionStats()](./koatty_serve.http2server.getconnectionstats.md) |  | Get connection statistics |
-|  [getHttp2Stats()](./koatty_serve.http2server.gethttp2stats.md) |  | Get HTTP/2 specific statistics |
-|  [getNativeServer()](./koatty_serve.http2server.getnativeserver.md) |  | Get native server |
-|  [getStatus()](./koatty_serve.http2server.getstatus.md) |  | Get status |
+|  [getConnectionsStatus()](./koatty_serve.http2server.getconnectionsstatus.md) |  | 获取当前连接状态 |
+|  [getHttp2Stats()](./koatty_serve.http2server.gethttp2stats.md) |  | 获取HTTP/2统计信息 |
+|  [getNativeServer()](./koatty_serve.http2server.getnativeserver.md) |  |  |
+|  [getStatus()](./koatty_serve.http2server.getstatus.md) |  |  |
+|  [initializeConnectionPool()](./koatty_serve.http2server.initializeconnectionpool.md) | <code>protected</code> | 初始化HTTP/2连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.http2server.onruntimeconfigchange.md) | <code>protected</code> |  |
-|  [performProtocolHealthChecks()](./koatty_serve.http2server.performprotocolhealthchecks.md) | <code>protected</code> |  |
-|  [Start(listenCallback)](./koatty_serve.http2server.start.md) |  | Start Server with enhanced HTTP/2 and SSL configuration |
+|  [performProtocolSpecificInitialization()](./koatty_serve.http2server.performprotocolspecificinitialization.md) | <code>protected</code> | HTTP/2特定的额外初始化 |
+|  [Start(listenCallback)](./koatty_serve.http2server.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.http2server.stopacceptingnewconnections.md) | <code>protected</code> |  |
-|  [stopMonitoringAndCleanup(traceId)](./koatty_serve.http2server.stopmonitoringandcleanup.md) | <code>protected</code> |  |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.http2server.waitforconnectioncompletion.md) | <code>protected</code> |  |
 

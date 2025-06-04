@@ -21,7 +21,7 @@ export declare class GrpcServer extends BaseServer<GrpcServerOptions>
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [logger](./koatty_serve.grpcserver.logger.md) | <code>protected</code> | import("../utils/logger").ChildLogger |  |
+|  [connectionPool](./koatty_serve.grpcserver.connectionpool.md) | <code>protected</code> | GrpcConnectionPoolManager |  |
 |  [server](./koatty_serve.grpcserver.server.md) | <code>readonly</code> | Server |  |
 
 ## Methods
@@ -31,6 +31,8 @@ export declare class GrpcServer extends BaseServer<GrpcServerOptions>
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.grpcserver.analyzeconfigchanges.md) | <code>protected</code> |  |
 |  [applyConfigChanges(changedKeys, newConfig)](./koatty_serve.grpcserver.applyconfigchanges.md) | <code>protected</code> |  |
 |  [collectProtocolMetrics()](./koatty_serve.grpcserver.collectprotocolmetrics.md) | <code>protected</code> |  |
+|  [configureServerOptions()](./koatty_serve.grpcserver.configureserveroptions.md) | <code>protected</code> | 配置gRPC服务器选项 |
+|  [createProtocolServer()](./koatty_serve.grpcserver.createprotocolserver.md) | <code>protected</code> | 创建gRPC服务器实例 |
 |  [extractRelevantConfig(config)](./koatty_serve.grpcserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.grpcserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.grpcserver.forceshutdown.md) | <code>protected</code> |  |
@@ -40,8 +42,10 @@ export declare class GrpcServer extends BaseServer<GrpcServerOptions>
 |  [getConnectionStats()](./koatty_serve.grpcserver.getconnectionstats.md) |  | Get connection statistics |
 |  [getNativeServer()](./koatty_serve.grpcserver.getnativeserver.md) |  | Get native server |
 |  [getStatus()](./koatty_serve.grpcserver.getstatus.md) |  | Get status |
+|  [initializeConnectionPool()](./koatty_serve.grpcserver.initializeconnectionpool.md) | <code>protected</code> | 初始化gRPC连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.grpcserver.onruntimeconfigchange.md) | <code>protected</code> |  |
 |  [performProtocolHealthChecks()](./koatty_serve.grpcserver.performprotocolhealthchecks.md) | <code>protected</code> |  |
+|  [performProtocolSpecificInitialization()](./koatty_serve.grpcserver.performprotocolspecificinitialization.md) | <code>protected</code> | gRPC特定的额外初始化 |
 |  [RegisterService(impl)](./koatty_serve.grpcserver.registerservice.md) |  | Register Service with enhanced logging and monitoring |
 |  [Start(listenCallback)](./koatty_serve.grpcserver.start.md) |  | Start Server with enhanced connection management |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.grpcserver.stopacceptingnewconnections.md) | <code>protected</code> |  |

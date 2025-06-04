@@ -4,8 +4,6 @@
 
 ## Http2Server.getStatus() method
 
-Get status
-
 **Signature:**
 
 ```typescript

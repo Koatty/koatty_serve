@@ -11,12 +11,13 @@ import {
 } from "@grpc/grpc-js";
 import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
-import { BaseServer, ListeningOptions, ConfigChangeAnalysis, ConnectionStats } from "./base";
-import { createLogger, generateTraceId } from "../utils/logger";
+import { BaseServer, ConfigChangeAnalysis, ConnectionStats } from "./base";
+import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { HealthStatus } from "./base";
-import { GrpcConnectionPoolManager } from "./pools/grpc";
-import { ConnectionPoolConfig, ConnectionPoolEvent } from "./pools/pool";
+import { ConnectionPoolConfig } from "../config/pool";
+import { ConfigHelper, GrpcServerOptions, ListeningOptions } from "../config/config";
+import { GrpcConnectionPoolManager } from "../pools/factory";
 
 /**
  * ServiceImplementation
@@ -37,70 +38,30 @@ interface Implementation {
   [methodName: string]: UntypedHandleCall;
 }
 
-/**
- * SSL/TLS Configuration
- */
-interface SSLConfig {
-  enabled: boolean;
-  keyFile?: string;
-  certFile?: string;
-  caFile?: string;
-  clientCertRequired?: boolean;
-}
-
-/**
- * gRPC Server Options with enhanced configuration
- *
- * @export
- * @interface GrpcServerOptions
- * @extends {ListeningOptions}
- */
-export interface GrpcServerOptions extends ListeningOptions {
-  channelOptions?: ChannelOptions;
-  ssl?: SSLConfig;
-  connectionPool?: {
-    maxConnections?: number;
-    keepAliveTime?: number;
-    keepAliveTimeout?: number;
-    maxReceiveMessageLength?: number;
-    maxSendMessageLength?: number;
-  };
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
-}
-
-export class GrpcServer extends BaseServer<GrpcServerOptions> {
-  readonly server: Server;
-  protected logger = createLogger({ module: 'grpc', protocol: 'grpc' });
-  private serverId = `grpc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  private connectionPool: GrpcConnectionPoolManager;
-  private cleanupInterval?: NodeJS.Timeout;
+export class GrpcServer extends BaseServer {
+  declare readonly server: Server;
+  declare protected connectionPool: GrpcConnectionPoolManager;
+  options: GrpcServerOptions;
 
   constructor(app: KoattyApplication, options: GrpcServerOptions) {
     super(app, options);
-    
-    // Set server context for logging
-    this.logger = createLogger({ 
-      module: 'grpc', 
-      protocol: options.protocol,
-      serverId: this.serverId
-    });
+    this.options = ConfigHelper.createGrpcConfig(options);
+    CreateTerminus(this);
+  }
 
-    this.logger.info('Initializing gRPC server with connection pool', {}, {
-      hostname: options.hostname,
-      port: options.port,
-      protocol: options.protocol,
-      sslEnabled: options.ssl?.enabled || false,
-      maxConnections: options.connectionPool?.maxConnections
-    });
 
-    // 初始化连接池
-    this.initializeConnectionPool();
+  /**
+   * 初始化gRPC连接池
+   */
+  protected initializeConnectionPool(): void {
+    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
+    this.connectionPool = new GrpcConnectionPoolManager(poolConfig);
+  }
 
+  /**
+   * 创建gRPC服务器实例
+   */
+  protected createProtocolServer(): void {
     const opts = this.options as GrpcServerOptions;
     opts.ext = opts.ext || {};
     
@@ -119,76 +80,28 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       'grpc.max_connection_age_grace_ms': 30000, // 30 seconds
     };
     
-    this.server = new Server(channelOptions);
-    
-    // 设置连接池事件监听
-    this.setupConnectionPoolEventListeners();
-    
-    // 设置定期清理
-    this.setupPeriodicCleanup();
-    
-    this.logger.debug('gRPC server initialized successfully', {}, {
-      channelOptions,
-      connectionPoolEnabled: true
-    });
-    
-    CreateTerminus(this);
+    (this as any).server = new Server(channelOptions);
   }
 
   /**
-   * 初始化连接池
+   * 配置gRPC服务器选项
    */
-  private initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new GrpcConnectionPoolManager(poolConfig);
+  protected configureServerOptions(): void {
+    // gRPC服务器配置在createProtocolServer中完成
   }
 
   /**
-   * 提取连接池配置
+   * gRPC特定的额外初始化
    */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000, // 30秒连接超时
-      protocolSpecific: {
-        keepAliveTime: options?.keepAliveTime,
-        maxReceiveMessageLength: options?.maxReceiveMessageLength,
-        maxSendMessageLength: options?.maxSendMessageLength
-      }
-    };
-  }
-
-  /**
-   * 设置连接池事件监听
-   */
-  private setupConnectionPoolEventListeners(): void {
-    this.connectionPool.on(ConnectionPoolEvent.POOL_LIMIT_REACHED, (data: any) => {
-      this.logger.warn('gRPC connection pool limit reached', {}, data);
+  protected performProtocolSpecificInitialization(): void {
+    this.logger.info('gRPC server initialization completed', {}, {
+      hostname: this.options.hostname,
+      port: this.options.port,
+      protocol: this.options.protocol,
+      serverId: this.serverId,
+      sslEnabled: this.options.ssl?.enabled || false,
+      maxConnections: this.options.connectionPool?.maxConnections
     });
-
-    this.connectionPool.on(ConnectionPoolEvent.HEALTH_STATUS_CHANGED, (data: any) => {
-      this.logger.info('gRPC connection pool health status changed', {}, data);
-    });
-
-    this.connectionPool.on(ConnectionPoolEvent.CONNECTION_ERROR, (data: any) => {
-      this.logger.warn('gRPC connection pool error', {}, {
-        error: data.error?.message,
-        connectionId: data.connectionId
-      });
-    });
-  }
-
-  /**
-   * 设置定期清理
-   */
-  private setupPeriodicCleanup(): void {
-    this.cleanupInterval = setInterval(() => {
-      const cleaned = this.connectionPool.cleanupStaleConnections();
-      if (cleaned > 0) {
-        this.logger.debug('Cleaned up stale gRPC connections', {}, { count: cleaned });
-      }
-    }, 30000); // 每30秒清理一次
   }
 
   // ============= 实现 BaseServer 抽象方法 =============
@@ -238,8 +151,8 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   }
 
   protected applyConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
-    newConfig: Partial<ListeningOptions>
+    changedKeys: (keyof GrpcServerOptions)[],
+    newConfig: Partial<GrpcServerOptions>
   ): void {
     // This is now handled by the base class's restart logic
     this.options = { ...this.options, ...newConfig };
@@ -389,7 +302,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
         ? HealthStatus.HEALTHY 
         : poolHealth.status === 'degraded' 
           ? HealthStatus.DEGRADED 
-          : HealthStatus.UNHEALTHY,
+          : HealthStatus.OVERLOADED,
       message: poolHealth.message,
       details: poolHealth
     };
@@ -622,13 +535,16 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           peer: call.getPeer ? call.getPeer() : 'unknown'
         });
 
-        // Add connection to manager
-        this.connectionPool.addConnection(call, {
+        // Add connection to manager using the new API
+        const peer = call.getPeer ? call.getPeer() : 'unknown';
+        const callMetadata = {
           connectionId,
           serviceName: impl.service.serviceName,
           methodName,
-          peer: call.getPeer ? call.getPeer() : 'unknown'
-        }).catch((error: any) => {
+          peer
+        };
+        
+        this.connectionPool.addGrpcConnection(peer, callMetadata).catch((error: any) => {
           this.logger.error('Failed to add gRPC connection to pool', {}, error);
         });
 
@@ -647,8 +563,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
             });
           }
           
-          // Remove connection after completion
-          this.connectionPool.removeConnection(call);
+          // Note: Connection cleanup is handled automatically by the pool
           
           if (callback) callback(err, response);
         };
@@ -658,7 +573,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           handler(call, wrappedCallback);
         } catch (error) {
           this.logger.error('gRPC method handler error', { traceId: methodTraceId, connectionId }, error);
-          this.connectionPool.removeConnection(call);
+          
+          // Note: Connection error handling is managed by the pool
+          
           if (callback) callback(error, null);
         }
       };
@@ -711,5 +628,23 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   getNativeServer(): NativeServer {
     return this.server;
+  }
+
+  // ============= gRPC特定的私有方法 =============
+
+  /**
+   * 提取连接池配置
+   */
+  private extractConnectionPoolConfig(): ConnectionPoolConfig {
+    const options = this.options.connectionPool;
+    return {
+      maxConnections: options?.maxConnections,
+      connectionTimeout: 30000, // 30秒连接超时
+      protocolSpecific: {
+        keepAliveTime: options?.keepAliveTime,
+        maxReceiveMessageLength: options?.maxReceiveMessageLength,
+        maxSendMessageLength: options?.maxSendMessageLength
+      }
+    };
   }
 }

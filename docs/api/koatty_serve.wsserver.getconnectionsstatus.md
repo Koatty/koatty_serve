@@ -4,6 +4,8 @@
 
 ## WsServer.getConnectionsStatus() method
 
+获取当前连接状态
+
 **Signature:**
 
 ```typescript
