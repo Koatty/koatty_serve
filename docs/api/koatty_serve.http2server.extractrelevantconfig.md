@@ -10,7 +10,7 @@
 protected extractRelevantConfig(config: Http2ServerOptions): {
         hostname: string;
         port: number;
-        protocol: import("./base").KoattyProtocol;
+        protocol: import("../config/config").KoattyProtocol;
         sslMode: "auto" | "manual" | "mutual_tls";
         allowHTTP1: boolean;
         connectionPool: {
@@ -37,5 +37,5 @@ protected extractRelevantConfig(config: Http2ServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; sslMode: "auto" \| "manual" \| "mutual\_tls"; allowHTTP1: boolean; connectionPool: { maxConnections: number; maxSessionMemory: number; maxHeaderListSize: number; }; http2Settings: { headerTableSize?: number; enablePush?: boolean; maxConcurrentStreams?: number; initialWindowSize?: number; maxFrameSize?: number; maxHeaderListSize?: number; }; }
+{ hostname: string; port: number; protocol: import("../config/config").[KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->; sslMode: "auto" \| "manual" \| "mutual\_tls"; allowHTTP1: boolean; connectionPool: { maxConnections: number; maxSessionMemory: number; maxHeaderListSize: number; }; http2Settings: { headerTableSize?: number; enablePush?: boolean; maxConcurrentStreams?: number; initialWindowSize?: number; maxFrameSize?: number; maxHeaderListSize?: number; }; }
 

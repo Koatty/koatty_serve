@@ -22,6 +22,7 @@ export declare class GrpcServer extends BaseServer<GrpcServerOptions>
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [connectionPool](./koatty_serve.grpcserver.connectionpool.md) | <code>protected</code> | GrpcConnectionPoolManager |  |
+|  [options](./koatty_serve.grpcserver.options.md) |  | GrpcServerOptions |  |
 |  [server](./koatty_serve.grpcserver.server.md) | <code>readonly</code> | Server |  |
 
 ## Methods

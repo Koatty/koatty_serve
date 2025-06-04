@@ -10,7 +10,7 @@
 protected extractRelevantConfig(config: HttpsServerOptions): {
         hostname: string;
         port: number;
-        protocol: import("./base").KoattyProtocol;
+        protocol: import("../config/config").KoattyProtocol;
         sslMode: "auto" | "manual" | "mutual_tls";
         connectionPool: {
             maxConnections: number;
@@ -29,5 +29,5 @@ protected extractRelevantConfig(config: HttpsServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; sslMode: "auto" \| "manual" \| "mutual\_tls"; connectionPool: { maxConnections: number; keepAliveTimeout: number; headersTimeout: number; requestTimeout: number; }; }
+{ hostname: string; port: number; protocol: import("../config/config").[KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->; sslMode: "auto" \| "manual" \| "mutual\_tls"; connectionPool: { maxConnections: number; keepAliveTimeout: number; headersTimeout: number; requestTimeout: number; }; }
 

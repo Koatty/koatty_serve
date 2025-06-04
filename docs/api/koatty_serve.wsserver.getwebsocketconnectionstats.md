@@ -13,12 +13,9 @@ getWebSocketConnectionStats(): {
         availableConnections: number;
         healthyConnections: number;
         utilizationRatio: number;
-        protocol: string; /**
-         * WebSocket Server implementation using template method pattern
-         * 继承BaseServer，只实现WebSocket特定的逻辑
-         */
+        protocol: string;
         poolConfig: ConnectionPoolConfig;
-        health: import("./pools/pool").ConnectionPoolHealth;
+        health: import("../pools/pool").ConnectionPoolHealth;
         performance: {
             throughput: number;
             latency: {
@@ -39,5 +36,5 @@ getWebSocketConnectionStats(): {
 ```
 **Returns:**
 
-{ availableConnections: number; healthyConnections: number; utilizationRatio: number; protocol: string; /\*\* \* WebSocket Server implementation using template method pattern \* 继承BaseServer，只实现WebSocket特定的逻辑 \*/ poolConfig: ConnectionPoolConfig; health: import("./pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
+{ availableConnections: number; healthyConnections: number; utilizationRatio: number; protocol: string; poolConfig: ConnectionPoolConfig; health: import("../pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
 

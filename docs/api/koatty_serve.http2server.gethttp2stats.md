@@ -19,7 +19,7 @@ getHttp2Stats(): {
         utilizationRatio: number;
         protocol: string;
         poolConfig: ConnectionPoolConfig;
-        health: import("./pools/pool").ConnectionPoolHealth;
+        health: import("../pools/pool").ConnectionPoolHealth;
         performance: {
             throughput: number;
             latency: {
@@ -40,5 +40,5 @@ getHttp2Stats(): {
 ```
 **Returns:**
 
-{ availableSessions: number; goingAwaySessions: number; totalActiveStreams: number; totalStreams: number; totalStreamErrors: number; averageStreamsPerSession: number; utilizationRatio: number; protocol: string; poolConfig: ConnectionPoolConfig; health: import("./pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
+{ availableSessions: number; goingAwaySessions: number; totalActiveStreams: number; totalStreams: number; totalStreamErrors: number; averageStreamsPerSession: number; utilizationRatio: number; protocol: string; poolConfig: ConnectionPoolConfig; health: import("../pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
 

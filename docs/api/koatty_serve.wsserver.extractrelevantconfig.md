@@ -10,7 +10,7 @@
 protected extractRelevantConfig(config: WebSocketServerOptions): {
         hostname: string;
         port: number;
-        protocol: import("./base").KoattyProtocol;
+        protocol: import("../config/config").KoattyProtocol;
         isSecure: boolean;
         connectionPool: {
             maxConnections: number;
@@ -30,5 +30,5 @@ protected extractRelevantConfig(config: WebSocketServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("./base").KoattyProtocol; isSecure: boolean; connectionPool: { maxConnections: number; pingInterval: number; pongTimeout: number; heartbeatInterval: number; }; wsOptions: WS.ServerOptions&lt;typeof import("ws"), typeof IncomingMessage&gt;; }
+{ hostname: string; port: number; protocol: import("../config/config").[KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->; isSecure: boolean; connectionPool: { maxConnections: number; pingInterval: number; pongTimeout: number; heartbeatInterval: number; }; wsOptions: WS.ServerOptions&lt;typeof import("ws"), typeof IncomingMessage&gt;; }
 

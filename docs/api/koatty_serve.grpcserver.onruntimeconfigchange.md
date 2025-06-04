@@ -15,7 +15,7 @@ protected onRuntimeConfigChange(analysis: ConfigChangeAnalysis, newConfig: Parti
 |  Parameter | Type | Description |
 |  --- | --- | --- |
 |  analysis | ConfigChangeAnalysis |  |
-|  newConfig | Partial&lt;ListeningOptions&gt; |  |
+|  newConfig | Partial&lt;[ListeningOptions](./koatty_serve.listeningoptions.md)<!-- -->&gt; |  |
 |  traceId | string |  |
 
 **Returns:**

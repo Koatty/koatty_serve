@@ -1,827 +1,466 @@
 # koatty_serve
 
-Koatty的高性能多协议服务器，提供统一的HTTP、HTTPS、HTTP/2、WebSocket、gRPC服务支持，具备企业级的配置热重载、优雅关闭、健康检查和性能监控功能。
+高性能多协议服务器框架，为Koatty提供统一的HTTP、HTTPS、HTTP/2、WebSocket、gRPC服务支持。采用现代化架构设计，具备企业级的配置管理、连接池、优雅关闭、健康检查和性能监控功能。
 
 ## 🚀 核心特性
 
-### 多协议统一架构
+### 🏗️ 统一架构设计
+- ✅ **模板方法模式**: 基于`BaseServer`的统一服务器架构
 - ✅ **多协议支持**: HTTP、HTTPS、HTTP/2、WebSocket、WSS、gRPC
-- ✅ **统一管理**: 一套代码同时管理多种协议服务器
-- ✅ **自动端口分配**: 智能分配连续端口给不同协议
-- ✅ **向后兼容**: 完全兼容现有单协议服务
+- ✅ **配置统一管理**: `ConfigHelper`提供一致的配置接口
+- ✅ **连接池系统**: 高性能的协议专用连接池管理
 
-### 企业级运维功能
-- 🔄 **配置热重载**: 无需重启即可更新非关键配置
-- 🛡️ **优雅关闭**: 五步式优雅关闭，保证数据完整性
-- 🏥 **健康检查**: 多层次健康状态监控和自动检查
-- 📊 **性能监控**: 实时指标收集和历史数据分析
-- 📝 **结构化日志**: 统一的日志记录和追踪系统
+### 🔧 企业级配置管理
+- 🔄 **统一配置接口**: 所有协议使用相同的配置模式
+- 🔥 **配置热重载**: 智能检测配置变更，自动决定重启策略
+- 📋 **类型安全**: 完整的TypeScript类型定义和验证
+- 🎛️ **默认值管理**: 智能的默认配置和环境适配
 
-### 高级安全特性
-- 🔐 **SSL/TLS增强**: 支持单向、双向TLS和证书管理
-- 🔒 **gRPC安全**: 完整的gRPC安全连接支持
-- 🛠️ **连接管理**: 高效的连接池和资源管理
+### 🏊‍♂️ 高性能连接池
+- ⚡ **协议专用池**: 每种协议优化的连接池实现
+- 📊 **智能监控**: 实时连接统计和健康检查
+- 🔄 **自动清理**: 过期连接自动清理和资源回收
+- 🎯 **负载均衡**: 智能连接分配和负载管理
+
+### 🛡️ 企业级运维
+- 🔄 **优雅关闭**: 五步式优雅关闭流程
+- 🏥 **健康检查**: 多层次健康状态监控
+- 📊 **性能监控**: 实时指标收集和历史数据
+- 📝 **结构化日志**: 统一的日志系统和链路追踪
 
 ## 📦 安装
 
 ```bash
 npm install koatty_serve
 # 或者
+yarn add koatty_serve
+# 或者
 pnpm add koatty_serve
 ```
 
 ## 🎯 快速开始
 
-### 1. 单协议服务（向后兼容）
+### 基础HTTP服务器
 
 ```typescript
-import { NewServe } from "koatty_serve";
+import { HttpServer } from "koatty_serve";
+import { ConfigHelper } from "koatty_serve/config";
 
-// 创建单个HTTP服务器
-const server = NewServe(app, {
+const app = new KoattyApplication();
+
+// 使用ConfigHelper创建配置
+const config = ConfigHelper.createHttpConfig({
   hostname: '127.0.0.1',
   port: 3000,
-  protocol: 'http'
+  connectionPool: {
+    maxConnections: 1000,
+    connectionTimeout: 30000
+  }
 });
+
+// 创建HTTP服务器
+const server = new HttpServer(app, config);
 
 server.Start(() => {
   console.log('HTTP服务器已启动: http://127.0.0.1:3000');
 });
 ```
 
-### 2. 多协议服务器
+### HTTPS服务器
 
 ```typescript
-import { NewServe } from "koatty_serve";
+import { HttpsServer } from "koatty_serve";
+import { ConfigHelper } from "koatty_serve/config";
 
-// 使用协议数组创建多协议服务器
-const multiServer = NewServe(app, {
-  hostname: '127.0.0.1',
-  port: 3000, // 基础端口，其他协议将使用 3001, 3002 等
-  protocol: ['http', 'ws', 'grpc'] // 协议数组
-});
-
-multiServer.Start(() => {
-  console.log('多协议服务器已启动');
-  // HTTP: 3000, WebSocket: 3001, gRPC: 3002
-});
-```
-
-### 3. 企业级配置
-
-```typescript
-const enterpriseConfig = {
+const httpsConfig = ConfigHelper.createHttpsConfig({
   hostname: '0.0.0.0',
-  port: 3000,
-  protocol: ['http', 'https', 'ws'],
-  ext: {
-    // SSL配置 (HTTPS/WSS)
+  port: 443,
+  ssl: {
+    mode: 'auto',
     key: './ssl/server.key',
-    cert: './ssl/server.crt',
-    
-    // 健康检查配置
-    healthCheck: {
-      enabled: true,
-      interval: 30000,  // 30秒检查间隔
-      timeout: 5000,    // 5秒超时
-      checks: {
-        connections: true,
-        memory: true,
-        dependencies: true
-      }
-    },
-    
-    // 性能指标配置
-    metrics: {
-      enabled: true,
-      interval: 10000,   // 10秒收集间隔
-      retention: 300000  // 5分钟数据保留
-    },
-    
-    // 连接管理
-    maxConnections: 1000,
-    connectionTimeout: 30000
+    cert: './ssl/server.crt'
+  },
+  connectionPool: {
+    maxConnections: 2000,
+    keepAliveTimeout: 65000
   }
-};
+});
 
-const server = NewServe(app, enterpriseConfig);
+const httpsServer = new HttpsServer(app, httpsConfig);
+httpsServer.Start(() => {
+  console.log('HTTPS服务器已启动: https://0.0.0.0:443');
+});
 ```
 
-## 🏗️ 统一协议架构
-
-### BaseServer 抽象类
-
-所有协议服务器都继承自统一的 `BaseServer` 抽象类，提供：
-
-- **配置热重载**: 智能检测配置变更，决定是否需要重启
-- **优雅关闭**: 五步式关闭流程，确保安全停机
-- **健康检查**: 统一的健康状态接口和协议特定检查
-- **性能监控**: 统一的指标收集和历史数据管理
-- **结构化日志**: 带追踪ID的结构化日志系统
-
-### 协议特定实现
-
-每个协议服务器实现协议特定的功能：
+### gRPC服务器
 
 ```typescript
-// HTTP服务器 - 基础Web服务
-class HttpServer extends BaseServer {
-  // 实现HTTP特定的健康检查
-  // 实现HTTP连接管理
-  // 实现SSL升级检测
-}
+import { GrpcServer } from "koatty_serve";
+import { ConfigHelper } from "koatty_serve/config";
 
-// gRPC服务器 - 高性能RPC
-class GrpcServer extends BaseServer {
-  // 实现gRPC连接池管理
-  // 实现SSL/TLS安全配置
-  // 实现服务方法监控
-}
+const grpcConfig = ConfigHelper.createGrpcConfig({
+  hostname: '127.0.0.1',
+  port: 50051,
+  ssl: {
+    enabled: true,
+    keyFile: './certs/server.key',
+    certFile: './certs/server.crt',
+    clientCertRequired: false
+  },
+  connectionPool: {
+    maxConnections: 500,
+    protocolSpecific: {
+      keepAliveTime: 30000,
+      maxReceiveMessageLength: 4 * 1024 * 1024,
+      maxSendMessageLength: 4 * 1024 * 1024
+    }
+  }
+});
 
-// WebSocket服务器 - 实时通信
-class WsServer extends BaseServer {
-  // 实现WebSocket连接限制
-  // 实现连接超时管理
-  // 实现自动清理机制
+const grpcServer = new GrpcServer(app, grpcConfig);
+grpcServer.Start(() => {
+  console.log('gRPC服务器已启动: 127.0.0.1:50051');
+});
+```
+
+### WebSocket服务器
+
+```typescript
+import { WsServer } from "koatty_serve";
+import { ConfigHelper } from "koatty_serve/config";
+
+const wsConfig = ConfigHelper.createWebSocketConfig({
+  hostname: '127.0.0.1',
+  port: 8080,
+  ssl: {
+    enabled: false
+  },
+  connectionPool: {
+    maxConnections: 5000,
+    connectionTimeout: 60000,
+    protocolSpecific: {
+      pingInterval: 30000,
+      pongTimeout: 5000,
+      heartbeatInterval: 60000
+    }
+  }
+});
+
+const wsServer = new WsServer(app, wsConfig);
+wsServer.Start(() => {
+  console.log('WebSocket服务器已启动: ws://127.0.0.1:8080');
+});
+```
+
+## 🏗️ 架构设计
+
+### BaseServer模板方法模式
+
+所有协议服务器都继承自`BaseServer`抽象类，实现统一的生命周期管理：
+
+```typescript
+abstract class BaseServer<T extends BaseServerOptions> {
+  // 模板方法：定义服务器初始化流程
+  protected initializeServer(): void {
+    this.initializeConnectionPool();
+    this.createProtocolServer();
+    this.configureServerOptions();
+    this.performProtocolSpecificInitialization();
+  }
+  
+  // 模板方法：定义配置更新流程
+  async updateConfig(newConfig: Partial<T>): Promise<void> {
+    const analysis = this.analyzeConfigChanges(changedKeys, oldConfig, newConfig);
+    if (analysis.requiresRestart) {
+      await this.gracefulRestart(newConfig);
+    } else {
+      this.applyConfigChanges(changedKeys, newConfig);
+    }
+  }
+  
+  // 模板方法：定义优雅关闭流程
+  async gracefulShutdown(options?: ShutdownOptions): Promise<void> {
+    // 五步式关闭流程
+    await this.stopAcceptingNewConnections(traceId);
+    await this.waitDrainDelay(options.drainDelay, traceId);
+    await this.waitForConnectionCompletion(timeout, traceId);
+    await this.forceCloseRemainingConnections(traceId);
+    this.stopMonitoringAndCleanup(traceId);
+  }
+  
+  // 抽象方法：子类必须实现
+  protected abstract initializeConnectionPool(): void;
+  protected abstract createProtocolServer(): void;
+  protected abstract configureServerOptions(): void;
 }
 ```
 
-## 🔄 配置热重载
+### 统一配置管理
 
-### 自动配置检测
+`ConfigHelper`提供了统一的配置创建接口：
 
 ```typescript
-// 更新配置
+export class ConfigHelper {
+  // HTTP配置
+  static createHttpConfig(options: HttpConfigOptions): HttpServerOptions;
+  
+  // HTTPS配置  
+  static createHttpsConfig(options: HttpsConfigOptions): HttpsServerOptions;
+  
+  // HTTP/2配置
+  static createHttp2Config(options: Http2ConfigOptions): Http2ServerOptions;
+  
+  // gRPC配置
+  static createGrpcConfig(options: GrpcConfigOptions): GrpcServerOptions;
+  
+  // WebSocket配置
+  static createWebSocketConfig(options: WebSocketConfigOptions): WebSocketServerOptions;
+}
+```
+
+### 连接池架构
+
+每种协议都有专门优化的连接池管理器：
+
+```typescript
+// HTTP连接池
+class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
+  // HTTP特定的连接管理
+}
+
+// gRPC连接池  
+class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnection> {
+  // gRPC特定的连接管理
+  async addGrpcConnection(peer: string, metadata: any): Promise<boolean>;
+}
+
+// WebSocket连接池
+class WebSocketConnectionPoolManager extends ConnectionPoolManager<WebSocket> {
+  // WebSocket特定的连接管理
+  async addWebSocketConnection(ws: WebSocket, request: IncomingMessage): Promise<boolean>;
+}
+```
+
+## 🔧 配置管理
+
+### 配置类型系统
+
+```typescript
+// 基础服务器选项
+interface BaseServerOptions {
+  hostname: string;
+  port: number;
+  protocol: KoattyProtocol;
+  trace?: boolean;
+  ext?: Record<string, any>;
+  connectionPool?: ConnectionPoolConfig;
+}
+
+// SSL配置层次
+interface BaseSSLConfig {
+  key?: string;
+  cert?: string;
+  ca?: string;
+  passphrase?: string;
+  ciphers?: string;
+  honorCipherOrder?: boolean;
+  secureProtocol?: string;
+}
+
+interface SSLConfig extends BaseSSLConfig {
+  enabled: boolean;
+  keyFile?: string;
+  certFile?: string;
+  caFile?: string;
+  clientCertRequired?: boolean;
+}
+
+interface SSL1Config extends BaseSSLConfig {
+  mode: 'auto' | 'manual' | 'mutual_tls';
+  requestCert?: boolean;
+  rejectUnauthorized?: boolean;
+}
+```
+
+### 配置热重载
+
+```typescript
+// 智能配置更新
 const result = await server.updateConfig({
-  ext: {
+  connectionPool: {
     maxConnections: 2000,      // 运行时更新
     connectionTimeout: 60000   // 运行时更新
   }
 });
 
-// 如果是关键配置更改，将自动执行优雅重启
-const criticalUpdate = await server.updateConfig({
-  hostname: '0.0.0.0',  // 关键配置，需要重启
-  port: 8080            // 关键配置，需要重启
+// 关键配置变更（自动重启）
+await server.updateConfig({
+  hostname: '0.0.0.0',  // 触发优雅重启
+  port: 8080,           // 触发优雅重启
+  ssl: {                // 触发优雅重启
+    mode: 'mutual_tls'
+  }
 });
 ```
 
-### 配置变更类型
+## 🏊‍♂️ 连接池管理
 
-- **关键配置**: 网络配置、SSL证书 → 自动优雅重启
-- **运行时配置**: 连接限制、超时设置 → 实时应用
-- **监控配置**: 健康检查、指标收集 → 动态调整
+### 统一连接池配置
+
+```typescript
+interface ConnectionPoolConfig {
+  maxConnections?: number;        // 最大连接数
+  connectionTimeout?: number;     // 连接超时
+  keepAliveTimeout?: number;      // Keep-Alive超时
+  requestTimeout?: number;        // 请求超时
+  headersTimeout?: number;        // 头部超时
+  
+  // 协议特定配置
+  protocolSpecific?: {
+    // HTTP/2特定
+    maxSessionMemory?: number;
+    maxHeaderListSize?: number;
+    
+    // gRPC特定
+    keepAliveTime?: number;
+    maxReceiveMessageLength?: number;
+    maxSendMessageLength?: number;
+    
+    // WebSocket特定
+    pingInterval?: number;
+    pongTimeout?: number;
+    heartbeatInterval?: number;
+  };
+}
+```
+
+### 连接池监控
+
+```typescript
+// 获取连接池统计
+const stats = server.connectionPool.getMetrics();
+console.log('连接池统计:', {
+  activeConnections: stats.activeConnections,
+  totalConnections: stats.totalConnections,
+  connectionsPerSecond: stats.connectionsPerSecond,
+  averageLatency: stats.averageLatency,
+  errorRate: stats.errorRate
+});
+
+// 获取连接池健康状态
+const health = server.connectionPool.getHealth();
+console.log('连接池健康:', health.status); // 'healthy' | 'degraded' | 'overloaded'
+```
 
 ## 🛡️ 优雅关闭
 
 ### 五步式关闭流程
 
 ```typescript
-// 手动触发优雅关闭
+interface ShutdownOptions {
+  timeout?: number;           // 总超时时间 (默认30秒)
+  drainDelay?: number;        // 排空延迟 (默认5秒)
+  stepTimeout?: number;       // 单步超时 (默认6秒)
+  skipSteps?: string[];       // 跳过的步骤
+}
+
+// 执行优雅关闭
 await server.gracefulShutdown({
-  timeout: 30000,      // 总超时时间
-  drainDelay: 5000,    // 停止接受新连接后等待时间
-  stepTimeout: 6000    // 每步骤超时时间
+  timeout: 45000,
+  drainDelay: 10000,
+  stepTimeout: 8000
 });
 ```
 
-**关闭步骤**:
-1. **停止接受新连接** - 关闭服务器监听
-2. **等待排空延迟** - 让负载均衡器发现状态变化
-3. **等待现有连接完成** - 等待活跃请求处理完毕
-4. **强制关闭剩余连接** - 终止超时连接
-5. **清理监控和资源** - 停止监控服务，清理资源
+**关闭步骤详解**：
 
-## 🏥 健康检查系统
+1. **停止接受新连接**: 关闭服务器监听，拒绝新连接
+2. **等待排空延迟**: 给负载均衡器时间发现服务下线
+3. **等待连接完成**: 等待现有连接的请求处理完毕
+4. **强制关闭连接**: 终止超时的连接
+5. **清理资源**: 停止监控任务，清理连接池
 
-### 健康检查端点
-
-```typescript
-import { 
-  globalHealthHandler, 
-  createHealthMiddleware 
-} from 'koatty_serve/utils/health-endpoints';
-
-// 注册服务器到健康监控
-globalHealthHandler.registerServer('http_3000', httpServer);
-globalHealthHandler.registerServer('grpc_3001', grpcServer);
-
-// 创建健康检查HTTP服务
-const healthServer = createServer(createHealthMiddleware(globalHealthHandler));
-healthServer.listen(8080);
-```
-
-### 可用端点
-
-```bash
-# 健康检查
-GET /health                          # 所有服务器的健康状态
-GET /health?server=http_3000        # 特定服务器状态
-GET /health?detailed=true           # 详细健康信息
-
-# 性能指标
-GET /metrics                         # JSON格式指标
-GET /metrics?format=prometheus      # Prometheus格式
-GET /metrics?history=true           # 包含历史数据
-
-# 服务器管理
-GET /servers                         # 服务器列表
-```
-
-### 健康状态类型
-
-- **🟢 healthy**: 所有检查正常
-- **🟡 degraded**: 性能下降但可用
-- **🔴 unhealthy**: 服务不可用
-
-## 📊 性能监控系统
-
-### 指标类型
+### 信号处理
 
 ```typescript
-interface PerformanceMetrics {
-  // 服务器指标
-  uptime: number;                    // 运行时间
-  memoryUsage: NodeJS.MemoryUsage;   // 内存使用
-  cpuUsage: NodeJS.CpuUsage;         // CPU使用
-  
-  // 连接指标
-  connections: {
-    activeConnections: number;        // 活跃连接
-    totalConnections: number;         // 历史总连接
-    connectionsPerSecond: number;     // 连接速率
-    averageLatency: number;           // 平均延迟
-    errorRate: number;                // 错误率
-  };
-  
-  // 请求指标
-  requests: {
-    total: number;                    // 总请求数
-    successful: number;               // 成功请求
-    failed: number;                   // 失败请求
-    rate: number;                     // 请求速率
-    averageResponseTime: number;      // 平均响应时间
-  };
-  
-  // 协议特定指标
-  custom: Record<string, any>;
-}
+// 自动注册优雅关闭信号处理
+process.on('SIGTERM', async () => {
+  console.log('收到SIGTERM信号，开始优雅关闭...');
+  await server.gracefulShutdown();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('收到SIGINT信号，开始优雅关闭...');
+  await server.gracefulShutdown();
+  process.exit(0);
+});
 ```
 
-### Prometheus 集成
+## 🔐 SSL/TLS配置
 
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: 'koatty-servers'
-    static_configs:
-      - targets: ['localhost:8080']
-    metrics_path: '/metrics'
-    params:
-      format: ['prometheus']
-    scrape_interval: 15s
-```
-
-## 🔐 SSL/TLS 安全配置
-
-### gRPC安全模式
+### HTTPS/HTTP2 SSL配置
 
 ```typescript
-const grpcConfig = {
-  hostname: '127.0.0.1',
-  port: 50051,
-  protocol: 'grpc',
-  ext: {
-    // SSL配置
-    ssl: {
-      mode: 'mutual_tls',           // mutual_tls | one_way_tls | insecure
-      key: './certs/server.key',
-      cert: './certs/server.crt',
-      ca: './certs/ca.crt',
-      checkServerIdentity: true
-    },
-    
-    // 连接池配置
-    connectionPool: {
-      maxConnections: 100,
-      keepAliveTime: 30000,
-      keepAliveTimeout: 5000,
-      maxReceiveMessageLength: 1024 * 1024 * 4,
-      maxSendMessageLength: 1024 * 1024 * 4
-    }
-  }
-};
-```
-
-### HTTPS/WSS配置
-
-```typescript
-const httpsConfig = {
-  hostname: '127.0.0.1',
+const httpsConfig = ConfigHelper.createHttpsConfig({
+  hostname: '0.0.0.0',
   port: 443,
-  protocol: ['https', 'wss'],
-  ext: {
+  ssl: {
+    mode: 'mutual_tls',          // auto | manual | mutual_tls
     key: './ssl/server.key',
     cert: './ssl/server.crt',
-    
-    // 高级SSL选项
-    ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:!RC4:!LOW:!MD5:!aNULL:!EDH',
+    ca: './ssl/ca.crt',
+    passphrase: 'your-passphrase',
+    ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:!RC4:!LOW:!MD5:!aNULL',
     honorCipherOrder: true,
-    secureProtocol: 'TLSv1_2_method'
+    secureProtocol: 'TLSv1_2_method',
+    requestCert: true,
+    rejectUnauthorized: true
   }
-};
-```
-
-## 🚦 端口分配规则
-
-### 自动端口分配
-
-```typescript
-const server = NewServe(app, {
-  hostname: '127.0.0.1',
-  port: 8000,
-  protocol: ['http', 'ws', 'grpc', 'https']
-});
-
-// 自动端口分配：
-// HTTP: 8000 (基础端口)
-// WebSocket: 8001 (基础端口 + 1)
-// gRPC: 8002 (基础端口 + 2)  
-// HTTPS: 8003 (基础端口 + 3)
-```
-
-### 手动端口指定
-
-```typescript
-// 为每个协议指定具体端口
-const servers = [
-  NewServe(app, { port: 3000, protocol: 'http' }),
-  NewServe(app, { port: 3001, protocol: 'ws' }),
-  NewServe(app, { port: 50051, protocol: 'grpc' })
-];
-```
-
-## 📈 生产环境部署
-
-### Kubernetes 集成
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: koatty-config
-data:
-  config.json: |
-    {
-      "hostname": "0.0.0.0",
-      "port": 3000,
-      "protocol": ["http", "grpc"],
-      "ext": {
-        "healthCheck": {
-          "enabled": true,
-          "interval": 30000
-        },
-        "metrics": {
-          "enabled": true,
-          "interval": 15000
-        }
-      }
-    }
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: koatty-server
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: koatty-server
-  template:
-    metadata:
-      labels:
-        app: koatty-server
-    spec:
-      containers:
-      - name: koatty-server
-        image: your-app:latest
-        ports:
-        - containerPort: 3000
-          name: http
-        - containerPort: 3001  
-          name: grpc
-        - containerPort: 8080
-          name: health
-        # 健康检查
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health?detailed=true
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
-
-### Docker 配置
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8080/health || exit 1
-
-# 暴露端口
-EXPOSE 3000 3001 8080
-
-# 优雅关闭支持
-STOPSIGNAL SIGTERM
-
-CMD ["node", "dist/app.js"]
-```
-
-### Nginx 负载均衡
-
-```nginx
-upstream koatty_http {
-    server 127.0.0.1:3000;
-    server 127.0.0.1:3010;
-    server 127.0.0.1:3020;
-    
-    # 健康检查
-    health_check uri=/health match=server_ok;
-}
-
-upstream koatty_grpc {
-    server 127.0.0.1:3001;
-    server 127.0.0.1:3011; 
-    server 127.0.0.1:3021;
-}
-
-match server_ok {
-    status 200;
-    header Content-Type ~ "application/json";
-    body ~ '"status":"healthy"';
-}
-
-server {
-    listen 80;
-    
-    location / {
-        proxy_pass http://koatty_http;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-
-server {
-    listen 50051 http2;
-    
-    location / {
-        grpc_pass grpc://koatty_grpc;
-    }
-}
-```
-
-## 🔧 服务器管理
-
-### 获取服务器实例
-
-```typescript
-// 获取特定协议的服务器
-const httpServer = multiServer.getServer('http', 3000);
-const grpcServer = multiServer.getServer('grpc', 3001);
-
-// 获取所有服务器
-const allServers = multiServer.getAllServers();
-allServers.forEach((server, key) => {
-  console.log(`服务器 ${key}:`, {
-    protocol: server.protocol,
-    status: server.getStatus(),
-    connections: server.getActiveConnections?.() || 0
-  });
 });
 ```
 
-### 运行时管理
+### gRPC SSL配置
 
 ```typescript
-// 记录请求指标
-httpServer.recordRequest(true, 150);  // 成功请求，150ms响应时间
-httpServer.recordRequest(false, 500); // 失败请求，500ms响应时间
-
-// 获取实时状态
-const health = httpServer.getHealthStatus();
-const metrics = httpServer.getPerformanceMetrics();
-const stats = httpServer.getConnectionStats();
-
-console.log('健康状态:', health?.status);
-console.log('活跃连接:', stats?.activeConnections);
-console.log('内存使用:', `${(metrics?.memoryUsage.heapUsed / 1024 / 1024).toFixed(1)}MB`);
-```
-
-## 🎯 使用场景
-
-### 1. 微服务架构
-
-```typescript
-// API Gateway + gRPC 后端
-const gateway = NewServe(app, {
+const grpcConfig = ConfigHelper.createGrpcConfig({
   hostname: '0.0.0.0',
-  port: 3000,
-  protocol: ['http', 'grpc'],
-  ext: {
-    healthCheck: { enabled: true },
-    metrics: { enabled: true }
+  port: 50051,
+  ssl: {
+    enabled: true,
+    keyFile: './certs/server.key',
+    certFile: './certs/server.crt',
+    caFile: './certs/ca.crt',
+    clientCertRequired: true
   }
 });
 ```
 
-### 2. 实时通信应用
+## 📚 API参考
 
-```typescript
-// Web应用 + WebSocket + REST API
-const realtimeApp = NewServe(app, {
-  hostname: '127.0.0.1',
-  port: 3000,
-  protocol: ['http', 'ws'],
-  ext: {
-    maxConnections: 10000,
-    connectionTimeout: 60000
-  }
-});
-```
+### 服务器类
 
-### 3. 高可用服务
+- `HttpServer` - HTTP服务器实现
+- `HttpsServer` - HTTPS服务器实现  
+- `Http2Server` - HTTP/2服务器实现
+- `WsServer` - WebSocket服务器实现
+- `GrpcServer` - gRPC服务器实现
 
-```typescript
-// 全协议支持 + 完整监控
-const haService = NewServe(app, {
-  hostname: '0.0.0.0',
-  port: 3000,
-  protocol: ['http', 'https', 'ws', 'wss', 'grpc'],
-  ext: {
-    // SSL配置
-    key: './ssl/server.key',
-    cert: './ssl/server.crt',
-    
-    // 健康检查
-    healthCheck: {
-      enabled: true,
-      interval: 15000,
-      checks: {
-        connections: true,
-        memory: true,
-        dependencies: true
-      }
-    },
-    
-    // 性能监控
-    metrics: {
-      enabled: true,
-      interval: 5000,
-      retention: 600000
-    }
-  }
-});
-```
+### 配置类
 
-## 🔍 监控和告警
+- `ConfigHelper` - 统一配置创建器
+- `ConnectionPoolConfig` - 连接池配置接口
+- `BaseServerOptions` - 基础服务器选项
+- `SSLConfig`, `SSL1Config`, `SSL2Config` - SSL配置接口
 
-### 自定义健康检查
+### 连接池类
 
-```typescript
-class CustomServer extends BaseServer {
-  protected async performProtocolHealthChecks() {
-    const checks = await super.performProtocolHealthChecks();
-    
-    // 数据库连接检查
-    checks.database = await this.checkDatabase();
-    
-    // Redis 连接检查  
-    checks.redis = await this.checkRedis();
-    
-    // 外部API检查
-    checks.external_api = await this.checkExternalAPI();
-    
-    return checks;
-  }
-  
-  private async checkDatabase() {
-    try {
-      await this.db.ping();
-      return {
-        status: HealthStatus.HEALTHY,
-        message: 'Database connection healthy',
-        details: { responseTime: 25 }
-      };
-    } catch (error) {
-      return {
-        status: HealthStatus.UNHEALTHY,
-        message: 'Database connection failed',
-        details: { error: error.message }
-      };
-    }
-  }
-}
-```
-
-### 告警集成
-
-```typescript
-// 健康状态变化监听
-server.on('healthStatusChanged', (oldStatus, newStatus) => {
-  if (newStatus === HealthStatus.UNHEALTHY) {
-    // 发送紧急告警
-    alerting.sendCriticalAlert({
-      service: 'koatty-server',
-      message: 'Server is unhealthy',
-      timestamp: Date.now()
-    });
-  }
-});
-
-// 性能阈值告警
-server.on('metricsCollected', (metrics) => {
-  if (metrics.requests.averageResponseTime > 1000) {
-    alerting.sendWarning({
-      service: 'koatty-server',
-      message: `High response time: ${metrics.requests.averageResponseTime}ms`,
-      timestamp: Date.now()
-    });
-  }
-});
-```
-
-## 🛠️ 故障排除
-
-### 常见问题
-
-1. **端口被占用**:
-   ```
-   Error: listen EADDRINUSE :::3000
-   ```
-   **解决方案**: 检查端口占用 `lsof -i :3000`，或更换端口
-
-2. **SSL证书问题**:
-   ```
-   Error: ENOENT: no such file or directory, open './ssl/server.key'
-   ```
-   **解决方案**: 检查证书文件路径，生成自签名证书进行测试
-
-3. **健康检查失败**:
-   ```
-   Health check timeout
-   ```
-   **解决方案**: 增加超时时间，检查依赖服务状态
-
-4. **连接数过多**:
-   ```
-   Max connections exceeded
-   ```
-   **解决方案**: 调整 `maxConnections` 配置，优化连接管理
-
-### 调试技巧
-
-```typescript
-// 启用详细日志
-const debugConfig = {
-  hostname: '127.0.0.1',
-  port: 3000,
-  protocol: 'http',
-  trace: true,  // 启用调试跟踪
-  ext: {
-    healthCheck: {
-      enabled: true,
-      interval: 5000  // 更频繁的健康检查
-    }
-  }
-};
-
-// 监听服务器事件
-server.on('connection', (socket) => {
-  console.log('新连接建立:', socket.remoteAddress);
-});
-
-server.on('error', (error) => {
-  console.error('服务器错误:', error);
-});
-```
-
-## 📚 API 参考
-
-### 核心接口
-
-```typescript
-// 主要配置接口
-interface ListeningOptions {
-  hostname: string;
-  port: number;
-  protocol: KoattyProtocol | KoattyProtocol[];
-  trace?: boolean;
-  ext?: {
-    // SSL配置
-    key?: string;
-    cert?: string;
-    ca?: string;
-    
-    // 健康检查配置
-    healthCheck?: HealthCheckConfig;
-    
-    // 指标配置
-    metrics?: MetricsConfig;
-    
-    // 连接管理
-    maxConnections?: number;
-    connectionTimeout?: number;
-    
-    // 其他扩展配置
-    [key: string]: any;
-  };
-}
-
-// 支持的协议类型
-type KoattyProtocol = 'http' | 'https' | 'http2' | 'grpc' | 'ws' | 'wss';
-```
-
-### 主要方法
-
-```typescript
-// 创建服务器
-function NewServe(app: KoattyApplication, options: ListeningOptions): KoattyServer;
-
-// 服务器方法
-interface KoattyServer {
-  Start(listenCallback?: () => void): any;
-  Stop(callback?: (err?: Error) => void): void;
-  getStatus(): number;
-  updateConfig(newConfig: Partial<ListeningOptions>): Promise<boolean>;
-  gracefulShutdown(options?: GracefulShutdownOptions): Promise<void>;
-  getHealthStatus(): HealthCheckResult | null;
-  getPerformanceMetrics(): PerformanceMetrics | null;
-}
-```
-
-## 🚀 性能优化建议
-
-### 生产环境配置
-
-```typescript
-const productionConfig = {
-  hostname: '0.0.0.0',
-  port: 3000,
-  protocol: ['http', 'grpc'],
-  ext: {
-    // 优化连接管理
-    maxConnections: 5000,
-    connectionTimeout: 30000,
-    
-    // 降低监控频率以减少开销
-    healthCheck: {
-      enabled: true,
-      interval: 60000,    // 1分钟检查一次
-      timeout: 3000       // 3秒超时
-    },
-    
-    // 优化指标收集
-    metrics: {
-      enabled: true,
-      interval: 30000,    // 30秒收集一次
-      retention: 300000   // 保留5分钟数据
-    }
-  }
-};
-```
-
-### 性能基准
-
-- **HTTP**: 支持 50,000+ 并发连接
-- **WebSocket**: 支持 10,000+ 实时连接
-- **gRPC**: 支持 100+ MB/s 吞吐量
-- **监控开销**: < 1% CPU，< 10MB 内存
-
-## 📄 许可证
-
-[BSD-3-Clause](LICENSE)
+- `HttpConnectionPoolManager` - HTTP连接池
+- `HttpsConnectionPoolManager` - HTTPS连接池
+- `Http2ConnectionPoolManager` - HTTP/2连接池
+- `WebSocketConnectionPoolManager` - WebSocket连接池
+- `GrpcConnectionPoolManager` - gRPC连接池
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 Pull Request！
-
-## 📞 支持
-
-- 📧 邮件: richen@126.com
-- 🌐 官网: [koatty.com](https://koatty.com)
-- 📖 文档: [docs.koatty.com](https://docs.koatty.com) 
+欢迎提交Issue和Pull Request！

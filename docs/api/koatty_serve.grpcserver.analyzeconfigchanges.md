@@ -14,7 +14,7 @@ protected analyzeConfigChanges(changedKeys: (keyof ListeningOptions)[], oldConfi
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  changedKeys | (keyof ListeningOptions)\[\] |  |
+|  changedKeys | (keyof [ListeningOptions](./koatty_serve.listeningoptions.md)<!-- -->)\[\] |  |
 |  oldConfig | GrpcServerOptions |  |
 |  newConfig | GrpcServerOptions |  |
 

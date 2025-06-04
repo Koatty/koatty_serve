@@ -7,15 +7,15 @@
 **Signature:**
 
 ```typescript
-protected applyConfigChanges(changedKeys: (keyof ListeningOptions)[], newConfig: Partial<ListeningOptions>): void;
+protected applyConfigChanges(changedKeys: (keyof GrpcServerOptions)[], newConfig: Partial<GrpcServerOptions>): void;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  changedKeys | (keyof ListeningOptions)\[\] |  |
-|  newConfig | Partial&lt;ListeningOptions&gt; |  |
+|  changedKeys | (keyof GrpcServerOptions)\[\] |  |
+|  newConfig | Partial&lt;GrpcServerOptions&gt; |  |
 
 **Returns:**
 
