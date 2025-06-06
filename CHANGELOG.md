@@ -1,5 +1,24 @@
 # Changelog
 
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## [2.5.0](https://github.com/koatty/koatty_serve/compare/v2.4.0...v2.5.0) (2025-06-06)
+
+
+### Features
+
+* add comprehensive health monitoring, HTTP/2 enhancements, and SSL/TLS improvements with hot reload and graceful shutdown support ([786f782](https://github.com/koatty/koatty_serve/commit/786f782b9fa5476a5667fa8f9a8cae78f409dc17))
+* complete unified connection pool system integration across all protocols (HTTP/HTTPS/HTTP2/gRPC/WebSocket) with standardized management, health checks, metrics, and event-driven architecture ([8efec82](https://github.com/koatty/koatty_serve/commit/8efec826f3c0a49e472e31a41df35e4e69605263))
+* enhance HTTPS connection pool security with improved error logging and metadata iteration optimization ([54f8c79](https://github.com/koatty/koatty_serve/commit/54f8c799c0fe41091f522b2dc0b714b9f537e521))
+* enhance server infrastructure with structured logging, connection monitoring, and improved configuration management ([92677a1](https://github.com/koatty/koatty_serve/commit/92677a19cc7a6137222966e6ff62d93f318cf3de))
+* implement connection pooling for gRPC and HTTP servers with enhanced health checks, metrics collection, and runtime configuration support ([7c149f4](https://github.com/koatty/koatty_serve/commit/7c149f4e5f8ac79f653dbbcbc7c640c16029f67a))
+* implement multi-protocol server support with automatic port allocation and unified management ([8356746](https://github.com/koatty/koatty_serve/commit/83567461031fd29f44f4feebb764adf89ad01f64))
+* major enterprise-grade refactor with unified multi-protocol architecture, hot-config reload, five-step graceful shutdown, comprehensive health checks, Prometheus metrics, structured logging, and enhanced security features including TLS/SSL and connection pooling ([55daa8e](https://github.com/koatty/koatty_serve/commit/55daa8ef2f207062d43ff776a8ca4f02bbab1132))
+* refactor GrpcServer class with enhanced configuration management, protocol-specific connection pool integration, and improved type safety for gRPC options ([e40a849](https://github.com/koatty/koatty_serve/commit/e40a849f647030f1cf10b12647ed657838b2e716))
+* refactor SSL/TLS configuration structure with base and advanced interfaces, improve gRPC connection pool management with protocol-specific settings, and enhance GrpcServer class typing and initialization logic ([415156a](https://github.com/koatty/koatty_serve/commit/415156a1cf2817d7e0d02b5bdd97c83405709d48))
+* update HTTP/2 and gRPC server documentation with new connection pool management, protocol-specific initialization, and enhanced configuration options ([4a547b5](https://github.com/koatty/koatty_serve/commit/4a547b5aa1168b104d153eddb125f6b8375891e5))
+* update server termination logic to include application context in signal handlers for all server ([c82d4bc](https://github.com/koatty/koatty_serve/commit/c82d4bcbc1d2d2884ef63ade4ef3783c7be4f8dd))
+
 ## 2.5.0 (2025-04-15) - 企业级架构重构版本
 
 ### 🚀 重大架构更新
@@ -446,6 +465,3 @@
 
 * chore(release): 1.0.1 ([70bd016](https://github.com/koatty/koatty_serve/commit/70bd016))
 * Initial commit ([f98604a](https://github.com/koatty/koatty_serve/commit/f98604a))
-
-
-
