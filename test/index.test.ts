@@ -1,10 +1,5 @@
-import { NewServe } from "../src/index";
+import { NewServe, MultiProtocolServer } from "../src/index";
 import { KoattyApplication } from "koatty_core";
-import { HttpServer } from "../src/server/http";
-import { HttpsServer } from "../src/server/https";
-import { Http2Server } from "../src/server/http2";
-import { WsServer } from "../src/server/ws";
-import { GrpcServer } from "../src/server/grpc";
 
 // Mock KoattyApplication
 class MockKoattyApplication {
@@ -20,12 +15,14 @@ describe("NewServe", () => {
     app = new MockKoattyApplication() as unknown as KoattyApplication;
   });
 
-  it("should create HTTP server instance", () => {
+  it("should create multi-protocol server with default HTTP protocol", () => {
     const server = NewServe(app);
-    expect(server).toBeInstanceOf(HttpServer);
+    expect(server).toBeInstanceOf(MultiProtocolServer);
+    expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol[0]).toBe("http");
   });
 
-  it("should create HTTPS server instance", () => {
+  it("should create multi-protocol server with HTTPS protocol", () => {
     const server = NewServe(app, { 
       protocol: "https",
       hostname: "127.0.0.1",
@@ -35,10 +32,12 @@ describe("NewServe", () => {
         crtFile: "test/temp/test-cert.pem"
       }
     });
-    expect(server).toBeInstanceOf(HttpsServer);
+    expect(server).toBeInstanceOf(MultiProtocolServer);
+    expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol[0]).toBe("https");
   });
 
-  it("should create HTTP2 server instance", () => {
+  it("should create multi-protocol server with HTTP2 protocol", () => {
     const server = NewServe(app, { 
       protocol: "http2",
       hostname: "127.0.0.1",
@@ -48,24 +47,30 @@ describe("NewServe", () => {
         crtFile: "test/temp/test-cert.pem"
       }
     });
-    expect(server).toBeInstanceOf(Http2Server);
+    expect(server).toBeInstanceOf(MultiProtocolServer);
+    expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol[0]).toBe("http2");
   });
 
-  it("should create WebSocket server instance", () => {
+  it("should create multi-protocol server with WebSocket protocol", () => {
     const server = NewServe(app, { 
       protocol: "ws",
       hostname: "127.0.0.1",
       port: 3000
     });
-    expect(server).toBeInstanceOf(WsServer);
+    expect(server).toBeInstanceOf(MultiProtocolServer);
+    expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol[0]).toBe("ws");
   });
 
-  it("should create gRPC server instance", () => {
+  it("should create multi-protocol server with gRPC protocol", () => {
     const server = NewServe(app, { 
       protocol: "grpc",
       hostname: "127.0.0.1",
       port: 3000
     });
-    expect(server).toBeInstanceOf(GrpcServer);
+    expect(server).toBeInstanceOf(MultiProtocolServer);
+    expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol[0]).toBe("grpc");
   });
 });

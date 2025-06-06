@@ -1,8 +1,24 @@
 import EventEmitter from "events";
-import { KoattyServer } from "koatty_core";
+import { KoattyServer, KoattyApplication } from "koatty_core";
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
 import { CreateTerminus, BindProcessEvent, onSignal } from "../../src/utils/terminus";
+
+// Simple mock for KoattyApplication
+class MockKoattyApplication extends EventEmitter {
+  env: string = "test";
+  name: string = "test-app";
+  version: string = "1.0.0";
+  router: any = {};
+  options: any = {};
+  server: any = {};
+  appPath: string = "/test";
+  rootPath: string = "/test";
+
+  config(key?: string, defaultValue?: any) {
+    return defaultValue;
+  }
+}
 
 // Mock KoattyServer with full interface implementation
 class MockKoattyServer implements KoattyServer {
@@ -28,7 +44,7 @@ class MockKoattyServer implements KoattyServer {
 
 describe("Terminus", () => {
   let mockServer: MockKoattyServer;
-  let mockEventEmitter: EventEmitter;
+  let mockApp: MockKoattyApplication;
   let processExitSpy: jest.SpyInstance;
   let processOnSpy: jest.SpyInstance;
   let loggerWarnSpy: jest.SpyInstance;
@@ -42,7 +58,7 @@ describe("Terminus", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockServer = new MockKoattyServer();
-    mockEventEmitter = new EventEmitter();
+    mockApp = new MockKoattyApplication();
     
     processExitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
       return undefined as never;
@@ -58,7 +74,7 @@ describe("Terminus", () => {
     jest.clearAllTimers();
     jest.clearAllMocks();
     jest.useRealTimers();
-    mockEventEmitter.removeAllListeners();
+    mockApp.removeAllListeners();
     process.removeAllListeners();
   });
 
@@ -68,12 +84,12 @@ describe("Terminus", () => {
 
   describe("CreateTerminus", () => {
     it("should create terminus with default options", () => {
-      CreateTerminus(mockServer);
+      CreateTerminus(mockApp as KoattyApplication, mockServer);
       expect(processOnSpy).toHaveBeenCalledTimes(3); // SIGINT, SIGTERM, SIGQUIT
     });
 
     it("should create terminus with custom signals", () => {
-      CreateTerminus(mockServer, {
+      CreateTerminus(mockApp as KoattyApplication, mockServer, {
         timeout: 1000,
         signals: ["SIGUSR2"]
       });
@@ -85,22 +101,22 @@ describe("Terminus", () => {
   describe("BindProcessEvent", () => {
     it("should bind event listeners to process", () => {
       const mockListener = jest.fn();
-      mockEventEmitter.on("test", mockListener);
+      mockApp.on("test", mockListener);
 
-      BindProcessEvent(mockEventEmitter, "test", "beforeExit");
+      BindProcessEvent(mockApp, "test", "beforeExit");
       
       const listeners = process.listeners("beforeExit");
       expect(listeners).toContain(mockListener);
-      expect(mockEventEmitter.listeners("test")).toHaveLength(0);
+      expect(mockApp.listeners("test")).toHaveLength(0);
     });
 
     it("should bind multiple listeners", () => {
       const listener1 = jest.fn();
       const listener2 = jest.fn();
-      mockEventEmitter.on("test", listener1);
-      mockEventEmitter.on("test", listener2);
+      mockApp.on("test", listener1);
+      mockApp.on("test", listener2);
 
-      BindProcessEvent(mockEventEmitter, "test", "beforeExit");
+      BindProcessEvent(mockApp, "test", "beforeExit");
       
       const listeners = process.listeners("beforeExit");
       expect(listeners).toContain(listener1);
@@ -112,7 +128,7 @@ describe("Terminus", () => {
     it("should handle signal in development environment", async () => {
       process.env.NODE_ENV = "development";
       
-      await onSignal("SIGTERM", mockServer, 1000);
+      await onSignal("SIGTERM", mockApp as KoattyApplication, mockServer, 1000);
       
       expect(mockServer.status).toBe(503);
       expect(loggerWarnSpy).toHaveBeenCalledWith(
@@ -125,7 +141,7 @@ describe("Terminus", () => {
       process.env.NODE_ENV = "production";
       
       const stopSpy = jest.spyOn(mockServer, "Stop");
-      await onSignal("SIGTERM", mockServer, 1000);
+      await onSignal("SIGTERM", mockApp as KoattyApplication, mockServer, 1000);
       
       expect(mockServer.status).toBe(503);
       expect(stopSpy).toHaveBeenCalled();
@@ -145,7 +161,7 @@ describe("Terminus", () => {
         Start: mockServer.Start
       };
       
-      const signalPromise = onSignal("SIGTERM", mockServerNoCallback as KoattyServer, 1000);
+      const signalPromise = onSignal("SIGTERM", mockApp as KoattyApplication, mockServerNoCallback as KoattyServer, 1000);
       
       // Fast-forward past the timeout
       await jest.advanceTimersByTimeAsync(1500);
@@ -165,7 +181,7 @@ describe("Terminus", () => {
       const beforeExitListener = jest.fn();
       process.on("beforeExit", beforeExitListener);
       
-      await onSignal("SIGTERM", mockServer, 1000);
+      await onSignal("SIGTERM", mockApp as KoattyApplication, mockServer, 1000);
       
       expect(beforeExitListener).toHaveBeenCalled();
     });
@@ -176,7 +192,7 @@ describe("Terminus", () => {
       });
       process.on("beforeExit", beforeExitListener);
       
-      await expect(onSignal("SIGTERM", mockServer, 1000))
+      await expect(onSignal("SIGTERM", mockApp as KoattyApplication, mockServer, 1000))
         .rejects.toThrow("Test error");
       
       expect(beforeExitListener).toHaveBeenCalled();
@@ -195,13 +211,13 @@ describe("Terminus", () => {
         Start: mockServer.Start
       };
       
-      await expect(onSignal("SIGTERM", mockServerWithError as KoattyServer, 1000))
+      await expect(onSignal("SIGTERM", mockApp as KoattyApplication, mockServerWithError as KoattyServer, 1000))
         .rejects.toThrow("Stop error");
     });
 
     it("should handle multiple signals", async () => {
       const signals = ["SIGINT", "SIGTERM", "SIGQUIT"];
-      CreateTerminus(mockServer, {
+      CreateTerminus(mockApp as KoattyApplication, mockServer, {
         timeout: 1000,
         signals
       });

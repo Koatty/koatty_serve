@@ -37,9 +37,11 @@ export class MultiProtocolServer implements KoattyServer {
   private app: KoattyApplication;
   private servers: Map<string, KoattyServer> = new Map(); // Use any to avoid type conflicts
   private logger = createLogger({ module: 'multiprotocol' });
-  
+
   readonly protocol: string = 'http';
   readonly options: ListeningOptions;
+  readonly server: any; // Primary server instance
+  status: number = 0; // Server status
   listenCallback?: () => void;
 
   constructor(app: KoattyApplication, opt: ListeningOptions) {
@@ -50,6 +52,10 @@ export class MultiProtocolServer implements KoattyServer {
       protocol: 'http',
       ...opt
     };
+
+    // Initialize server as null, will be set when servers are created
+    (this as any).server = null;
+    this.status = 0;
 
     this.logger.info('Multi-protocol server initialized', {}, {
       protocols: Array.isArray(this.options.protocol) ? this.options.protocol : [this.options.protocol],
@@ -76,6 +82,14 @@ export class MultiProtocolServer implements KoattyServer {
 
       // Create and start protocol servers
       this.createProtocolServers(traceId);
+      
+      // Set the primary server instance (first server created)
+      if (this.servers.size > 0 && !(this as any).server) {
+        (this as any).server = this.servers.values().next().value;
+      }
+      
+      // Update status to indicate servers are running
+      this.status = this.servers.size > 0 ? 200 : 500;
       
       this.logger.logServerEvent('started', { traceId }, {
         totalServers: this.servers.size,
@@ -121,6 +135,8 @@ export class MultiProtocolServer implements KoattyServer {
     
     Promise.all(stopPromises).then(() => {
       this.servers.clear();
+      (this as any).server = null;
+      this.status = 0;
       this.logger.logServerEvent('stopped', { traceId });
       if (callback) callback();
     }).catch((error) => {
@@ -133,7 +149,22 @@ export class MultiProtocolServer implements KoattyServer {
    * Register Service for gRPC server
    */
   RegisterService(impl: (...args: any[]) => any, protocolType?: KoattyProtocol, port?: number) {
-    return this.getServer(protocolType, port).RegisterService(impl);
+    // Safer type handling without unsafe type assertions
+    let targetProtocol: KoattyProtocol;
+    
+    if (protocolType) {
+      targetProtocol = protocolType;
+    } else {
+      const protocols = Array.isArray(this.options.protocol) 
+        ? this.options.protocol 
+        : [this.options.protocol];
+      targetProtocol = protocols[0];
+    }
+    
+    const targetPort = port ?? this.options.port;
+    const server = this.getServer(targetProtocol, targetPort);
+    
+    return server?.RegisterService?.(impl);
   }
 
   /**
@@ -158,7 +189,7 @@ export class MultiProtocolServer implements KoattyServer {
     const targetPort = port ?? this.options.port;
     const server = this.getServer(targetProtocol, targetPort);
     
-    return server?.getStatus?.() ?? 0;
+    return (server as any)?.status ?? this.status;
   }
 
   /**
@@ -183,7 +214,18 @@ export class MultiProtocolServer implements KoattyServer {
     const targetPort = port ?? this.options.port;
     const server = this.getServer(targetProtocol, targetPort);
     
-    return server?.getNativeServer?.();
+    if (server && typeof (server as any).getNativeServer === 'function') {
+      return (server as any).getNativeServer();
+    }
+    
+    // Fallback to the first available server's native server
+    for (const [, s] of this.servers) {
+      if (s && typeof (s as any).getNativeServer === 'function') {
+        return (s as any).getNativeServer();
+      }
+    }
+    
+    return this.server;
   }
 
 
