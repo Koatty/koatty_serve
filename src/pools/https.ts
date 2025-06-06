@@ -6,13 +6,12 @@
  * @LastEditTime: 2024-11-27 23:30:00
  */
 
-import { TLSSocket } from 'tls';
-import { Socket } from 'net';
 import { 
   ConnectionPoolManager, 
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
+import { TLSSocket } from 'tls';
 
 /**
  * HTTPS连接元数据
@@ -244,6 +243,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       }
     } catch (error) {
       // 证书检查失败
+      this.logger.error('Failed to calculate security score', {}, error);
     }
     
     return Math.min(score, 100);
@@ -420,7 +420,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
 
     let totalSecurityScore = 0;
 
-    for (const [id, metadata] of this.connectionMetadata) {
+    for (const [_id, metadata] of this.connectionMetadata) {
       const typedMetadata = metadata as HttpsConnectionMetadata;
       
       if (typedMetadata.available) stats.available++;
