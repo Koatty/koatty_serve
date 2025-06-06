@@ -26,6 +26,8 @@ export declare class MultiProtocolServer implements KoattyServer
 |  [listenCallback?](./koatty_serve.multiprotocolserver.listencallback.md) |  | () =&gt; void | _(Optional)_ |
 |  [options](./koatty_serve.multiprotocolserver.options.md) | <code>readonly</code> | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
 |  [protocol](./koatty_serve.multiprotocolserver.protocol.md) | <code>readonly</code> | string |  |
+|  [server](./koatty_serve.multiprotocolserver.server.md) | <code>readonly</code> | any |  |
+|  [status](./koatty_serve.multiprotocolserver.status.md) |  | number |  |
 
 ## Methods
 
