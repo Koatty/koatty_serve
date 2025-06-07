@@ -126,10 +126,41 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       throw new Error('SSL key and cert are required for HTTPS');
     }
     
-    return {
+    const options: ServerOptions = {
       key: this.loadCertificate(keyPath, 'private key'),
       cert: this.loadCertificate(certPath, 'certificate')
     };
+    
+    // 在auto模式下也处理扩展配置选项
+    if (extConfig) {
+      // 连接超时设置
+      if (extConfig.handshakeTimeout !== undefined) {
+        options.handshakeTimeout = extConfig.handshakeTimeout;
+      }
+      if (extConfig.sessionTimeout !== undefined) {
+        options.sessionTimeout = extConfig.sessionTimeout;
+      }
+      
+      // SNI支持
+      if (extConfig.SNICallback) {
+        options.SNICallback = extConfig.SNICallback;
+      }
+      
+      // 会话恢复
+      if (extConfig.sessionIdContext) {
+        options.sessionIdContext = extConfig.sessionIdContext;
+      }
+      if (extConfig.ticketKeys) {
+        options.ticketKeys = extConfig.ticketKeys;
+      }
+      
+      // HTTP/2 兼容性
+      if (extConfig.ALPNProtocols) {
+        options.ALPNProtocols = extConfig.ALPNProtocols;
+      }
+    }
+    
+    return options;
   }
 
   /**
@@ -155,6 +186,35 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     
     if (caPath) {
       options.ca = this.loadCertificate(caPath, 'CA certificate');
+    }
+    
+    // 添加扩展配置选项
+    if (extConfig) {
+      // 连接超时设置
+      if (extConfig.handshakeTimeout !== undefined) {
+        options.handshakeTimeout = extConfig.handshakeTimeout;
+      }
+      if (extConfig.sessionTimeout !== undefined) {
+        options.sessionTimeout = extConfig.sessionTimeout;
+      }
+      
+      // SNI支持
+      if (extConfig.SNICallback) {
+        options.SNICallback = extConfig.SNICallback;
+      }
+      
+      // 会话恢复
+      if (extConfig.sessionIdContext) {
+        options.sessionIdContext = extConfig.sessionIdContext;
+      }
+      if (extConfig.ticketKeys) {
+        options.ticketKeys = extConfig.ticketKeys;
+      }
+      
+      // HTTP/2 兼容性
+      if (extConfig.ALPNProtocols) {
+        options.ALPNProtocols = extConfig.ALPNProtocols;
+      }
     }
     
     return options;
@@ -370,14 +430,17 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
     this.logger.info('Step 1: Stopping acceptance of new HTTPS connections', { traceId });
     
-    // 停止HTTPS服务器监听
+    // 检查服务器是否真的在监听（对测试环境友好）
     if (this.server.listening) {
+      // 停止HTTPS服务器监听
       await new Promise<void>((resolve, reject) => {
         this.server.close((err) => {
           if (err) reject(err);
           else resolve();
         });
       });
+    } else {
+      this.logger.debug('HTTPS server is not listening, skip close', { traceId });
     }
     
     this.logger.debug('New HTTPS connection acceptance stopped', { traceId });
@@ -439,6 +502,12 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
 
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force HTTPS server shutdown initiated', { traceId });
+    
+    // 清理监控间隔
+    if ((this.server as any)._monitoringInterval) {
+      clearInterval((this.server as any)._monitoringInterval);
+      (this.server as any)._monitoringInterval = undefined;
+    }
     
     // 强制关闭HTTPS服务器
     this.server.close();

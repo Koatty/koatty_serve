@@ -356,13 +356,18 @@ export abstract class ConnectionPoolManager<T = any> {
         throw new Error('Invalid connection');
       }
 
+      // 再次检查连接池限制，防止并发请求超过限制
+      if (!this.canAcceptConnection()) {
+        throw new Error('Connection pool limit reached');
+      }
+
       this.connections.set(connectionId, connection);
       this.connectionMetadata.set(connectionId, {
         ...metadata,
         id: connectionId,
         createdAt: Date.now(),
         lastUsed: Date.now(),
-        available: true
+        available: metadata.available !== undefined ? metadata.available : true
       });
 
       this.recordConnectionEvent('added', { connectionId, metadata });
@@ -614,7 +619,7 @@ export abstract class ConnectionPoolManager<T = any> {
   /**
    * 辅助方法
    */
-  private generateConnectionId(): string {
+  protected generateConnectionId(): string {
     return `${this.protocol}_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
   }
 

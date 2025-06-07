@@ -48,8 +48,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    * 验证WebSocket连接
    */
   protected validateConnection(connection: WS.WebSocket): boolean {
-    return connection instanceof WS.WebSocket && 
-           connection.readyState === WS.WebSocket.OPEN;
+    return connection && connection.readyState === WS.WebSocket.OPEN;
   }
 
   /**
@@ -57,9 +56,13 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    */
   protected async cleanupConnection(connection: WS.WebSocket): Promise<void> {
     try {
+      // 移除所有事件监听器
+      connection.removeAllListeners();
+      
+      // 关闭连接
       if (connection.readyState === WS.WebSocket.OPEN || 
           connection.readyState === WS.WebSocket.CONNECTING) {
-        connection.close(1000, 'Connection pool cleanup');
+        connection.terminate();
       }
     } catch (error) {
       this.logger.warn('Error cleaning up WebSocket connection', {}, error);
@@ -85,13 +88,65 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   }
 
   /**
-   * 创建新连接 - WebSocket不需要主动创建连接
-   * 连接是由客户端发起的，这里返回null
+   * 创建新连接 - 支持主动创建WebSocket连接（用于客户端模式或测试）
    */
-  protected async createNewConnection(_options: ConnectionRequestOptions): Promise<{ connection: WS.WebSocket; id: string; metadata?: any } | null> {
-    // WebSocket连接由客户端发起，服务端不主动创建连接
-    // 实际的连接会通过addConnection方法添加
-    return null;
+  protected async createNewConnection(options: ConnectionRequestOptions): Promise<{ connection: WS.WebSocket; id: string; metadata?: any } | null> {
+    try {
+      // 获取连接URL，优先使用options中的metadata.url
+      const url = options.metadata?.url || 'ws://localhost:3000';
+      
+      // 获取协议和选项
+      const protocols = options.metadata?.protocols;
+      const wsOptions: any = {
+        headers: options.metadata?.headers
+      };
+
+      // 从配置中获取额外的选项（如SSL配置）
+      if (options.metadata) {
+        // 复制所有非特殊字段的metadata到wsOptions
+        Object.keys(options.metadata).forEach(key => {
+          if (!['url', 'protocols', 'headers'].includes(key)) {
+            wsOptions[key] = options.metadata![key];
+          }
+        });
+      }
+
+      // 创建WebSocket连接
+      const connection = new WS.WebSocket(url, protocols, wsOptions);
+      const connectionId = this.generateConnectionId();
+
+      // 等待连接建立
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('WebSocket connection timeout'));
+        }, this.config.connectionTimeout || 30000);
+
+        connection.once('open', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+
+        connection.once('error', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+
+      const metadata: WebSocketConnectionMetadata = {
+        id: connectionId,
+        createdAt: Date.now(),
+        lastUsed: Date.now(),
+        available: false, // 新创建的连接标记为不可用，等待被使用
+        isAlive: true,
+        lastPingTime: undefined,
+        lastPongTime: undefined
+      };
+
+      return { connection, id: connectionId, metadata };
+    } catch (error) {
+      this.logger.error('Failed to create WebSocket connection', {}, error);
+      return null;
+    }
   }
 
   /**
@@ -101,12 +156,18 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
     if (!connection) return false;
     
     const isOpen = connection.readyState === WS.WebSocket.OPEN;
-    const connectionId = this.findWebSocketConnectionId(connection);
+    const connectionId = this.findConnectionId(connection);
     
-    if (!connectionId) return false;
+    if (!connectionId) {
+      // 如果连接还没有被添加到池中，只检查基本状态
+      return isOpen;
+    }
     
     const metadata = this.connectionMetadata.get(connectionId) as WebSocketConnectionMetadata;
-    if (!metadata) return false;
+    if (!metadata) {
+      // 如果没有元数据，只检查基本状态
+      return isOpen;
+    }
     
     // 检查是否活跃（最近的ping/pong）
     const now = Date.now();
@@ -126,8 +187,17 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    * 协议特定的连接处理器设置
    */
   protected async setupProtocolSpecificHandlers(connection: WS.WebSocket): Promise<void> {
-    const connectionId = this.findWebSocketConnectionId(connection);
+    const connectionId = this.findConnectionId(connection);
     if (!connectionId) return;
+
+    // 处理连接打开
+    connection.on('open', () => {
+      const metadata = this.connectionMetadata.get(connectionId) as WebSocketConnectionMetadata;
+      if (metadata) {
+        metadata.isAlive = true;
+        metadata.lastUsed = Date.now();
+      }
+    });
 
     // 处理连接关闭
     connection.on('close', () => {
@@ -145,6 +215,15 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
       this.removeConnection(connection, `Connection error: ${error.message}`).catch(err => {
         this.logger.error('Error removing errored connection', {}, err);
       });
+    });
+
+    // 处理ping（服务端响应客户端的ping）
+    connection.on('ping', (data) => {
+      try {
+        connection.pong(data);
+      } catch (error) {
+        this.logger.debug('Failed to send pong', {}, { connectionId, error });
+      }
     });
 
     // 处理pong响应
@@ -334,6 +413,18 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   /**
    * 销毁连接池
    */
+  /**
+   * 重写添加连接方法，确保WebSocket连接正确设置
+   */
+  async addConnection(connection: WS.WebSocket, metadata: any = {}): Promise<boolean> {
+    const success = await super.addConnection(connection, metadata);
+    if (success) {
+      // 设置协议特定的事件处理器
+      await this.setupProtocolSpecificHandlers(connection);
+    }
+    return success;
+  }
+
   async destroy(): Promise<void> {
     // 停止心跳监控
     if (this.heartbeatInterval) {
