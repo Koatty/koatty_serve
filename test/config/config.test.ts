@@ -1,3 +1,4 @@
+import { KoattyApplication } from "koatty_core";
 import {
   KoattyProtocol,
   ListeningOptions,
@@ -12,8 +13,20 @@ import {
   SSL1Config,
   SSL2Config
 } from "../../src/config/config";
+// Mock KoattyApplication
+class MockKoattyApplication {
+  config(key?: string, defaultValue?: any) {
+    return defaultValue;
+  }
+}
 
 describe("Config", () => {
+  let app: KoattyApplication;
+
+  beforeEach(() => {
+    app = new MockKoattyApplication() as unknown as KoattyApplication;
+  });
+  
   describe("Type Definitions", () => {
     it("should define KoattyProtocol type correctly", () => {
       const protocols: KoattyProtocol[] = ['http', 'https', 'http2', 'grpc', 'ws', 'wss'];
@@ -45,7 +58,7 @@ describe("Config", () => {
   describe("ConfigHelper", () => {
     describe("createHttpConfig", () => {
       it("should create HTTP config with default values", () => {
-        const config = ConfigHelper.createHttpConfig();
+        const config = ConfigHelper.createHttpConfig(app);
         
         expect(config.hostname).toBe("localhost");
         expect(config.port).toBe(3000);
@@ -70,7 +83,7 @@ describe("Config", () => {
           }
         };
 
-        const config = ConfigHelper.createHttpConfig(customOptions);
+        const config = ConfigHelper.createHttpConfig(app,customOptions);
         
         expect(config.hostname).toBe("127.0.0.1");
         expect(config.port).toBe(8080);
@@ -82,7 +95,7 @@ describe("Config", () => {
       });
 
       it("should merge connection pool options correctly", () => {
-        const config = ConfigHelper.createHttpConfig({
+        const config = ConfigHelper.createHttpConfig( app,{
           connectionPool: {
             maxConnections: 2000
             // Only specify maxConnections, others should use defaults
@@ -97,7 +110,7 @@ describe("Config", () => {
 
     describe("createHttpsConfig", () => {
       it("should create HTTPS config with default values", () => {
-        const config = ConfigHelper.createHttpsConfig();
+        const config = ConfigHelper.createHttpsConfig(app);
         
         expect(config.hostname).toBe("localhost");
         expect(config.port).toBe(443); // HTTPS default port
@@ -115,7 +128,7 @@ describe("Config", () => {
           rejectUnauthorized: false
         };
 
-        const config = ConfigHelper.createHttpsConfig({
+        const config = ConfigHelper.createHttpsConfig(app,{
           hostname: "secure.example.com",
           port: 443,
           ssl: sslConfig,
@@ -136,7 +149,7 @@ describe("Config", () => {
         const modes: Array<"auto" | "manual" | "mutual_tls"> = ["auto", "manual", "mutual_tls"];
         
         modes.forEach(mode => {
-          const config = ConfigHelper.createHttpsConfig({
+          const config = ConfigHelper.createHttpsConfig(app,{
             ssl: { mode }
           });
           expect(config.ssl?.mode).toBe(mode);
@@ -146,7 +159,7 @@ describe("Config", () => {
 
     describe("createHttp2Config", () => {
       it("should create HTTP/2 config with default values", () => {
-        const config = ConfigHelper.createHttp2Config();
+        const config = ConfigHelper.createHttp2Config(app);
         
         expect(config.hostname).toBe("localhost");
         expect(config.port).toBe(443); // HTTP/2 default port (HTTPS)
@@ -155,7 +168,7 @@ describe("Config", () => {
       });
 
       it("should create HTTP/2 config with custom settings", () => {
-        const config = ConfigHelper.createHttp2Config({
+        const config = ConfigHelper.createHttp2Config(app,{
           hostname: "h2.example.com",
           port: 8443,
           ssl: {
@@ -175,7 +188,7 @@ describe("Config", () => {
       });
 
       it("should configure HTTP/2 with SSL settings", () => {
-        const config = ConfigHelper.createHttp2Config({});
+        const config = ConfigHelper.createHttp2Config(app);
         
         expect(config.ssl).toBeDefined();
         expect(config.connectionPool).toBeDefined();
@@ -185,7 +198,7 @@ describe("Config", () => {
 
     describe("createGrpcConfig", () => {
       it("should create gRPC config with default values", () => {
-        const config = ConfigHelper.createGrpcConfig();
+        const config = ConfigHelper.createGrpcConfig(app);
         
         expect(config.hostname).toBe("localhost");
         expect(config.port).toBe(50051); // gRPC default port
@@ -201,7 +214,7 @@ describe("Config", () => {
           clientCertRequired: true
         };
 
-        const config = ConfigHelper.createGrpcConfig({
+        const config = ConfigHelper.createGrpcConfig(app,{
           hostname: "grpc.example.com",
           port: 50051,
           ssl: sslConfig,
@@ -218,7 +231,7 @@ describe("Config", () => {
       });
 
       it("should create gRPC config with connection pool settings", () => {
-        const config = ConfigHelper.createGrpcConfig({
+        const config = ConfigHelper.createGrpcConfig(app,{
           connectionPool: {
             maxConnections: 2000,
             protocolSpecific: {
@@ -235,7 +248,7 @@ describe("Config", () => {
 
     describe("createWebSocketConfig", () => {
       it("should create WebSocket config with default values", () => {
-        const config = ConfigHelper.createWebSocketConfig();
+        const config = ConfigHelper.createWebSocketConfig(app);
         
         expect(config.hostname).toBe("localhost");
         expect(config.port).toBe(8080); // WebSocket default port
@@ -250,7 +263,7 @@ describe("Config", () => {
           certFile: "/path/to/ws-cert.pem"
         };
 
-        const config = ConfigHelper.createWebSocketConfig({
+        const config = ConfigHelper.createWebSocketConfig(app,{
           hostname: "ws.example.com",
           port: 8080,
           protocol: "wss",
@@ -264,7 +277,7 @@ describe("Config", () => {
       });
 
       it("should configure WebSocket connection pool settings", () => {
-        const config = ConfigHelper.createWebSocketConfig({
+        const config = ConfigHelper.createWebSocketConfig(app,{
           connectionPool: {
             maxConnections: 2000,
             pingInterval: 5000,

@@ -18,8 +18,8 @@ describe("NewServe", () => {
   it("should create multi-protocol server with default HTTP protocol", () => {
     const server = NewServe(app);
     expect(server).toBeInstanceOf(MultiProtocolServer);
-    expect(Array.isArray(server.options.protocol)).toBe(true);
-    expect(server.options.protocol[0]).toBe("http");
+    // expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol).toBe("http");
   });
 
   it("should create multi-protocol server with HTTPS protocol", () => {
@@ -33,8 +33,8 @@ describe("NewServe", () => {
       }
     });
     expect(server).toBeInstanceOf(MultiProtocolServer);
-    expect(Array.isArray(server.options.protocol)).toBe(true);
-    expect(server.options.protocol[0]).toBe("https");
+    // expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol).toBe("https");
   });
 
   it("should create multi-protocol server with HTTP2 protocol", () => {
@@ -48,8 +48,8 @@ describe("NewServe", () => {
       }
     });
     expect(server).toBeInstanceOf(MultiProtocolServer);
-    expect(Array.isArray(server.options.protocol)).toBe(true);
-    expect(server.options.protocol[0]).toBe("http2");
+    // expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol).toBe("http2");
   });
 
   it("should create multi-protocol server with WebSocket protocol", () => {
@@ -59,8 +59,8 @@ describe("NewServe", () => {
       port: 3000
     });
     expect(server).toBeInstanceOf(MultiProtocolServer);
-    expect(Array.isArray(server.options.protocol)).toBe(true);
-    expect(server.options.protocol[0]).toBe("ws");
+    // expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol).toBe("ws");
   });
 
   it("should create multi-protocol server with gRPC protocol", () => {
@@ -70,7 +70,7 @@ describe("NewServe", () => {
       port: 3000
     });
     expect(server).toBeInstanceOf(MultiProtocolServer);
-    expect(Array.isArray(server.options.protocol)).toBe(true);
-    expect(server.options.protocol[0]).toBe("grpc");
+    // expect(Array.isArray(server.options.protocol)).toBe(true);
+    expect(server.options.protocol).toBe("grpc");
   });
 });
