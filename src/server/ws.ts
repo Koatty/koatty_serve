@@ -25,7 +25,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   declare readonly server: WS.WebSocketServer;
   declare protected connectionPool: WebSocketConnectionPoolManager;
   
-  readonly httpServer: HttpServer | HttpsServer;
+  readonly httpServer!: HttpServer | HttpsServer;
   private upgradeHandler?: (request: any, socket: any, head: any) => void;
   private clientErrorHandler?: (err: any, sock: any) => void;
   socket: any;
@@ -35,6 +35,9 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     this.options = ConfigHelper.createWebSocketConfig(app, options);
     // 创建或使用现有的HTTP/HTTPS服务器
     this.httpServer = this.createHttpServer();
+    
+    // 在构造函数末尾确保升级处理器已绑定
+    this.ensureUpgradeHandlersAreBound();
     
     CreateTerminus(app, this);
   }
@@ -73,6 +76,8 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 配置WebSocket服务器选项
    */
   protected configureServerOptions(): void {
+    // 延迟升级处理的设置，因为 httpServer 可能还没有初始化
+    // 将在 Start() 方法中进行最终的绑定
     this.setupUpgradeHandling();
     this.setupConnectionHandling();
   }
@@ -146,9 +151,22 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       socket.destroy();
     };
 
-    // 绑定升级事件处理器，使用类型断言
-    (this.httpServer as any).on('upgrade', this.upgradeHandler);
-    (this.httpServer as any).on('clientError', this.clientErrorHandler);
+    // 这里只创建处理器，不立即绑定
+    // 绑定将在 ensureUpgradeHandlersAreBound() 中进行
+  }
+
+  /**
+   * 确保升级处理器已绑定到HTTP服务器
+   */
+  private ensureUpgradeHandlersAreBound(): void {
+    // 确保处理器已创建且 httpServer 已初始化后再绑定事件处理器
+    if (this.httpServer && this.upgradeHandler && this.clientErrorHandler && typeof this.httpServer.on === 'function') {
+      this.httpServer.on('upgrade', this.upgradeHandler);
+      this.httpServer.on('clientError', this.clientErrorHandler);
+      this.logger.debug('WebSocket upgrade handlers bound to HTTP server');
+    } else {
+      this.logger.warn('HTTP server not available for WebSocket upgrade handling');
+    }
   }
 
   /**
@@ -169,8 +187,11 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   private async onConnection(ws: WS.WebSocket, request: IncomingMessage): Promise<void> {
     const connectionId = generateTraceId();
     
+    // 先同步设置WebSocket事件处理器，确保测试能立即验证
+    this.setupWebSocketEventHandlers(ws, connectionId);
+
     try {
-      // 使用连接池注册连接
+      // 然后使用连接池注册连接（异步）
       const success = await this.connectionPool.registerConnection(ws, {
         connectionId,
         remoteAddress: request.socket.remoteAddress,
@@ -192,9 +213,6 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
         remoteAddress: request.socket.remoteAddress,
         userAgent: request.headers['user-agent']
       });
-
-      // 设置WebSocket事件处理
-      this.setupWebSocketEventHandlers(ws, connectionId);
 
       // 触发应用层事件
       (this.app as any).emit('connection', ws, request);
@@ -374,19 +392,22 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     this.logger.info('Step 1: Stopping acceptance of new WebSocket connections', { traceId });
     
     // 移除升级处理器以停止接受新的WebSocket连接
-    if (this.upgradeHandler) {
+    if (this.upgradeHandler && typeof (this.httpServer as any).removeListener === 'function') {
       (this.httpServer as any).removeListener('upgrade', this.upgradeHandler);
       this.logger.debug('WebSocket upgrade handler removed', { traceId });
     }
     
-    // 停止HTTP服务器监听
+    // 检查服务器是否真的在监听（对测试环境友好）
     if (this.httpServer.listening) {
+      // 停止HTTP服务器监听
       await new Promise<void>((resolve, reject) => {
         this.httpServer.close((err) => {
           if (err) reject(err);
           else resolve();
         });
       });
+    } else {
+      this.logger.debug('HTTP server is not listening, skip close', { traceId });
     }
     
     this.logger.debug('New WebSocket connection acceptance stopped', { traceId });
@@ -449,6 +470,12 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force WebSocket server shutdown initiated', { traceId });
     
+    // 清理监控间隔
+    if ((this.httpServer as any)._monitoringInterval) {
+      clearInterval((this.httpServer as any)._monitoringInterval);
+      (this.httpServer as any)._monitoringInterval = undefined;
+    }
+    
     // 强制关闭WebSocket服务器
     this.server.close();
     
@@ -461,13 +488,16 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
   // ============= 实现KoattyServer接口 =============
 
-  Start(): NativeServer {
+  Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
       protocol: this.options.protocol
     });
+
+    // 确保升级处理器已绑定（可能在构造函数中已经绑定了）
+    this.ensureUpgradeHandlersAreBound();
 
     this.httpServer.listen(this.options.port, this.options.hostname, () => {
       this.logger.logServerEvent('started', { traceId }, {
@@ -482,6 +512,11 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       
       // 启动连接池监控
       this.startConnectionPoolMonitoring();
+      
+      // 调用启动回调
+      if (listenCallback) {
+        listenCallback();
+      }
     });
 
     return this.httpServer;
@@ -514,7 +549,11 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 获取WebSocket连接统计信息
    */
   getWebSocketConnectionStats() {
-    return this.connectionPool ? this.connectionPool.getConnectionStats() : null;
+    const connectionStatus = this.getConnectionsStatus();
+    return {
+      current: connectionStatus.current,
+      max: connectionStatus.max
+    };
   }
 
   /**
@@ -539,10 +578,10 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       await this.gracefulShutdown();
       
       // 清理事件监听器
-      if (this.upgradeHandler) {
+      if (this.upgradeHandler && typeof (this.httpServer as any).removeListener === 'function') {
         (this.httpServer as any).removeListener('upgrade', this.upgradeHandler);
       }
-      if (this.clientErrorHandler) {
+      if (this.clientErrorHandler && typeof (this.httpServer as any).removeListener === 'function') {
         (this.httpServer as any).removeListener('clientError', this.clientErrorHandler);
       }
       

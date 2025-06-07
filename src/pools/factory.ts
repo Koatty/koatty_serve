@@ -60,8 +60,9 @@ export class ConnectionPoolFactory {
    * 销毁指定协议的连接池
    */
   static async destroy(protocol: string): Promise<void> {
+    const protocolPrefix = `${protocol.toLowerCase()}_`;
     const toDestroy = Array.from(this.instances.entries())
-      .filter(([key]) => key.startsWith(protocol.toLowerCase()))
+      .filter(([key]) => key.startsWith(protocolPrefix))
       .map(([key, instance]) => ({ key, instance }));
 
     await Promise.all(
@@ -117,8 +118,9 @@ export class ConnectionPoolFactory {
       return this.instances.size;
     }
     
+    const protocolPrefix = `${protocol.toLowerCase()}_`;
     return Array.from(this.instances.keys())
-      .filter(key => key.startsWith(protocol.toLowerCase()))
+      .filter(key => key.startsWith(protocolPrefix))
       .length;
   }
 

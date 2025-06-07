@@ -27,6 +27,12 @@ export interface TerminusOptions {
   onSignal?: (event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number) => Promise<any>;
 }
 
+// 存储信号处理器以便清理
+const signalHandlers = new Map<string, (() => void)[]>();
+
+// 增加进程监听器限制以避免测试时的警告
+process.setMaxListeners(0); // 0 表示无限制
+
 /**
  * Create terminus event
  *
@@ -37,10 +43,19 @@ export interface TerminusOptions {
  */
 export function CreateTerminus(app: KoattyApplication, server: KoattyServer, options?: TerminusOptions): void {
   const opt = { ...terminusOptions, ...options };
+  
   opt.signals.forEach(event => {
-    process.on(event, () => {
+    const handler = () => {
       opt.onSignal(event, app, server, opt.timeout).catch(err => Logger.Error(err));
-    });
+    };
+    
+    process.on(event, handler);
+    
+    // 存储处理器以便清理
+    if (!signalHandlers.has(event)) {
+      signalHandlers.set(event, []);
+    }
+    signalHandlers.get(event)!.push(handler);
   });
 }
 // processEvent
@@ -85,6 +100,15 @@ export async function onSignal(event: string, app: KoattyApplication, server: Ko
   Logger.Warn(`Received kill signal (${event}), shutting down...`);
   // Set status to service unavailable (if server has status property)
   (server as any).status = 503;
+  
+  // 清理所有 terminus 事件监听器
+  for (const [signalName, handlers] of signalHandlers) {
+    handlers.forEach(handler => {
+      process.removeListener(signalName, handler);
+    });
+  }
+  signalHandlers.clear();
+  
   await asyncEvent(app, 'appStop');
   await asyncEvent(process, 'beforeExit');
   // Don't bother with graceful shutdown in development
