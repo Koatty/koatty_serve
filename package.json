@@ -18,6 +18,8 @@
     "release:minor": "npm run release -- --release-as minor",
     "test": "npm run eslint && jest --passWithNoTests",
     "test:cov": "jest --collectCoverage --detectOpenHandles",
+    "test:perf": "jest --testNamePattern=\"performance|benchmark\" --verbose",
+    "benchmark": "node scripts/benchmark.js",
     "version": "conventional-changelog -p angular -i CHANGELOG.md -s"
   },
   "main": "./dist/index.js",
