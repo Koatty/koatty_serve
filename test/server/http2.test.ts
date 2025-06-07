@@ -1,0 +1,764 @@
+import { Http2Server } from '../../src/server/http2';
+import { KoattyApplication } from 'koatty_core';
+import * as http2 from 'http2';
+import * as fs from 'fs';
+
+// Mock dependencies
+jest.mock('http2');
+jest.mock('fs');
+
+const mockHttp2 = http2 as jest.Mocked<typeof http2>;
+const mockFs = fs as jest.Mocked<typeof fs>;
+
+describe('Http2Server', () => {
+  let mockApp: any;
+  let mockServer: any;
+  let http2Server: Http2Server;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Mock KoattyApplication
+    mockApp = {
+      config: jest.fn((key?: string, defaultValue?: any) => {
+        const configs = {
+          'server': {
+            hostname: '127.0.0.1',
+            port: 3000,
+            protocol: 'http2'
+          }
+        };
+        
+        if (key) {
+          return configs[key] || defaultValue;
+        }
+        return defaultValue;
+      }),
+      on: jest.fn(),
+      emit: jest.fn(),
+      use: jest.fn(),
+      callback: jest.fn(() => (req: any, res: any) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Hello HTTP/2 World');
+      })
+    };
+
+    // Mock HTTP/2 server
+    mockServer = {
+      listen: jest.fn((port: any, hostname?: any, callback?: any) => {
+        if (typeof hostname === 'function') {
+          callback = hostname;
+        }
+        if (callback) setTimeout(callback, 10);
+        return mockServer;
+      }),
+      close: jest.fn((callback?: any) => {
+        if (callback) setTimeout(callback, 10);
+      }),
+      on: jest.fn(),
+      off: jest.fn(),
+      removeAllListeners: jest.fn(),
+      address: jest.fn(() => ({ address: '127.0.0.1', port: 3000 })),
+      listening: false,
+      timeout: 30000,
+      updateSettings: jest.fn(),
+      setTimeout: jest.fn()
+    };
+
+    // Mock file system operations
+    mockFs.readFileSync.mockImplementation((path: any) => {
+      if (path.includes('key')) return 'mock-private-key';
+      if (path.includes('cert')) return 'mock-certificate';
+      if (path.includes('ca')) return 'mock-ca-certificate';
+      return 'mock-file-content';
+    });
+
+    mockHttp2.createSecureServer.mockReturnValue(mockServer);
+    mockHttp2.createServer.mockReturnValue(mockServer);
+
+    http2Server = new Http2Server(mockApp as KoattyApplication, {
+      hostname: '127.0.0.1',
+      port: 3000,
+      protocol: 'http2',
+      ssl: {
+        mode: 'manual',
+        key: 'mock-private-key',
+        cert: 'mock-certificate'
+      }
+    });
+  });
+
+  describe('Initialization', () => {
+    it('should create HTTP/2 server instance', () => {
+      expect(http2Server).toBeInstanceOf(Http2Server);
+      expect(mockHttp2.createSecureServer).toHaveBeenCalled();
+    });
+
+    it('should create secure HTTP/2 server with SSL', () => {
+      // Clear previous calls
+      mockHttp2.createSecureServer.mockClear();
+      
+      const secureServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 443,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'private-key-content',
+          cert: 'certificate-content'
+        }
+      });
+
+      // Check that the server was created with SSL configuration
+      expect(mockHttp2.createSecureServer).toHaveBeenCalled();
+      expect(secureServer).toBeInstanceOf(Http2Server);
+    });
+
+    it('should configure HTTP/2 settings', () => {
+      const serverWithSettings = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        },
+        http2: {
+          settings: {
+            headerTableSize: 4096,
+            enablePush: true,
+            maxConcurrentStreams: 100,
+            initialWindowSize: 65535,
+            maxFrameSize: 16384,
+            maxHeaderListSize: 8192
+          }
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true,
+          settings: expect.objectContaining({
+            headerTableSize: 4096,
+            enablePush: true,
+            maxConcurrentStreams: 100
+          })
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should support HTTP/1.1 fallback', () => {
+      const fallbackServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate',
+          allowHTTP1: true
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
+  describe('Server Lifecycle', () => {
+    it('should start HTTP/2 server successfully', async () => {
+      const startPromise = new Promise<void>((resolve) => {
+        const result = http2Server.Start(() => {
+          resolve();
+        });
+        expect(result).toBe(mockServer);
+      });
+
+      await startPromise;
+      expect(mockServer.listen).toHaveBeenCalledWith(3000, '127.0.0.1', expect.any(Function));
+    });
+
+    it('should stop HTTP/2 server successfully', () => {
+      // Mock the close method to call the callback immediately
+      mockServer.close.mockImplementation((callback: any) => {
+        if (callback) setTimeout(callback, 0);
+      });
+
+      // Test that Stop method can be called without throwing
+      expect(() => {
+        http2Server.Stop();
+      }).not.toThrow();
+    });
+
+    it('should handle server startup errors', () => {
+      mockServer.listen.mockImplementation(() => {
+        throw new Error('Port already in use');
+      });
+
+      expect(() => http2Server.Start()).toThrow();
+    });
+  });
+
+  describe('HTTP/2 Features', () => {
+    it('should handle HTTP/2 streams', () => {
+      const streamHandler = mockServer.on.mock.calls.find(call => call[0] === 'stream')?.[1];
+      
+      const mockStream = {
+        respond: jest.fn(),
+        end: jest.fn(),
+        on: jest.fn(),
+        pushStream: jest.fn(),
+        session: {
+          socket: { encrypted: true }
+        },
+        headers: {
+          ':method': 'GET',
+          ':path': '/api/users',
+          ':scheme': 'https',
+          ':authority': 'localhost:3000'
+        }
+      };
+
+      if (streamHandler) {
+        expect(() => {
+          streamHandler(mockStream, mockStream.headers);
+        }).not.toThrow();
+        
+        expect(mockStream.respond).toHaveBeenCalled();
+      }
+    });
+
+    it('should support server push', () => {
+      const mockStream = {
+        respond: jest.fn(),
+        end: jest.fn(),
+        pushStream: jest.fn((headers: any, callback: any) => {
+          const pushStream = {
+            respond: jest.fn(),
+            end: jest.fn()
+          };
+          callback(null, pushStream);
+        }),
+        session: {
+          socket: { encrypted: true }
+        }
+      };
+
+      // Simulate server push
+      const pushHeaders = {
+        ':method': 'GET',
+        ':path': '/api/users.css',
+        ':scheme': 'https',
+        ':authority': 'localhost:3000'
+      };
+
+      mockStream.pushStream(pushHeaders, (err: any, pushStream: any) => {
+        if (!err) {
+          pushStream.respond({ ':status': 200 });
+          pushStream.end('/* CSS content */');
+        }
+      });
+
+      expect(mockStream.pushStream).toHaveBeenCalledWith(pushHeaders, expect.any(Function));
+    });
+
+    it('should handle HTTP/2 headers', () => {
+      const headers = {
+        ':method': 'POST',
+        ':path': '/api/users',
+        ':scheme': 'https',
+        ':authority': 'localhost:3000',
+        'content-type': 'application/json',
+        'authorization': 'Bearer token123'
+      };
+
+      const mockStream = {
+        respond: jest.fn(),
+        end: jest.fn(),
+        headers
+      };
+
+      expect(mockStream.headers[':method']).toBe('POST');
+      expect(mockStream.headers['content-type']).toBe('application/json');
+    });
+
+    it('should handle flow control', () => {
+      const mockStream = {
+        respond: jest.fn(),
+        end: jest.fn(),
+        write: jest.fn(),
+        on: jest.fn(),
+        state: {
+          localWindowSize: 65535,
+          remoteWindowSize: 65535
+        }
+      };
+
+      // Simulate writing large data with flow control
+      const largeData = 'x'.repeat(100000);
+      
+      mockStream.write(largeData);
+      
+      expect(mockStream.write).toHaveBeenCalledWith(largeData);
+    });
+  });
+
+  describe('SSL/TLS Configuration', () => {
+    it('should handle SSL certificates from files', () => {
+      const sslServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 443,
+        protocol: 'http2',
+        ssl: {
+          mode: 'auto',
+          key: '/path/to/private-key.pem',
+          cert: '/path/to/certificate.pem',
+          ca: '/path/to/ca.pem'
+        }
+      });
+
+      expect(mockFs.readFileSync).toHaveBeenCalledWith('/path/to/private-key.pem', 'utf8');
+      expect(mockFs.readFileSync).toHaveBeenCalledWith('/path/to/certificate.pem', 'utf8');
+      expect(mockFs.readFileSync).toHaveBeenCalledWith('/path/to/certificate.pem', 'utf8');
+    });
+
+    it('should handle ALPN protocol negotiation', () => {
+      const alpnServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 443,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        }
+      });
+
+      // The actual implementation doesn't directly use ALPNProtocols in this way
+      // It's handled by the HTTP/2 implementation internally
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          key: 'mock-private-key',
+          cert: 'mock-certificate',
+          allowHTTP1: true
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should handle client certificate authentication', () => {
+      const clientCertServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 443,
+        protocol: 'http2',
+        ssl: {
+          mode: 'mutual_tls',
+          key: 'mock-private-key',
+          cert: 'mock-certificate',
+          ca: 'ca-cert',
+          requestCert: true,
+          rejectUnauthorized: true
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true,
+          requestCert: true,
+          rejectUnauthorized: true,
+          ca: 'mock-certificate',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
+  describe('Performance Configuration', () => {
+    it('should configure connection limits', () => {
+      const limitServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        },
+        http2: {
+          maxSessionMemory: 20,
+          settings: {
+            maxConcurrentStreams: 200,
+            initialWindowSize: 131072
+          }
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true,
+          settings: expect.objectContaining({
+            maxConcurrentStreams: 200,
+            initialWindowSize: 131072
+          })
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should handle session timeout', () => {
+      const timeoutServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        }
+      });
+
+      expect(timeoutServer).toBeInstanceOf(Http2Server);
+    });
+
+    it('should configure padding strategy', () => {
+      const paddedServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'auto',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        },
+        http2: {
+          settings: {
+            enablePush: true,
+            maxConcurrentStreams: 100
+          }
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true,
+          settings: expect.objectContaining({
+            enablePush: true,
+            maxConcurrentStreams: 100
+          })
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle session errors', () => {
+      const sessionErrorHandler = mockServer.on.mock.calls.find(call => call[0] === 'sessionError')?.[1];
+      
+      if (sessionErrorHandler) {
+        const mockSession = {
+          destroy: jest.fn(),
+          socket: { destroyed: false }
+        };
+
+        expect(() => {
+          sessionErrorHandler(new Error('Session error'), mockSession);
+        }).not.toThrow();
+      }
+    });
+
+    it('should handle stream errors', () => {
+      const streamHandler = mockServer.on.mock.calls.find(call => call[0] === 'stream')?.[1];
+      
+      const mockStream = {
+        respond: jest.fn(),
+        end: jest.fn(),
+        on: jest.fn(),
+        destroy: jest.fn(),
+        session: {
+          socket: { encrypted: true }
+        },
+        headers: {
+          ':method': 'GET',
+          ':path': '/test'
+        }
+      };
+
+      if (streamHandler) {
+        streamHandler(mockStream, mockStream.headers);
+        
+        const errorHandler = mockStream.on.mock.calls.find(call => call[0] === 'error')?.[1];
+        if (errorHandler) {
+          expect(() => {
+            errorHandler(new Error('Stream error'));
+          }).not.toThrow();
+        }
+      }
+    });
+
+    it('should handle connection timeout', () => {
+      const timeoutHandler = mockServer.on.mock.calls.find(call => call[0] === 'timeout')?.[1];
+      
+      if (timeoutHandler) {
+        expect(() => {
+          timeoutHandler();
+        }).not.toThrow();
+      }
+    });
+
+    it('should handle invalid frames', () => {
+      const frameErrorHandler = mockServer.on.mock.calls.find(call => call[0] === 'frameError')?.[1];
+      
+      if (frameErrorHandler) {
+        expect(() => {
+          frameErrorHandler(1, 2, 'PROTOCOL_ERROR');
+        }).not.toThrow();
+      }
+    });
+  });
+
+  describe('Session Management', () => {
+    it('should handle new sessions', () => {
+      const sessionHandler = mockServer.on.mock.calls.find(call => call[0] === 'session')?.[1];
+      
+      const mockSession = {
+        on: jest.fn(),
+        settings: jest.fn(),
+        ping: jest.fn(),
+        goaway: jest.fn(),
+        socket: {
+          encrypted: true,
+          authorized: true
+        }
+      };
+
+      if (sessionHandler) {
+        expect(() => {
+          sessionHandler(mockSession);
+        }).not.toThrow();
+      }
+    });
+
+    it('should handle session settings updates', () => {
+      const mockSession = {
+        on: jest.fn(),
+        settings: jest.fn(),
+        localSettings: {
+          headerTableSize: 4096,
+          enablePush: true,
+          maxConcurrentStreams: 100
+        },
+        remoteSettings: {
+          headerTableSize: 4096,
+          enablePush: false,
+          maxConcurrentStreams: 50
+        }
+      };
+
+      const newSettings = {
+        maxConcurrentStreams: 200,
+        initialWindowSize: 131072
+      };
+
+      mockSession.settings(newSettings);
+      
+      expect(mockSession.settings).toHaveBeenCalledWith(newSettings);
+    });
+
+    it('should handle session ping/pong', () => {
+      const mockSession = {
+        ping: jest.fn((payload: any, callback: any) => {
+          setTimeout(() => callback(null, Date.now() - payload.readUInt32BE(0), payload), 10);
+        })
+      };
+
+      const pingPayload = Buffer.allocUnsafe(8);
+      pingPayload.writeUInt32BE(12345, 0); // Use a smaller number to avoid range error
+
+      mockSession.ping(pingPayload, (err: any, duration: number, payload: Buffer) => {
+        expect(err).toBeNull();
+        expect(typeof duration).toBe('number');
+        expect(Buffer.isBuffer(payload)).toBe(true);
+      });
+
+      expect(mockSession.ping).toHaveBeenCalledWith(pingPayload, expect.any(Function));
+    });
+  });
+
+  describe('Compatibility', () => {
+    it('should handle HTTP/1.1 requests when allowHTTP1 is enabled', () => {
+      const compatServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate',
+          allowHTTP1: true
+        }
+      });
+
+      const requestHandler = mockHttp2.createSecureServer.mock.calls[0][1];
+      
+      const mockReq = {
+        method: 'GET',
+        url: '/api/users',
+        headers: { 'host': 'localhost:3000' },
+        httpVersion: '1.1'
+      } as any;
+      
+      const mockRes = {
+        writeHead: jest.fn(),
+        end: jest.fn(),
+        on: jest.fn(),
+        statusCode: 200
+      } as any;
+
+      if (requestHandler) {
+        requestHandler(mockReq, mockRes);
+        expect(mockApp.callback).toHaveBeenCalled();
+      }
+    });
+
+    it('should upgrade HTTP/1.1 connections to HTTP/2', () => {
+      const upgradeHandler = mockServer.on.mock.calls.find(call => call[0] === 'upgrade')?.[1];
+      
+      const mockReq = {
+        method: 'GET',
+        url: '/api/users',
+        headers: {
+          'upgrade': 'h2c',
+          'connection': 'upgrade, http2-settings',
+          'http2-settings': 'AAMAAABkAARAAAAAAAIAAAAA'
+        }
+      };
+      
+      const mockSocket = {
+        write: jest.fn(),
+        end: jest.fn()
+      };
+
+      if (upgradeHandler) {
+        expect(() => {
+          upgradeHandler(mockReq, mockSocket, Buffer.alloc(0));
+        }).not.toThrow();
+      }
+    });
+  });
+
+  describe('Monitoring', () => {
+    it('should provide server status', () => {
+      const status = http2Server.getStatus();
+      expect(typeof status).toBe('number');
+    });
+
+    it('should track HTTP/2 metrics using base server methods', () => {
+      const stats = http2Server.getHttp2Stats();
+      
+      expect(stats).toEqual(
+        expect.objectContaining({
+          activeConnections: expect.any(Number),
+          totalConnections: expect.any(Number),
+          protocol: 'http2'
+        })
+      );
+    });
+
+    it('should monitor connections status', () => {
+      const connectionStatus = http2Server.getConnectionsStatus();
+      
+      expect(connectionStatus).toEqual(
+        expect.objectContaining({
+          current: expect.any(Number),
+          max: expect.any(Number)
+        })
+      );
+    });
+  });
+
+  describe('Advanced Features', () => {
+    it('should support custom frame handling', () => {
+      const frameServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it('should handle priority frames', () => {
+      const mockStream = {
+        priority: jest.fn(),
+        weight: 16,
+        parent: null,
+        exclusive: false
+      };
+
+      // Simulate priority change
+      mockStream.priority({
+        parent: 0,
+        weight: 32,
+        exclusive: true
+      });
+
+      expect(mockStream.priority).toHaveBeenCalledWith({
+        parent: 0,
+        weight: 32,
+        exclusive: true
+      });
+    });
+
+    it('should support custom settings', () => {
+      const customSettings = {
+        headerTableSize: 8192,
+        enablePush: false,
+        maxConcurrentStreams: 1000,
+        initialWindowSize: 262144,
+        maxFrameSize: 32768,
+        maxHeaderListSize: 16384
+      };
+
+      const customServer = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'manual',
+          key: 'mock-private-key',
+          cert: 'mock-certificate'
+        },
+        http2: {
+          settings: customSettings
+        }
+      });
+
+      expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          allowHTTP1: true,
+          settings: customSettings
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+}); 

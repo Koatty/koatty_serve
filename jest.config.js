@@ -33,4 +33,6 @@ module.exports = {
     'clover',
     'text-summary',
   ], // 收集测试时的覆盖率信息
+  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'], // 测试环境设置
+  globalTeardown: '<rootDir>/test/teardown.ts' // 全局清理
 };
