@@ -124,6 +124,10 @@ export abstract class ConnectionPoolManager<T = any> {
   // 性能监控
   private latencyBuffer: number[] = [];
   private lastMetricsUpdate = Date.now();
+  
+  //  修复：添加定时器引用存储
+  private healthUpdateInterval?: NodeJS.Timeout;
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(protocol: string, config: ConnectionPoolConfig = {}) {
     this.protocol = protocol;
@@ -683,12 +687,12 @@ export abstract class ConnectionPoolManager<T = any> {
 
   private startPeriodicTasks(): void {
     // 定期更新健康状态
-    setInterval(() => {
+    this.healthUpdateInterval = setInterval(() => {
       this.updateHealthStatus();
     }, 5000);
 
     // 定期清理过期连接
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredConnections();
     }, 30000);
   }
@@ -779,6 +783,17 @@ export abstract class ConnectionPoolManager<T = any> {
     this.logger.info('Destroying connection pool manager', { traceId });
     
     try {
+      //  修复：清理定时器避免资源泄漏
+      if (this.healthUpdateInterval) {
+        clearInterval(this.healthUpdateInterval);
+        this.healthUpdateInterval = undefined;
+      }
+      
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = undefined;
+      }
+      
       // 清理等待队列
       this.waitingQueue.forEach(item => {
         item.resolve({
