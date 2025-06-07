@@ -14,7 +14,7 @@ export interface TerminusOptions
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [onSignal?](./koatty_serve.terminusoptions.onsignal.md) |  | (event: string, server: KoattyServer, forceTimeout: number) =&gt; Promise&lt;any&gt; | _(Optional)_ |
+|  [onSignal?](./koatty_serve.terminusoptions.onsignal.md) |  | (event: string, app: KoattyApplication, server: KoattyServer, forceTimeout: number) =&gt; Promise&lt;any&gt; | _(Optional)_ |
 |  [signals?](./koatty_serve.terminusoptions.signals.md) |  | string\[\] | _(Optional)_ |
 |  [timeout](./koatty_serve.terminusoptions.timeout.md) |  | number |  |
 

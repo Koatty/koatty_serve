@@ -8,6 +8,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node', // 测试用例运行环境
+  forceExit: true, // 强制退出挂起的测试
   moduleDirectories: ["node_modules", "src"],
   transform: {
     "^.+\\.(js|ts)?$": ['ts-jest', {

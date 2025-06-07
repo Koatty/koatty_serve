@@ -18,9 +18,10 @@ export interface ListeningOptions
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [ext?](./koatty_serve.listeningoptions.ext.md) |  | any | _(Optional)_ |
+|  [connectionPool?](./koatty_serve.listeningoptions.connectionpool.md) |  | ConnectionPoolConfig | _(Optional)_ |
+|  [ext?](./koatty_serve.listeningoptions.ext.md) |  | Record&lt;string, any&gt; | _(Optional)_ |
 |  [hostname](./koatty_serve.listeningoptions.hostname.md) |  | string |  |
 |  [port](./koatty_serve.listeningoptions.port.md) |  | number |  |
-|  [protocol](./koatty_serve.listeningoptions.protocol.md) |  | [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
+|  [protocol](./koatty_serve.listeningoptions.protocol.md) |  | [KoattyProtocol](./koatty_serve.koattyprotocol.md) \| [KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->\[\] |  |
 |  [trace?](./koatty_serve.listeningoptions.trace.md) |  | boolean | _(Optional)_ |
 

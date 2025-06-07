@@ -7,5 +7,5 @@
 **Signature:**
 
 ```typescript
-protocol: KoattyProtocol;
+protocol: KoattyProtocol | KoattyProtocol[];
 ```

@@ -7,5 +7,5 @@
 **Signature:**
 
 ```typescript
-ext?: any;
+ext?: Record<string, any>;
 ```

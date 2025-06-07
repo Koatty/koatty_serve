@@ -8,6 +8,23 @@
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
-// export
-export * from "./server/serve";
-export * from "./terminus";
+// Export server implementations
+export { GrpcServer } from "./server/grpc";
+export { HttpServer } from "./server/http";
+export { Http2Server } from "./server/http2";
+export { HttpsServer } from "./server/https";
+export { WsServer } from "./server/ws";
+
+// Export serve functions and types
+export { 
+  NewServe, 
+  MultiProtocolServer,
+} from "./server/serve";
+
+export {
+  type KoattyProtocol,
+  type ListeningOptions
+} from "./config/config";
+
+// Export utilities
+export * from "./utils/terminus";
