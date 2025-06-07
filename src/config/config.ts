@@ -8,6 +8,7 @@
 import * as WS from 'ws';
 import { ChannelOptions } from "@grpc/grpc-js";
 import { ConnectionPoolConfig } from "./pool";
+import { KoattyApplication } from 'koatty_core';
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
@@ -157,7 +158,7 @@ export interface GrpcServerOptions extends BaseServerOptions {
 }
 
 export class ConfigHelper {
-  static createHttpConfig(options: {
+  static createHttpConfig(app: KoattyApplication, options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -183,7 +184,7 @@ export class ConfigHelper {
     }
   }
 
-  static createHttpsConfig(options: {
+  static createHttpsConfig(app: KoattyApplication, options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -216,7 +217,7 @@ export class ConfigHelper {
     }
   }
 
-  static createHttp2Config(options: {
+  static createHttp2Config(app: KoattyApplication, options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -249,7 +250,7 @@ export class ConfigHelper {
     }
   }
 
-  static createGrpcConfig(options: {
+  static createGrpcConfig(app: KoattyApplication, options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -271,6 +272,12 @@ export class ConfigHelper {
         maxSendMessageLength: (options.connectionPool?.protocolSpecific as any)?.maxSendMessageLength || 4 * 1024 * 1024
       }
     };
+    if (!options.ext) {
+      options.ext = {};
+    }
+    if (!options.ext.protoFile) {
+      options.ext.protoFile = app.config("protoFile", "router");
+    }
 
     return {
       ...options,
@@ -283,7 +290,7 @@ export class ConfigHelper {
     }
   }
 
-  static createWebSocketConfig(options: {
+  static createWebSocketConfig(app: KoattyApplication, options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -297,6 +304,7 @@ export class ConfigHelper {
       connectionPool: {
         ...options.connectionPool,
         maxConnections: options.connectionPool?.maxConnections || 1000,
+        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
         pingInterval: options.connectionPool?.pingInterval || 10000,
         pongTimeout: options.connectionPool?.pongTimeout || 5000,
         heartbeatInterval: options.connectionPool?.heartbeatInterval || 30000

@@ -67,3 +67,12 @@ export function deepEqual(obj1: any, obj2: any, visited = new WeakSet()): boolea
         });
     });
   }
+
+/**
+ * Generate a unique server ID
+ * @param protocol - The protocol of the server
+ * @returns {string} The server ID
+ */
+export function generateServerId(protocol: string): string {
+  return `${protocol}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+}

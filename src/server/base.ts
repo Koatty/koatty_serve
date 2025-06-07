@@ -9,7 +9,7 @@
 
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
 import { createLogger, generateTraceId } from "../utils/logger";
-import { deepEqual, executeWithTimeout } from "../utils/helper";
+import { deepEqual, executeWithTimeout, generateServerId } from "../utils/helper";
 import {
   ConnectionStats,
   ConnectionPoolStatus as HealthStatus,
@@ -65,16 +65,16 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
     this.options = { ...options };
     this.protocol = options.protocol;
     this.status = 0;
-    this.serverId = this.generateServerId();
+    this.serverId = generateServerId(options.protocol);
 
     // 设置日志上下文
     this.logger = createLogger({
-      module: 'base',
+      module: options.protocol,
       protocol: options.protocol,
       serverId: this.serverId
     });
 
-    this.logger.debug('Base server constructed', {}, {
+    this.logger.debug(`${options.protocol} server constructed`, {}, {
       protocol: options.protocol,
       hostname: options.hostname,
       port: options.port,
@@ -122,8 +122,6 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
     }
   }
 
-  // ============= 模板方法：定义配置更新流程 =============
-
   /**
    * 模板方法：配置热更新流程
    */
@@ -167,8 +165,6 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
       return false;
     }
   }
-
-  // ============= 模板方法：定义优雅关闭流程 =============
 
   /**
    * 模板方法：优雅关闭流程
@@ -227,15 +223,6 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
     } finally {
       this.isShuttingDown = false;
     }
-  }
-
-  // ============= 公共逻辑实现 =============
-
-  /**
-   * 生成服务器ID
-   */
-  protected generateServerId(): string {
-    return `${this.protocol}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   }
 
   /**

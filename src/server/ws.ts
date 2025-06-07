@@ -32,7 +32,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
   constructor(app: KoattyApplication, options: WebSocketServerOptions) {
     super(app, options);
-    this.options = ConfigHelper.createWebSocketConfig(options);
+    this.options = ConfigHelper.createWebSocketConfig(app, options);
     // 创建或使用现有的HTTP/HTTPS服务器
     this.httpServer = this.createHttpServer();
     
