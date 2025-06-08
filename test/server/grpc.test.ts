@@ -1231,7 +1231,7 @@ describe('GrpcServer', () => {
       };
       (grpcServer as any).connectionPool = mockConnectionPool;
 
-      const metrics = grpcServer.getConnectionPoolMetrics();
+      const metrics: any = grpcServer.getConnectionPoolMetrics();
       
       expect(metrics.throughput).toBe(1000);
       expect(metrics.latency).toEqual({ p50: 100, p95: 250, p99: 500 });
@@ -1318,7 +1318,7 @@ describe('GrpcServer', () => {
       };
 
       expect(() => {
-        grpcServer.RegisterService(serviceImpl);
+        grpcServer.RegisterService(serviceImpl as any);
       }).not.toThrow();
 
       // Verify service was registered despite implementation error
@@ -1341,7 +1341,7 @@ describe('GrpcServer', () => {
         }
       };
 
-      grpcServer.RegisterService(serviceImpl);
+      grpcServer.RegisterService(serviceImpl as any);
       
       // The service should be registered with wrapped implementation
       expect(mockGrpcServer.addService).toHaveBeenCalledWith(
