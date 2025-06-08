@@ -54,14 +54,9 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
     averageCallDuration: 0,
     activeStreams: 0
   };
-  
-  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('grpc', config);
-    
-    // 启动定期清理
-    this.startCleanupTasks();
   }
 
   /**
@@ -284,16 +279,6 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
   }
 
   /**
-   * 启动清理任务
-   */
-  private startCleanupTasks(): void {
-    // 定期清理过期连接
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpiredGrpcConnections();
-    }, 30000); // 每30秒
-  }
-
-  /**
    * 获取连接统计信息
    */
   getConnectionStats() {
@@ -377,10 +362,6 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
    * 销毁连接池
    */
   async destroy(): Promise<void> {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-    
     await super.destroy();
     this.logger.info('gRPC connection pool destroyed');
   }

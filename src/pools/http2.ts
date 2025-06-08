@@ -562,19 +562,29 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    * 销毁连接池
    */
   async destroy(): Promise<void> {
-    // 停止监控任务
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
+    try {
+      //  修复：清理HTTP/2特有的定时器避免资源泄漏
+      if (this.pingInterval) {
+        clearInterval(this.pingInterval);
+        this.pingInterval = undefined;
+      }
+      
+      if (this.healthCheckInterval) {
+        clearInterval(this.healthCheckInterval);
+        this.healthCheckInterval = undefined;
+      }
+      
+      // 清理所有流映射
+      this.activeStreams.clear();
+      
+      // 调用父类的销毁方法
+      await super.destroy();
+      
+      this.logger.info('HTTP/2 connection pool destroyed');
+    } catch (error) {
+      this.logger.error('Error destroying HTTP/2 connection pool', {}, error);
+      throw error;
     }
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-    }
-    
-    // 清理活跃流
-    this.activeStreams.clear();
-    
-    await super.destroy();
-    this.logger.info('HTTP/2 connection pool destroyed');
   }
 
   // ============= 实现抽象方法 =============
