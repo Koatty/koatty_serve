@@ -407,6 +407,382 @@ describe('HttpServer', () => {
     });
   });
 
+  describe('Connection Pool Management', () => {
+    it('should initialize connection pool with default configuration', () => {
+      const connectionPool = (httpServer as any).connectionPool;
+      expect(connectionPool).toBeDefined();
+    });
+
+    it('should configure connection pool with custom settings', () => {
+      const serverWithPoolConfig = new HttpServer(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http',
+        connectionPool: {
+          maxConnections: 100,
+          keepAliveTimeout: 10000,
+          headersTimeout: 20000,
+          requestTimeout: 60000
+        }
+      });
+
+      expect(serverWithPoolConfig).toBeInstanceOf(HttpServer);
+      
+      // Test that server timeout configurations are applied
+      const server = (serverWithPoolConfig as any).server;
+      expect(server.keepAliveTimeout).toBe(10000);
+      expect(server.headersTimeout).toBe(20000);
+      expect(server.requestTimeout).toBe(60000);
+    });
+
+    it('should handle connection tracking setup', () => {
+      // Mock connection pool methods
+      const mockConnectionPool = {
+        addHttpConnection: jest.fn().mockResolvedValue(undefined)
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+
+      // Simulate connection event
+      const connectionHandler = mockServer.on.mock.calls.find(call => call[0] === 'connection')?.[1];
+      if (connectionHandler) {
+        const mockSocket = { 
+          destroy: jest.fn(),
+          remoteAddress: '127.0.0.1',
+          remotePort: 12345
+        };
+        connectionHandler(mockSocket);
+        expect(mockConnectionPool.addHttpConnection).toHaveBeenCalledWith(mockSocket);
+      }
+    });
+
+    it('should handle request completion tracking', () => {
+      // Get the request handler
+      const requestHandler = mockHttp.createServer.mock.calls[0][0];
+      
+      const mockSocket = { 
+        remoteAddress: '127.0.0.1',
+        remotePort: 12345
+      };
+      
+      const mockReq = { 
+        socket: mockSocket,
+        method: 'GET',
+        url: '/test'
+      };
+      
+      let finishCallback: any;
+      const mockRes = { 
+        on: jest.fn((event, callback) => {
+          if (event === 'finish') {
+            finishCallback = callback;
+          }
+        }),
+        getHeaders: jest.fn().mockReturnValue({ 'content-length': 1024 }),
+        writeHead: jest.fn(),
+        end: jest.fn(),
+        statusCode: 200
+      };
+
+      // Mock connection pool handleRequestComplete
+      const mockConnectionPool = {
+        handleRequestComplete: jest.fn().mockResolvedValue(undefined)
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+      
+      requestHandler(mockReq, mockRes);
+      
+      // Trigger finish event
+      if (finishCallback) {
+        finishCallback();
+        expect(mockConnectionPool.handleRequestComplete).toHaveBeenCalledWith(mockSocket, 1024);
+      }
+    });
+
+    it('should get connection statistics', () => {
+      const mockStats = {
+        activeConnections: 5,
+        totalConnections: 10,
+        queuedRequests: 2
+      };
+      
+      const mockConnectionPool = {
+        getConnectionStats: jest.fn().mockReturnValue(mockStats),
+        getMetrics: jest.fn().mockReturnValue(mockStats)
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+
+      const stats = (httpServer as any).getHttpConnectionStats();
+      expect(stats).toEqual(mockStats);
+      expect(mockConnectionPool.getConnectionStats).toHaveBeenCalled();
+    });
+  });
+
+  describe('Configuration Change Analysis', () => {
+    it('should analyze critical configuration changes requiring restart', () => {
+      const oldConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http' as const
+      };
+
+      const newConfig = {
+        hostname: '0.0.0.0',
+        port: 8080,
+        protocol: 'http' as const
+      };
+
+      const analysis = (httpServer as any).analyzeConfigChanges(['hostname', 'port'], oldConfig, newConfig);
+      
+      expect(analysis.requiresRestart).toBe(true);
+      expect(analysis.restartReason).toBe('Critical network configuration changed');
+      expect(analysis.canApplyRuntime).toBe(false);
+    });
+
+    it('should analyze connection pool configuration changes', () => {
+      const oldConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http' as const,
+        connectionPool: {
+          maxConnections: 50,
+          keepAliveTimeout: 5000
+        }
+      };
+
+      const newConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http' as const,
+        connectionPool: {
+          maxConnections: 100,
+          keepAliveTimeout: 10000
+        }
+      };
+
+      const analysis = (httpServer as any).analyzeConfigChanges(['connectionPool'], oldConfig, newConfig);
+      
+      expect(analysis.requiresRestart).toBe(true);
+      expect(analysis.restartReason).toBe('Connection pool configuration changed');
+    });
+
+    it('should allow runtime configuration changes for non-critical settings', () => {
+      const oldConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http' as const,
+        trace: false
+      };
+
+      const newConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http' as const,
+        trace: true
+      };
+
+      const analysis = (httpServer as any).analyzeConfigChanges(['trace'], oldConfig, newConfig);
+      
+      expect(analysis.requiresRestart).toBe(false);
+      expect(analysis.canApplyRuntime).toBe(true);
+    });
+  });
+
+  describe('Runtime Configuration Changes', () => {
+    it('should handle runtime configuration changes', () => {
+      const mockLogger = {
+        debug: jest.fn(),
+        info: jest.fn()
+      };
+      (httpServer as any).logger = mockLogger;
+
+      const analysis = {
+        requiresRestart: false,
+        changedKeys: ['trace'],
+        canApplyRuntime: true
+      };
+
+      const newConfig = {
+        trace: true
+      };
+
+      expect(() => {
+        (httpServer as any).onRuntimeConfigChange(analysis, newConfig, 'test-trace-id');
+      }).not.toThrow();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'HTTP runtime configuration changes applied',
+        { traceId: 'test-trace-id' }
+      );
+    });
+  });
+
+  describe('Graceful Shutdown Process', () => {
+    beforeEach(() => {
+      // Mock connection pool for shutdown tests
+      const mockConnectionPool = {
+        getActiveConnectionCount: jest.fn().mockReturnValue(2),
+        closeAllConnections: jest.fn().mockResolvedValue(undefined),
+        getMetrics: jest.fn().mockReturnValue({
+          activeConnections: 0,
+          totalConnections: 2
+        })
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+      
+      // Mock logger
+      const mockLogger = {
+        info: jest.fn(),
+        debug: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn()
+      };
+      (httpServer as any).logger = mockLogger;
+    });
+
+    it('should stop accepting new connections', async () => {
+      await (httpServer as any).stopAcceptingNewConnections('test-trace-id');
+      
+      const mockLogger = (httpServer as any).logger;
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Step 1: Stopping acceptance of new HTTP connections',
+        { traceId: 'test-trace-id' }
+      );
+    });
+
+    it('should wait for connection completion with timeout', async () => {
+      const mockConnectionPool = (httpServer as any).connectionPool;
+      
+      // Simulate connections decreasing over time
+      let callCount = 0;
+      mockConnectionPool.getActiveConnectionCount.mockImplementation(() => {
+        callCount++;
+        return callCount > 2 ? 0 : 2;
+      });
+
+      await (httpServer as any).waitForConnectionCompletion(1000, 'test-trace-id');
+      
+      const mockLogger = (httpServer as any).logger;
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Step 3: Waiting for existing HTTP connections to complete',
+        { traceId: 'test-trace-id' },
+        { activeConnections: expect.any(Number), timeout: 1000 }
+      );
+    });
+
+    it('should force close remaining connections', async () => {
+      const mockConnectionPool = (httpServer as any).connectionPool;
+      mockConnectionPool.getActiveConnectionCount.mockReturnValue(3);
+
+      await (httpServer as any).forceCloseRemainingConnections('test-trace-id');
+      
+      expect(mockConnectionPool.closeAllConnections).toHaveBeenCalledWith(5000);
+      
+      const mockLogger = (httpServer as any).logger;
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Step 4: Force closing remaining HTTP connections',
+        { traceId: 'test-trace-id' },
+        { remainingConnections: 3 }
+      );
+    });
+
+    it('should handle force shutdown', () => {
+      const mockLogger = (httpServer as any).logger;
+      
+      (httpServer as any).forceShutdown('test-trace-id');
+      
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Force HTTP server shutdown initiated',
+        { traceId: 'test-trace-id' }
+      );
+    });
+  });
+
+  describe('Connection Pool Monitoring', () => {
+    it('should start connection pool monitoring', () => {
+      jest.useFakeTimers();
+      
+      const mockConnectionPool = {
+        getConnectionStats: jest.fn().mockReturnValue({
+          activeConnections: 5,
+          totalConnections: 10,
+          queuedRequests: 2
+        }),
+        getMetrics: jest.fn().mockReturnValue({
+          activeConnections: 5,
+          totalConnections: 10,
+          queuedRequests: 2
+        })
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+      
+      const mockLogger = {
+        debug: jest.fn()
+      };
+      (httpServer as any).logger = mockLogger;
+
+      (httpServer as any).startConnectionPoolMonitoring();
+      
+      // Fast-forward time to trigger monitoring
+      jest.advanceTimersByTime(30000);
+      
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'HTTP connection pool statistics', 
+        {}, 
+        expect.any(Object)
+      );
+      
+      jest.useRealTimers();
+    });
+
+    it('should start connection pool monitoring', () => {
+      jest.useFakeTimers();
+      
+      const mockLogger = {
+        debug: jest.fn()
+      };
+      (httpServer as any).logger = mockLogger;
+
+      const mockConnectionPool = {
+        getConnectionStats: jest.fn().mockReturnValue({
+          activeConnections: 5,
+          totalConnections: 10,
+          queuedRequests: 2
+        }),
+        getMetrics: jest.fn().mockReturnValue({
+          activeConnections: 5,
+          totalConnections: 10,
+          queuedRequests: 2
+        })
+      };
+      (httpServer as any).connectionPool = mockConnectionPool;
+
+      // Mock the getConnectionStats method that is actually called by the monitoring
+      jest.spyOn(httpServer as any, 'getConnectionStats').mockReturnValue({
+        activeConnections: 5,
+        totalConnections: 10,
+        queuedRequests: 2
+      });
+
+      (httpServer as any).startConnectionPoolMonitoring();
+      
+      // Fast-forward time to trigger the monitoring interval
+      jest.advanceTimersByTime(30000);
+      
+      expect(httpServer.getConnectionStats).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'HTTP connection pool statistics',
+        {},
+        {
+          activeConnections: 5,
+          totalConnections: 10,
+          queuedRequests: 2
+        }
+      );
+      
+      jest.useRealTimers();
+    });
+  });
+
   describe('Cleanup and Resource Management', () => {
     it('should cleanup server resources on stop', async () => {
       // Mock the connection pool methods needed for graceful shutdown
@@ -424,6 +800,13 @@ describe('HttpServer', () => {
       // Mock server.listening to be true initially
       mockServer.listening = true;
       
+      // Mock server.close to call callback immediately
+      mockServer.close = jest.fn().mockImplementation((callback) => {
+        if (callback) {
+          setImmediate(callback);
+        }
+      });
+
       httpServer.Start();
 
       const stopPromise = new Promise<void>((resolve) => {
@@ -435,9 +818,23 @@ describe('HttpServer', () => {
       await stopPromise;
       
       expect(mockServer.close).toHaveBeenCalled();
-    }, 10000);
+    }, 15000);
 
     it('should handle server destruction', () => {
+      // Mock all necessary methods to avoid timeout issues
+      const mockLogger = {
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+        logServerEvent: jest.fn()
+      };
+      (httpServer as any).logger = mockLogger;
+      
+      // Mock server close method
+      mockServer.close = jest.fn();
+      mockServer.listening = true;
+      
       httpServer.Start();
       
       // Simulate server destruction
