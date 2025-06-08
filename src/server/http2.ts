@@ -481,6 +481,22 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     this.stopMonitoringAndCleanup(traceId);
   }
 
+  /**
+   * 重写停止监控和清理方法以处理HTTP/2特定的监控间隔
+   */
+  protected stopMonitoringAndCleanup(traceId: string): void {
+    this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
+
+    // 清理HTTP/2特定的监控间隔
+    if ((this.server as any)._monitoringInterval) {
+      clearInterval((this.server as any)._monitoringInterval);
+      (this.server as any)._monitoringInterval = undefined;
+    }
+
+    // 调用父类的清理方法
+    super.stopMonitoringAndCleanup(traceId);
+  }
+
   // ============= 实现KoattyServer接口 =============
 
   Start(listenCallback?: () => void): Http2SecureServer {
