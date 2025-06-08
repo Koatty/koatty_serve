@@ -22,8 +22,8 @@ import { ConfigHelper, ListeningOptions, WebSocketServerOptions } from "../confi
  * 继承BaseServer，只实现WebSocket特定的逻辑
  */
 export class WsServer extends BaseServer<WebSocketServerOptions> {
-  declare readonly server: WS.WebSocketServer;
-  declare protected connectionPool: WebSocketConnectionPoolManager;
+  readonly server: WS.WebSocketServer;
+  protected connectionPool!: WebSocketConnectionPoolManager;
   
   readonly httpServer!: HttpServer | HttpsServer;
   private upgradeHandler?: (request: any, socket: any, head: any) => void;

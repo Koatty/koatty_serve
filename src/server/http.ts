@@ -20,8 +20,8 @@ import { ConfigHelper, HttpServerOptions, ListeningOptions } from "../config/con
  * 继承BaseServer，只实现HTTP特定的逻辑
  */
 export class HttpServer extends BaseServer<HttpServerOptions> {
-  declare readonly server: Server;
-  declare protected connectionPool: HttpConnectionPoolManager;
+  readonly server: Server;
+  protected connectionPool: HttpConnectionPoolManager;
 
   constructor(app: KoattyApplication, options: HttpServerOptions) {
     super(app, options);
