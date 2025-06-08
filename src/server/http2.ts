@@ -23,8 +23,8 @@ import { ConfigHelper, Http2ServerOptions, ListeningOptions, SSL2Config } from "
  * 继承BaseServer，只实现HTTP/2特定的逻辑
  */
 export class Http2Server extends BaseServer<Http2ServerOptions> {
-  declare readonly server: Http2SecureServer;
-  declare protected connectionPool: Http2ConnectionPoolManager;
+  readonly server: Http2SecureServer;
+  protected connectionPool!: Http2ConnectionPoolManager;
 
   constructor(app: KoattyApplication, options: Http2ServerOptions) {
     super(app, options);

@@ -39,8 +39,8 @@ interface Implementation {
 }
 
 export class GrpcServer extends BaseServer<GrpcServerOptions> {
-  declare readonly server: Server;
-  declare protected connectionPool: GrpcConnectionPoolManager;
+  readonly server: Server;
+  protected connectionPool: GrpcConnectionPoolManager;
   options: GrpcServerOptions;
 
   constructor(app: KoattyApplication, options: GrpcServerOptions) {
