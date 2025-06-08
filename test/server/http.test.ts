@@ -269,7 +269,7 @@ describe('HttpServer', () => {
         statusCode: 200
       };
       
-      requestHandler(mockReq, mockRes);
+      requestHandler(mockReq as any, mockRes as any);
       expect(mockApp.callback).toHaveBeenCalled();
     });
 
