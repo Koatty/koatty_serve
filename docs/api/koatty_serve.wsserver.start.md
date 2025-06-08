@@ -7,8 +7,15 @@
 **Signature:**
 
 ```typescript
-Start(): NativeServer;
+Start(listenCallback?: () => void): NativeServer;
 ```
+
+## Parameters
+
+|  Parameter | Type | Description |
+|  --- | --- | --- |
+|  listenCallback | () =&gt; void | _(Optional)_ |
+
 **Returns:**
 
 NativeServer

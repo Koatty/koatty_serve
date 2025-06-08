@@ -23,17 +23,14 @@ export declare class MultiProtocolServer implements KoattyServer
 
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
-|  [listenCallback?](./koatty_serve.multiprotocolserver.listencallback.md) |  | () =&gt; void | _(Optional)_ |
 |  [options](./koatty_serve.multiprotocolserver.options.md) | <code>readonly</code> | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
-|  [protocol](./koatty_serve.multiprotocolserver.protocol.md) | <code>readonly</code> | string |  |
-|  [server](./koatty_serve.multiprotocolserver.server.md) | <code>readonly</code> | any |  |
-|  [status](./koatty_serve.multiprotocolserver.status.md) |  | number |  |
 
 ## Methods
 
 |  Method | Modifiers | Description |
 |  --- | --- | --- |
 |  [getAllServers()](./koatty_serve.multiprotocolserver.getallservers.md) |  | Get all running servers |
+|  [getFailedServers()](./koatty_serve.multiprotocolserver.getfailedservers.md) |  | Get all failed servers |
 |  [getNativeServer(protocolType, port)](./koatty_serve.multiprotocolserver.getnativeserver.md) |  | Get native server by protocol and port |
 |  [getServer(protocolType, port)](./koatty_serve.multiprotocolserver.getserver.md) |  | Get server by protocol and port |
 |  [getStatus(protocolType, port)](./koatty_serve.multiprotocolserver.getstatus.md) |  | Get status by protocol and port |

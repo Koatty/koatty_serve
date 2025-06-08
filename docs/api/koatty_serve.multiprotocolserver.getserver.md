@@ -9,15 +9,15 @@ Get server by protocol and port
 **Signature:**
 
 ```typescript
-getServer(protocolType: KoattyProtocol, port: number): KoattyServer | undefined;
+getServer(protocolType?: KoattyProtocol, port?: number): KoattyServer | undefined;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  protocolType | [KoattyProtocol](./koatty_serve.koattyprotocol.md) |  |
-|  port | number |  |
+|  protocolType | [KoattyProtocol](./koatty_serve.koattyprotocol.md) | _(Optional)_ |
+|  port | number | _(Optional)_ |
 
 **Returns:**
 

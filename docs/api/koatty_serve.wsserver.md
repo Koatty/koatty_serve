@@ -46,7 +46,7 @@ export declare class WsServer extends BaseServer<WebSocketServerOptions>
 |  [initializeConnectionPool()](./koatty_serve.wsserver.initializeconnectionpool.md) | <code>protected</code> | 初始化WebSocket连接池 |
 |  [onRuntimeConfigChange(analysis, newConfig, traceId)](./koatty_serve.wsserver.onruntimeconfigchange.md) | <code>protected</code> |  |
 |  [performProtocolSpecificInitialization()](./koatty_serve.wsserver.performprotocolspecificinitialization.md) | <code>protected</code> | WebSocket特定的额外初始化 |
-|  [Start()](./koatty_serve.wsserver.start.md) |  |  |
+|  [Start(listenCallback)](./koatty_serve.wsserver.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.wsserver.stopacceptingnewconnections.md) | <code>protected</code> |  |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.wsserver.waitforconnectioncompletion.md) | <code>protected</code> |  |
 
