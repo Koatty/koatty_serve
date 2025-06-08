@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.6.0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0) (2025-06-08)
+
+
+### Features
+
+* enhance connection pool management with protocol prefix filtering, WebSocket connection creation support, and improved server shutdown handling ([3dfa7ef](https://github.com/koatty/koatty_serve/commit/3dfa7ef20995ff72cfccfdb2d0849bf84b53e7bd))
+* refactor MultiProtocolServer for unified protocol management with enhanced status tracking, primary server instance handling, and improved service registration safety ([5d4c376](https://github.com/koatty/koatty_serve/commit/5d4c376bbd68c2b7beb2367d07e4f4b75f414b11))
+* refactor server configuration methods to include application context ([7f3c03f](https://github.com/koatty/koatty_serve/commit/7f3c03f9dcc79ec5bbb8d6557722722a69ebb956))
+
+
+### Bug Fixes
+
+* add interval references and prevent resource leaks in all connection pool managers ([9a25034](https://github.com/koatty/koatty_serve/commit/9a2503422646943e41cc0a0cb8620e0ada83c3f2))
+* add interval references and prevent resource leaks in ConnectionPoolManager ([4a2a0da](https://github.com/koatty/koatty_serve/commit/4a2a0da4e7917bf82766ee47d539b832b5b4bb23))
+* ensure proper cleanup of HTTP/2-specific monitoring intervals during server shutdown ([9a96afc](https://github.com/koatty/koatty_serve/commit/9a96afcee74d751315aad5ffaa0caf8bf23071e4))
+
 ## [2.5.0](https://github.com/koatty/koatty_serve/compare/v2.4.0...v2.5.0) (2025-06-06)
 
 
