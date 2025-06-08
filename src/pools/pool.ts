@@ -127,7 +127,7 @@ export abstract class ConnectionPoolManager<T = any> {
   
   //  修复：添加定时器引用存储
   private healthUpdateInterval?: NodeJS.Timeout;
-  private cleanupInterval?: NodeJS.Timeout;
+  protected cleanupInterval?: NodeJS.Timeout;
 
   constructor(protocol: string, config: ConnectionPoolConfig = {}) {
     this.protocol = protocol;

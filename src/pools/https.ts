@@ -42,11 +42,12 @@ interface HttpsConnectionMetadata {
 export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket> {
   private securityMetrics = {
     totalHandshakes: 0,
+    successfulHandshakes: 0,
     failedHandshakes: 0,
-    unauthorizedConnections: 0,
     averageHandshakeTime: 0
   };
-  private cleanupInterval?: NodeJS.Timeout;
+  
+  private securityMonitoringInterval?: NodeJS.Timeout;
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('https', config);
@@ -260,7 +261,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
     }
     
     if (connection && !connection.authorized) {
-      this.securityMetrics.unauthorizedConnections++;
+      this.securityMetrics.failedHandshakes++;
     }
     
     // 更新平均握手时间
@@ -362,7 +363,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    */
   private startSecurityMonitoring(): void {
     // 定期报告安全指标
-    setInterval(() => {
+    this.securityMonitoringInterval = setInterval(() => {
       this.logger.debug('HTTPS security metrics', {}, this.securityMetrics);
     }, 60000); // 每分钟
   }
@@ -527,6 +528,12 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
   async destroy(): Promise<void> {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    
+    if (this.securityMonitoringInterval) {
+      clearInterval(this.securityMonitoringInterval);
+      this.securityMonitoringInterval = undefined;
     }
     
     await super.destroy();

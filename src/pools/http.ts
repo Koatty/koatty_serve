@@ -38,12 +38,11 @@ interface HttpConnectionMetadata {
  */
 export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
   private keepAliveAgent?: any;
-  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('http', config);
     
-    // 启动定期清理
+    // 启动清理任务
     this.startCleanupTasks();
   }
 
@@ -371,9 +370,10 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
    * 销毁连接池
    */
   async destroy(): Promise<void> {
-    // 停止清理任务
+    //  修复：清理HTTP特有的定时器避免资源泄漏
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
     }
 
     // 调用父类销毁方法
