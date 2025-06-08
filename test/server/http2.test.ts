@@ -761,4 +761,353 @@ describe('Http2Server', () => {
       );
     });
   });
+
+  describe('HTTP/2 Configuration Management', () => {
+    it('should handle HTTP2 settings configuration', () => {
+      const serverWithSettings = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'auto',
+          key: 'test-key',
+          cert: 'test-cert'
+        },
+        http2: {
+          settings: {
+            headerTableSize: 4096,
+            enablePush: true,
+            maxConcurrentStreams: 100,
+            initialWindowSize: 65535,
+            maxFrameSize: 16384,
+            maxHeaderListSize: 8192
+          }
+        }
+      });
+
+      expect(serverWithSettings).toBeInstanceOf(Http2Server);
+    });
+
+    it('should extract relevant configuration for logging', () => {
+      const config = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2' as const,
+        ssl: {
+          mode: 'auto' as const,
+          allowHTTP1: false
+        },
+        connectionPool: {
+          maxConnections: 100,
+          maxSessionMemory: 10485760,
+          maxHeaderListSize: 8192
+        },
+        http2: {
+          settings: {
+            maxConcurrentStreams: 100
+          }
+        }
+      };
+
+      const extracted = (http2Server as any).extractRelevantConfig(config);
+      expect(extracted).toEqual({
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        sslMode: 'auto',
+        allowHTTP1: false,
+        connectionPool: {
+          maxConnections: 100,
+          maxSessionMemory: 10485760,
+          maxHeaderListSize: 8192
+        },
+        http2Settings: {
+          maxConcurrentStreams: 100
+        }
+      });
+    });
+
+    it('should detect configuration changes requiring restart', () => {
+      const oldConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2' as const,
+        ssl: {
+          mode: 'auto' as const,
+          key: 'old-key',
+          cert: 'old-cert'
+        }
+      };
+
+      const newConfig = {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2' as const,
+        ssl: {
+          mode: 'auto' as const,
+          key: 'new-key',
+          cert: 'new-cert'
+        }
+      };
+
+      const analysis = (http2Server as any).analyzeConfigChanges(['ssl'], oldConfig, newConfig);
+      expect(analysis.requiresRestart).toBe(true);
+    });
+
+    it('should handle runtime configuration changes', () => {
+      const analysis = {
+        requiresRestart: false,
+        changedKeys: ['connectionPool'],
+        canApplyRuntime: true
+      };
+
+      const newConfig = {
+        connectionPool: {
+          maxConnections: 200
+        }
+      };
+
+      // Test that the method exists and can be called
+      expect(() => {
+        (http2Server as any).onRuntimeConfigChange(analysis, newConfig, 'test-trace-id');
+      }).not.toThrow();
+    });
+  });
+
+  describe('HTTP/2 Connection Lifecycle', () => {
+    it('should stop accepting new connections during shutdown', async () => {
+      const traceId = 'test-trace-id';
+      
+      // Mock server close method
+      (http2Server as any).server = {
+        close: jest.fn((callback) => {
+          if (callback) callback();
+        }),
+        listening: true
+      };
+
+      await (http2Server as any).stopAcceptingNewConnections(traceId);
+      expect((http2Server as any).server.close).toHaveBeenCalled();
+    });
+
+    it('should wait for connection completion with timeout', async () => {
+      const traceId = 'test-trace-id';
+      const timeout = 1000;
+
+      // Mock connection pool with no active connections
+      (http2Server as any).connectionPool = {
+        getActiveConnectionCount: jest.fn().mockReturnValue(0)
+      };
+
+      await (http2Server as any).waitForConnectionCompletion(timeout, traceId);
+      expect((http2Server as any).connectionPool.getActiveConnectionCount).toHaveBeenCalled();
+    });
+
+    it('should force close remaining connections', async () => {
+      const traceId = 'test-trace-id';
+
+      // Mock connection pool with active connections
+      (http2Server as any).connectionPool = {
+        getActiveConnectionCount: jest.fn().mockReturnValue(2),
+        closeAllConnections: jest.fn().mockResolvedValue(undefined)
+      };
+
+      await (http2Server as any).forceCloseRemainingConnections(traceId);
+      expect((http2Server as any).connectionPool.closeAllConnections).toHaveBeenCalled();
+    });
+
+    it('should handle force shutdown', () => {
+      const traceId = 'test-trace-id';
+
+      // Mock server and monitoring cleanup
+      (http2Server as any).server = {
+        close: jest.fn()
+      };
+      (http2Server as any).server._monitoringInterval = 123;
+      const mockClearInterval = jest.spyOn(global, 'clearInterval');
+
+      (http2Server as any).forceShutdown(traceId);
+
+      expect((http2Server as any).server.close).toHaveBeenCalled();
+      expect(mockClearInterval).toHaveBeenCalledWith(123);
+      
+      mockClearInterval.mockRestore();
+    });
+  });
+
+  describe('HTTP/2 Statistics and Monitoring', () => {
+    it('should get HTTP2 statistics', () => {
+      // Mock connection pool with statistics
+      (http2Server as any).connectionPool = {
+        getConnectionStats: jest.fn().mockReturnValue({
+          activeConnections: 5,
+          totalConnections: 20,
+          activeSessions: 3,
+          totalSessions: 15
+        })
+      };
+
+      const stats = http2Server.getHttp2Stats();
+      expect(stats).toEqual({
+        activeConnections: 5,
+        totalConnections: 20,
+        activeSessions: 3,
+        totalSessions: 15
+      });
+    });
+
+    it('should return null when no connection pool exists', () => {
+      (http2Server as any).connectionPool = null;
+      const stats = http2Server.getHttp2Stats();
+      expect(stats).toBeNull();
+    });
+
+    it('should start connection pool monitoring', () => {
+      const mockSetInterval = jest.spyOn(global, 'setInterval').mockImplementation((callback, delay) => {
+        return 456 as any;
+      });
+
+      (http2Server as any).startConnectionPoolMonitoring();
+
+      expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 30000);
+      expect((http2Server as any).server._monitoringInterval).toBe(456);
+      
+      mockSetInterval.mockRestore();
+    });
+
+    it('should provide connection statistics through base class', () => {
+      // Mock connection pool
+      (http2Server as any).connectionPool = {
+        getMetrics: jest.fn().mockReturnValue({
+          activeConnections: 10,
+          totalConnections: 50,
+          connectionsPerSecond: 2.5,
+          averageLatency: 120,
+          errorRate: 0.02
+        })
+      };
+
+      const stats = http2Server.getConnectionStats();
+      expect(stats).toEqual({
+        activeConnections: 10,
+        totalConnections: 50,
+        connectionsPerSecond: 2.5,
+        averageLatency: 120,
+        errorRate: 0.02
+      });
+    });
+  });
+
+  describe('HTTP/2 Error Handling', () => {
+    it('should handle server creation errors gracefully', () => {
+      // Mock https.createSecureServer to throw an error
+      const originalCreateSecureServer = require('http2').createSecureServer;
+      require('http2').createSecureServer = jest.fn().mockImplementation(() => {
+        throw new Error('Failed to create HTTP/2 server');
+      });
+
+      expect(() => {
+        new Http2Server(mockApp as KoattyApplication, {
+          hostname: '127.0.0.1',
+          port: 3000,
+          protocol: 'http2',
+          ssl: {
+            mode: 'auto',
+            key: 'test-key',
+            cert: 'test-cert'
+          }
+        });
+      }).toThrow('Failed to create HTTP/2 server');
+
+      // Restore original function
+      require('http2').createSecureServer = originalCreateSecureServer;
+    });
+
+    it('should handle SSL configuration errors', () => {
+      expect(() => {
+        new Http2Server(mockApp as KoattyApplication, {
+          hostname: '127.0.0.1',
+          port: 3000,
+          protocol: 'http2',
+          ssl: {
+            mode: 'manual',
+            // Missing key and cert
+          }
+        });
+      }).toThrow();
+    });
+  });
+
+  describe('HTTP/2 Server Status', () => {
+    it('should provide server status', () => {
+      const status = http2Server.getStatus();
+      expect(typeof status).toBe('number');
+    });
+
+    it('should provide native server instance', () => {
+      const nativeServer = http2Server.getNativeServer();
+      expect(nativeServer).toBe((http2Server as any).server);
+    });
+
+    it('should handle graceful shutdown flow', async () => {
+      // Mock the graceful shutdown methods
+      (http2Server as any).stopAcceptingNewConnections = jest.fn().mockResolvedValue(undefined);
+      (http2Server as any).waitForConnectionCompletion = jest.fn().mockResolvedValue(undefined);
+      (http2Server as any).forceCloseRemainingConnections = jest.fn().mockResolvedValue(undefined);
+      (http2Server as any).stopMonitoringAndCleanup = jest.fn();
+
+      const options = {
+        timeout: 10000,
+        drainDelay: 2000,
+        stepTimeout: 2000
+      };
+
+      await http2Server.gracefulShutdown(options);
+
+      expect((http2Server as any).stopAcceptingNewConnections).toHaveBeenCalled();
+      expect((http2Server as any).waitForConnectionCompletion).toHaveBeenCalled();
+      expect((http2Server as any).stopMonitoringAndCleanup).toHaveBeenCalled();
+    });
+  });
+
+  describe('HTTP/2 Options Creation', () => {
+    it('should create HTTP2 options with allowHTTP1 enabled', () => {
+      const serverWithHTTP1 = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'auto',
+          allowHTTP1: true,
+          key: 'test-key',
+          cert: 'test-cert'
+        }
+      });
+
+      expect(serverWithHTTP1).toBeInstanceOf(Http2Server);
+    });
+
+    it('should create HTTP2 options with custom settings', () => {
+      const serverWithCustomSettings = new Http2Server(mockApp as KoattyApplication, {
+        hostname: '127.0.0.1',
+        port: 3000,
+        protocol: 'http2',
+        ssl: {
+          mode: 'auto',
+          key: 'test-key',
+          cert: 'test-cert'
+        },
+        http2: {
+          settings: {
+            headerTableSize: 8192,
+            enablePush: false,
+            maxConcurrentStreams: 50,
+            initialWindowSize: 32768
+          }
+        }
+      });
+
+      expect(serverWithCustomSettings).toBeInstanceOf(Http2Server);
+    });
+  });
 }); 
