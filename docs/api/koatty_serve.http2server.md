@@ -46,5 +46,6 @@ export declare class Http2Server extends BaseServer<Http2ServerOptions>
 |  [performProtocolSpecificInitialization()](./koatty_serve.http2server.performprotocolspecificinitialization.md) | <code>protected</code> | HTTP/2特定的额外初始化 |
 |  [Start(listenCallback)](./koatty_serve.http2server.start.md) |  |  |
 |  [stopAcceptingNewConnections(traceId)](./koatty_serve.http2server.stopacceptingnewconnections.md) | <code>protected</code> |  |
+|  [stopMonitoringAndCleanup(traceId)](./koatty_serve.http2server.stopmonitoringandcleanup.md) | <code>protected</code> | 重写停止监控和清理方法以处理HTTP/2特定的监控间隔 |
 |  [waitForConnectionCompletion(timeout, traceId)](./koatty_serve.http2server.waitforconnectioncompletion.md) | <code>protected</code> |  |
 
