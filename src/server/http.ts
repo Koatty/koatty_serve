@@ -354,12 +354,9 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
    */
   private startConnectionPoolMonitoring(): void {
     // Connection pool monitoring enabled (statistics collected silently)
-    const monitoringInterval = setInterval(() => {
+    this.timerManager.addTimer('http_connection_monitoring', () => {
       this.getConnectionStats(); // Collect stats but don't log
     }, 30000); // 每30秒
-
-    // 存储间隔以供清理
-    (this.server as any)._monitoringInterval = monitoringInterval;
   }
 
   /**

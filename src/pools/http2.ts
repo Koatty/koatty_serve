@@ -47,8 +47,6 @@ interface Http2SessionMetadata {
  * HTTP/2连接池管理器
  */
 export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Session> {
-  private pingInterval?: NodeJS.Timeout;
-  private healthCheckInterval?: NodeJS.Timeout;
   private readonly activeStreams = new Map<string, Set<Http2Stream>>();
 
   constructor(config: ConnectionPoolConfig = {}) {
@@ -329,9 +327,8 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   private startSessionPing(session: Http2Session, sessionId: string): void {
     const pingInterval = this.config.protocolSpecific?.keepAliveTime || 30000;
 
-    const pingTimer = setInterval(() => {
+    this.timerManager.addTimer(`http2_session_ping_${sessionId}`, () => {
       if (session.destroyed || session.closed) {
-        clearInterval(pingTimer);
         return;
       }
 
@@ -347,7 +344,6 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
         }
       } catch {
         // Ping error handled silently
-        clearInterval(pingTimer);
       }
     }, pingInterval);
   }
@@ -358,12 +354,12 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   private startHttp2MonitoringTasks(): void {
     // Ping间隔
     const pingInterval = this.config.protocolSpecific?.keepAliveTime || 30000;
-    this.pingInterval = setInterval(() => {
+    this.timerManager.addTimer('http2_ping', () => {
       this.pingAllSessions();
     }, pingInterval);
 
     // 健康检查间隔
-    this.healthCheckInterval = setInterval(() => {
+    this.timerManager.addTimer('http2_health_check', () => {
       this.performHealthCheck();
     }, 60000); // 1分钟
   }
@@ -510,17 +506,25 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
       const streams = this.activeStreams.get(sessionId);
       if (streams && streams.size > 0) {
         await new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
+          const checkTimerId = `http2_stream_check_${sessionId}`;
+          const timeoutTimerId = `http2_stream_timeout_${sessionId}`;
+
+          const cleanup = () => {
+            this.timerManager.clearTimer(checkTimerId);
+            this.timerManager.clearTimer(timeoutTimerId);
+            resolve(void 0);
+          };
+
+          // 定期检查流状态
+          this.timerManager.addTimer(checkTimerId, () => {
             if (streams.size === 0) {
-              clearInterval(checkInterval);
-              resolve(void 0);
+              cleanup();
             }
           }, 100);
 
-          // 超时处理
+          // 超时处理 - 使用setTimeout for one-time execution
           setTimeout(() => {
-            clearInterval(checkInterval);
-            resolve(void 0);
+            cleanup();
           }, timeout);
         });
       }
@@ -549,21 +553,10 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    */
   async destroy(): Promise<void> {
     try {
-      //  修复：清理HTTP/2特有的定时器避免资源泄漏
-      if (this.pingInterval) {
-        clearInterval(this.pingInterval);
-        this.pingInterval = undefined;
-      }
-
-      if (this.healthCheckInterval) {
-        clearInterval(this.healthCheckInterval);
-        this.healthCheckInterval = undefined;
-      }
-
       // 清理所有流映射
       this.activeStreams.clear();
 
-      // 调用父类的销毁方法
+      // 调用父类的销毁方法（会自动清理定时器）
       await super.destroy();
 
       this.logger.info('HTTP/2 connection pool destroyed');

@@ -281,12 +281,12 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
     const heartbeatInterval = this.config.protocolSpecific?.heartbeatInterval || 60000;
 
     // Ping interval
-    this.pingInterval = setInterval(() => {
+    this.timerManager.addTimer('websocket_ping', () => {
       this.pingAllConnections();
     }, pingInterval);
 
     // Heartbeat check interval
-    this.heartbeatInterval = setInterval(() => {
+    this.timerManager.addTimer('websocket_heartbeat', () => {
       this.cleanupDeadConnections();
     }, heartbeatInterval);
   }
@@ -422,15 +422,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   }
 
   async destroy(): Promise<void> {
-    // 停止心跳监控
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-    }
-    if (this.pingInterval) {
-      clearInterval(this.pingInterval);
-    }
-
-    // 调用父类销毁方法
+    // 调用父类销毁方法（会清理所有TimerManager的定时器）
     await super.destroy();
   }
 } 

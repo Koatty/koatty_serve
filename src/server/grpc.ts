@@ -257,11 +257,8 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   protected stopMonitoringAndCleanup(traceId: string): void {
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
 
-    // Stop cleanup interval
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = undefined;
-    }
+    // Stop all timers using TimerManager
+    this.timerManager.destroy();
 
     // Log final connection statistics
     const finalStats = this.connectionPool.getMetrics();
@@ -501,12 +498,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   private startConnectionMonitoring() {
     // Connection pool monitoring enabled (statistics collected silently)
-    const monitoringInterval = setInterval(() => {
+    this.timerManager.addTimer('grpc_connection_monitoring', () => {
       this.connectionPool.getMetrics(); // Collect stats but don't log
     }, 30000); // Every 30 seconds
-
-    // Store interval for cleanup
-    (this.server as any)._monitoringInterval = monitoringInterval;
   }
 
   /**

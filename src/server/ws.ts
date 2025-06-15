@@ -442,12 +442,6 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force WebSocket server shutdown initiated', { traceId });
 
-    // 清理监控间隔
-    if ((this.httpServer as any)._monitoringInterval) {
-      clearInterval((this.httpServer as any)._monitoringInterval);
-      (this.httpServer as any)._monitoringInterval = undefined;
-    }
-
     // 强制关闭WebSocket服务器
     this.server.close();
 
@@ -508,13 +502,10 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 启动连接池监控
    */
   private startConnectionPoolMonitoring(): void {
-    const monitoringInterval = setInterval(() => {
-      const stats = this.getConnectionStats();
-      this.logger.debug('WebSocket connection pool statistics', {}, stats);
+    // Connection pool monitoring enabled (statistics collected silently)
+    this.timerManager.addTimer('websocket_connection_monitoring', () => {
+      this.getConnectionStats(); // Collect stats but don't log
     }, 30000); // 每30秒
-
-    // 存储间隔以供清理
-    (this.httpServer as any)._monitoringInterval = monitoringInterval;
   }
 
   /**

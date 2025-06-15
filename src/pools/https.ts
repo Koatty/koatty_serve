@@ -47,8 +47,6 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
     averageHandshakeTime: 0
   };
 
-  private securityMonitoringInterval?: NodeJS.Timeout;
-
   constructor(config: ConnectionPoolConfig = {}) {
     super('https', config);
 
@@ -352,8 +350,8 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    * 启动清理任务
    */
   private startCleanupTasks(): void {
-    // 定期清理空闲连接
-    this.cleanupInterval = setInterval(() => {
+    // 定期清理空闲连接 - 使用TimerManager
+    this.timerManager.addTimer('https_idle_cleanup', () => {
       this.cleanupIdleConnections();
     }, 30000); // 每30秒
   }
@@ -514,16 +512,6 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    * 销毁连接池
    */
   async destroy(): Promise<void> {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = undefined;
-    }
-
-    if (this.securityMonitoringInterval) {
-      clearInterval(this.securityMonitoringInterval);
-      this.securityMonitoringInterval = undefined;
-    }
-
     await super.destroy();
     this.logger.info('HTTPS connection pool destroyed');
   }

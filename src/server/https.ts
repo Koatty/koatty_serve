@@ -498,12 +498,6 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force HTTPS server shutdown initiated', { traceId });
 
-    // 清理监控间隔
-    if ((this.server as any)._monitoringInterval) {
-      clearInterval((this.server as any)._monitoringInterval);
-      (this.server as any)._monitoringInterval = undefined;
-    }
-
     // 强制关闭HTTPS服务器
     this.server.close();
 
@@ -558,12 +552,9 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    */
   private startConnectionPoolMonitoring(): void {
     // Connection pool monitoring enabled (statistics collected silently)
-    const monitoringInterval = setInterval(() => {
+    this.timerManager.addTimer('https_connection_monitoring', () => {
       this.getConnectionStats(); // Collect stats but don't log
     }, 30000); // 每30秒
-
-    // 存储间隔以供清理
-    (this.server as any)._monitoringInterval = monitoringInterval;
   }
 
   /**

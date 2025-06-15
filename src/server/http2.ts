@@ -477,13 +477,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   protected stopMonitoringAndCleanup(traceId: string): void {
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
 
-    // 清理HTTP/2特定的监控间隔
-    if ((this.server as any)._monitoringInterval) {
-      clearInterval((this.server as any)._monitoringInterval);
-      (this.server as any)._monitoringInterval = undefined;
-    }
-
-    // 调用父类的清理方法
+    // 调用父类的清理方法（会清理所有TimerManager的定时器）
     super.stopMonitoringAndCleanup(traceId);
   }
 
@@ -534,13 +528,10 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
    * 启动连接池监控
    */
   private startConnectionPoolMonitoring(): void {
-    const monitoringInterval = setInterval(() => {
-      const stats = this.getConnectionStats();
-      this.logger.debug('HTTP/2 connection pool statistics', {}, stats);
+    // Connection pool monitoring enabled (statistics collected silently)
+    this.timerManager.addTimer('http2_connection_monitoring', () => {
+      this.getConnectionStats(); // Collect stats but don't log
     }, 30000); // 每30秒
-
-    // 存储间隔以供清理
-    (this.server as any)._monitoringInterval = monitoringInterval;
   }
 
   /**
