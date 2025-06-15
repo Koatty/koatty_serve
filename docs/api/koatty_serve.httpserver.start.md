@@ -7,7 +7,7 @@
 **Signature:**
 
 ```typescript
-Start(listenCallback?: () => void): Server;
+Start(listenCallback?: () => void): NativeServer;
 ```
 
 ## Parameters
@@ -18,5 +18,5 @@ Start(listenCallback?: () => void): Server;
 
 **Returns:**
 
-Server
+NativeServer
 
