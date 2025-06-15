@@ -307,11 +307,11 @@ describe('WsServer', () => {
           connectionHandler(mockWebSocket, mockRequest);
         }).not.toThrow();
         
-        // Verify message handler was set up
-        expect(mockWebSocket.on).toHaveBeenCalledWith('message', expect.any(Function));
+        // Verify event handlers were set up (message handler is handled by application layer)
         expect(mockWebSocket.on).toHaveBeenCalledWith('error', expect.any(Function));
         expect(mockWebSocket.on).toHaveBeenCalledWith('close', expect.any(Function));
         expect(mockWebSocket.on).toHaveBeenCalledWith('pong', expect.any(Function));
+        // Note: message handler is not set up by server, it's handled by application layer
       }
     });
 
@@ -925,36 +925,31 @@ describe('WsServer', () => {
       };
 
       (wsServer as any).httpServer = {
-        close: jest.fn(),
-        _monitoringInterval: 789
+        close: jest.fn()
       };
 
-      const mockClearInterval = jest.spyOn(global, 'clearInterval');
       const mockStopMonitoring = jest.spyOn(wsServer as any, 'stopMonitoringAndCleanup').mockImplementation();
 
       (wsServer as any).forceShutdown(traceId);
 
       expect((wsServer as any).server.close).toHaveBeenCalled();
       expect((wsServer as any).httpServer.close).toHaveBeenCalled();
-      expect(mockClearInterval).toHaveBeenCalledWith(789);
       expect(mockStopMonitoring).toHaveBeenCalled();
 
-      mockClearInterval.mockRestore();
       mockStopMonitoring.mockRestore();
     });
   });
 
   describe('WebSocket Monitoring and Statistics', () => {
     it('should start connection pool monitoring', () => {
-      const mockSetInterval = jest.spyOn(global, 'setInterval').mockImplementation((callback, delay) => {
-        return 999 as any;
-      });
+      const timerManager = (wsServer as any).timerManager;
+      const initialTimerCount = timerManager.getActiveTimerCount();
 
       (wsServer as any).startConnectionPoolMonitoring();
 
-      expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 30000);
-
-      mockSetInterval.mockRestore();
+      // Should have added a monitoring timer
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(initialTimerCount);
+      expect(timerManager.getTimerNames()).toContain('websocket_connection_monitoring');
     });
 
     it('should provide connection statistics', () => {

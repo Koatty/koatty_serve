@@ -824,12 +824,16 @@ describe('GrpcServer', () => {
     it('should stop monitoring and cleanup', () => {
       const traceId = 'test-trace-id';
       
-      // Set cleanup interval
-      (grpcServer as any).cleanupInterval = setInterval(() => {}, 1000);
+      // Add some timers to the TimerManager
+      const timerManager = (grpcServer as any).timerManager;
+      timerManager.addTimer('test_timer', () => {}, 1000);
+      
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(0);
       
       (grpcServer as any).stopMonitoringAndCleanup(traceId);
       
-      expect((grpcServer as any).cleanupInterval).toBeUndefined();
+      // TimerManager should be destroyed, so no active timers
+      expect(timerManager.getActiveTimerCount()).toBe(0);
     });
 
     it('should force shutdown server', () => {
@@ -857,9 +861,14 @@ describe('GrpcServer', () => {
     it('should start connection monitoring', () => {
       jest.useFakeTimers();
       
+      const timerManager = (grpcServer as any).timerManager;
+      const initialTimerCount = timerManager.getActiveTimerCount();
+      
       (grpcServer as any).startConnectionMonitoring();
       
-      expect((grpcServer as any).server._monitoringInterval).toBeDefined();
+      // Should have added a monitoring timer
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(initialTimerCount);
+      expect(timerManager.getTimerNames()).toContain('grpc_connection_monitoring');
       
       // Fast-forward time to trigger monitoring
       jest.advanceTimersByTime(30000);

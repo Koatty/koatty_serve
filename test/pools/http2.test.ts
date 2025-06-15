@@ -404,7 +404,7 @@ describe('Http2ConnectionPoolManager', () => {
 
       const sessionId = (poolManager as any).findHttp2SessionId(mockSession);
       expect(sessionId).toBeTruthy();
-      
+        
       // 验证流集合初始化
       const activeStreams = (poolManager as any).activeStreams;
       expect(activeStreams.get(sessionId)).toBeInstanceOf(Set);
@@ -415,7 +415,7 @@ describe('Http2ConnectionPoolManager', () => {
       expect(success).toBe(true);
 
       const sessionId = (poolManager as any).findHttp2SessionId(mockSession);
-      expect(sessionId).toBeTruthy();
+        expect(sessionId).toBeTruthy();
       
       // 验证metadata包含streamErrors字段
       const metadata = (poolManager as any).connectionMetadata.get(sessionId);
@@ -438,7 +438,7 @@ describe('Http2ConnectionPoolManager', () => {
       }).not.toThrow();
       
       // 验证ping被调用（通过模拟的会话）
-      expect(mockSession.ping).toHaveBeenCalled();
+        expect(mockSession.ping).toHaveBeenCalled();
     });
 
     it('should ping all sessions', () => {
@@ -464,10 +464,10 @@ describe('Http2ConnectionPoolManager', () => {
       
       // 调用pingAllSessions而不是pingSession
       (poolManager as any).pingAllSessions();
-      
-      // Wait for ping response
-      await new Promise(resolve => setTimeout(resolve, 20));
-      expect(mockSession.ping).toHaveBeenCalled();
+        
+        // Wait for ping response
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(mockSession.ping).toHaveBeenCalled();
     });
   });
 
@@ -514,8 +514,8 @@ describe('Http2ConnectionPoolManager', () => {
         metadata.lastPingTime = Date.now() - 60000; // 1分钟前
         metadata.lastPingAck = undefined; // 没有响应
       }
-      
-      expect(poolManager.isConnectionHealthy(sessionWithPingTimeout)).toBe(false);
+        
+        expect(poolManager.isConnectionHealthy(sessionWithPingTimeout)).toBe(false);
     });
   });
 
@@ -531,8 +531,10 @@ describe('Http2ConnectionPoolManager', () => {
         }
       });
 
-      expect((monitoringPool as any).pingInterval).toBeDefined();
-      expect((monitoringPool as any).healthCheckInterval).toBeDefined();
+      // 验证TimerManager已经初始化并且有定时器
+      const timerManager = (monitoringPool as any).timerManager;
+      expect(timerManager).toBeDefined();
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(0);
       
       jest.useRealTimers();
     });
@@ -563,16 +565,16 @@ describe('Http2ConnectionPoolManager', () => {
         maxConnections: 5
       });
 
-      const pingInterval = (monitoringPool as any).pingInterval;
-      const healthCheckInterval = (monitoringPool as any).healthCheckInterval;
+      const timerManager = (monitoringPool as any).timerManager;
+      const initialTimerCount = timerManager.getActiveTimerCount();
       
-      expect(pingInterval).toBeDefined();
-      expect(healthCheckInterval).toBeDefined();
+      expect(timerManager).toBeDefined();
+      expect(initialTimerCount).toBeGreaterThan(0);
       
       await monitoringPool.destroy();
       
-      expect((monitoringPool as any).pingInterval).toBeUndefined();
-      expect((monitoringPool as any).healthCheckInterval).toBeUndefined();
+      // TimerManager应该被销毁，所有定时器都被清理
+      expect(timerManager.getActiveTimerCount()).toBe(0);
     });
   });
 

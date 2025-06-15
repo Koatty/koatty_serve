@@ -692,12 +692,12 @@ describe('HttpsConnectionPoolManager', () => {
     });
 
     it('should start security monitoring on initialization', () => {
-      const startSecurityMonitoringSpy = jest.spyOn(HttpsConnectionPoolManager.prototype as any, 'startSecurityMonitoring').mockImplementation(() => {});
+      const poolManager = new HttpsConnectionPoolManager(defaultConfig);
       
-      new HttpsConnectionPoolManager(defaultConfig);
-      
-      expect(startSecurityMonitoringSpy).toHaveBeenCalled();
-      startSecurityMonitoringSpy.mockRestore();
+      // 验证TimerManager已经初始化并且有定时器
+      const timerManager = (poolManager as any).timerManager;
+      expect(timerManager).toBeDefined();
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(0);
     });
 
     it('should update security metrics on successful handshake', () => {
@@ -759,13 +759,18 @@ describe('HttpsConnectionPoolManager', () => {
     });
 
     it('should start and stop security monitoring intervals', () => {
-      // Mock the startSecurityMonitoring method
-      const startSecurityMonitoringSpy = jest.spyOn(poolManager as any, 'startSecurityMonitoring').mockImplementation(() => {});
+      // 验证TimerManager管理定时器
+      const timerManager = (poolManager as any).timerManager;
+      const initialTimerCount = timerManager.getActiveTimerCount();
       
-      (poolManager as any).startSecurityMonitoring();
+      // Add a test timer to verify timer management
+      timerManager.addTimer('test_security_timer', () => {}, 1000);
       
-      expect(startSecurityMonitoringSpy).toHaveBeenCalled();
-      startSecurityMonitoringSpy.mockRestore();
+      expect(timerManager.getActiveTimerCount()).toBe(initialTimerCount + 1);
+      
+      // 清理定时器
+      timerManager.clearTimer('test_security_timer');
+      expect(timerManager.getActiveTimerCount()).toBe(initialTimerCount);
     });
   });
 
@@ -1085,21 +1090,13 @@ describe('HttpsConnectionPoolManager', () => {
     });
 
     it('should handle destroy with cleanup of intervals', async () => {
-      // Set up intervals
-      (poolManager as any).cleanupInterval = setInterval(() => {}, 1000);
-      (poolManager as any).securityMonitoringInterval = setInterval(() => {}, 1000);
-      
-      const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+      // 在新架构中，定时器由TimerManager管理，不再有独立的securityMonitoringInterval
       const superDestroySpy = jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(poolManager)), 'destroy').mockResolvedValue(undefined);
       
       await poolManager.destroy();
       
-      expect(clearIntervalSpy).toHaveBeenCalledTimes(2);
       expect(superDestroySpy).toHaveBeenCalled();
-      expect((poolManager as any).cleanupInterval).toBeUndefined();
-      expect((poolManager as any).securityMonitoringInterval).toBeUndefined();
       
-      clearIntervalSpy.mockRestore();
       superDestroySpy.mockRestore();
     });
   });

@@ -506,8 +506,8 @@ describe('WebSocketConnectionPoolManager', () => {
     });
 
     it('should cleanup stale connections', async () => {
-      const result = await poolManager.requestConnection();
-      expect(result.success).toBe(true);
+        const result = await poolManager.requestConnection();
+        expect(result.success).toBe(true);
 
       if (result.connection) {
         // Release connection to make it available
@@ -566,19 +566,19 @@ describe('WebSocketConnectionPoolManager', () => {
       expect(result.success).toBe(true);
 
       if (result.connection) {
-        await (poolManager as any).setupProtocolSpecificHandlers(result.connection);
+      await (poolManager as any).setupProtocolSpecificHandlers(result.connection);
 
-        // Simulate open event
-        const openHandler = mockWebSocket.on.mock.calls.find(call => call[0] === 'open')?.[1];
-        if (openHandler) {
-          openHandler();
-          
-          // Check metadata updated
-          const connectionId = (poolManager as any).findConnectionId(result.connection);
-          const metadata = (poolManager as any).connectionMetadata.get(connectionId);
-          expect(metadata.isAlive).toBe(true);
-          expect(metadata.lastUsed).toBeTruthy();
-        }
+      // Simulate open event
+      const openHandler = mockWebSocket.on.mock.calls.find(call => call[0] === 'open')?.[1];
+      if (openHandler) {
+        openHandler();
+        
+        // Check metadata updated
+        const connectionId = (poolManager as any).findConnectionId(result.connection);
+        const metadata = (poolManager as any).connectionMetadata.get(connectionId);
+        expect(metadata.isAlive).toBe(true);
+        expect(metadata.lastUsed).toBeTruthy();
+      }
       }
     }, 10000);
 
@@ -587,12 +587,12 @@ describe('WebSocketConnectionPoolManager', () => {
       expect(result.success).toBe(true);
 
       if (result.connection) {
-        const foundId = (poolManager as any).findWebSocketConnectionId(result.connection);
-        expect(foundId).toBeTruthy();
-        
-        // Test with non-existent connection
-        const nonExistentId = (poolManager as any).findWebSocketConnectionId({} as any);
-        expect(nonExistentId).toBeNull();
+      const foundId = (poolManager as any).findWebSocketConnectionId(result.connection);
+      expect(foundId).toBeTruthy();
+      
+      // Test with non-existent connection
+      const nonExistentId = (poolManager as any).findWebSocketConnectionId({} as any);
+      expect(nonExistentId).toBeNull();
       }
     }, 10000);
   });
@@ -624,13 +624,13 @@ describe('WebSocketConnectionPoolManager', () => {
 
   describe('Destroy and Cleanup', () => {
     it('should properly destroy timers and cleanup resources', async () => {
-      const poolWithTimers = new WebSocketConnectionPoolManager({
-        maxConnections: 5,
-        protocolSpecific: {
-          pingInterval: 1000,
-          heartbeatInterval: 2000
-        }
-      });
+        const poolWithTimers = new WebSocketConnectionPoolManager({
+          maxConnections: 5,
+          protocolSpecific: {
+            pingInterval: 1000,
+            heartbeatInterval: 2000
+          }
+        });
 
       try {
         // Verify timers are created

@@ -1027,12 +1027,12 @@ describe('HttpsServer', () => {
         hostname: '127.0.0.1',
         port: 3443,
         protocol: 'https',
-          ssl: { 
-            mode: 'manual',
-            key: 'test-key',
-            cert: 'test-cert'
-          }
-        });
+        ssl: {
+          mode: 'manual',
+          key: 'test-key',
+          cert: 'test-cert'
+        }
+      });
 
         // Mock getActiveConnectionCount to simulate connections
         let connectionCount = 2;
@@ -1115,10 +1115,9 @@ describe('HttpsServer', () => {
           }
         });
 
-        // Mock server with monitoring interval
+        // Mock server
         const mockClose = jest.fn();
         (httpsServer as any).server = {
-          _monitoringInterval: 12345,
           close: mockClose
         };
 
@@ -1146,28 +1145,20 @@ describe('HttpsServer', () => {
           }
         });
 
-        // Mock setInterval using jest spyOn instead of global replacement
-        const mockSetInterval = jest.spyOn(global, 'setInterval').mockReturnValue(98765 as any);
-
         // Mock getConnectionStats
         (httpsServer as any).getConnectionStats = jest.fn().mockReturnValue({
           activeConnections: 5,
           totalConnections: 100
         });
 
+        const timerManager = (httpsServer as any).timerManager;
+        const initialTimerCount = timerManager.getActiveTimerCount();
+
         (httpsServer as any).startConnectionPoolMonitoring();
 
-        expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 30000);
-        expect((httpsServer as any).server._monitoringInterval).toBe(98765);
-
-        // Trigger the interval callback
-        const intervalCallback = mockSetInterval.mock.calls[0][0];
-        intervalCallback();
-
-        expect((httpsServer as any).getConnectionStats).toHaveBeenCalled();
-        
-        // Clean up
-        mockSetInterval.mockRestore();
+        // Should have added a monitoring timer
+        expect(timerManager.getActiveTimerCount()).toBeGreaterThan(initialTimerCount);
+        expect(timerManager.getTimerNames()).toContain('https_connection_monitoring');
     });
   });
 
@@ -1202,7 +1193,7 @@ describe('HttpsServer', () => {
         hostname: '127.0.0.1',
         port: 3443,
         protocol: 'https',
-          ssl: { 
+        ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
@@ -1252,7 +1243,7 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
