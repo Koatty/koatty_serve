@@ -106,7 +106,7 @@ export abstract class ConnectionPoolManager<T = any> {
   protected readonly protocol: string;
   protected readonly startTime = Date.now();
   protected eventListeners = new Map<ConnectionPoolEvent, Set<Function>>();
-  
+
   // 连接池核心数据
   protected connections = new Map<string, T>();           // 活跃连接
   protected connectionMetadata = new Map<string, any>();  // 连接元数据
@@ -120,11 +120,11 @@ export abstract class ConnectionPoolManager<T = any> {
   // 统计和健康状态
   protected metrics: ConnectionPoolMetrics;
   protected currentHealth: ConnectionPoolHealth;
-  
+
   // 性能监控
   private latencyBuffer: number[] = [];
   private lastMetricsUpdate = Date.now();
-  
+
   //  修复：添加定时器引用存储
   private healthUpdateInterval?: NodeJS.Timeout;
   protected cleanupInterval?: NodeJS.Timeout;
@@ -132,10 +132,10 @@ export abstract class ConnectionPoolManager<T = any> {
   constructor(protocol: string, config: ConnectionPoolConfig = {}) {
     this.protocol = protocol;
     this.config = this.validateAndNormalizeConfig(config);
-    
-    this.logger = createLogger({ 
-      module: 'connection_pool', 
-      protocol: this.protocol 
+
+    this.logger = createLogger({
+      module: 'connection_pool',
+      protocol: this.protocol
     });
 
     // 初始化指标
@@ -225,7 +225,7 @@ export abstract class ConnectionPoolManager<T = any> {
   async requestConnection(options: ConnectionRequestOptions = {}): Promise<ConnectionRequestResult<T>> {
     const startTime = Date.now();
     const timeout = options.timeout || this.config.connectionTimeout || 30000;
-    
+
     try {
       // 检查连接池是否可用
       if (!this.canAcceptConnection()) {
@@ -234,7 +234,7 @@ export abstract class ConnectionPoolManager<T = any> {
           currentConnections: this.getActiveConnectionCount(),
           maxConnections: this.config.maxConnections
         });
-        
+
         return {
           connection: null,
           success: false,
@@ -320,7 +320,7 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   async releaseConnection(connection: T, options: { destroy?: boolean; error?: Error } = {}): Promise<boolean> {
     const traceId = generateTraceId();
-    
+
     try {
       // 查找连接ID
       const connectionId = this.findConnectionId(connection);
@@ -332,16 +332,16 @@ export abstract class ConnectionPoolManager<T = any> {
       if (options.destroy || options.error) {
         // 销毁连接
         await this.removeConnection(connection, options.error?.message || 'Explicitly destroyed');
-        this.logger.debug('Connection destroyed', { traceId }, { connectionId });
+        // Connection destroyed
       } else {
         // 标记连接为可用状态，可以被其他请求复用
         this.markConnectionAvailable(connectionId);
-        this.logger.debug('Connection released and marked available', { traceId }, { connectionId });
+        // Connection released and marked available
       }
 
       // 处理等待队列
       await this.processWaitingQueue();
-      
+
       return true;
     } catch (error) {
       this.logger.error('Failed to release connection', { traceId }, error);
@@ -354,7 +354,7 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   async addConnection(connection: T, metadata: any = {}): Promise<boolean> {
     const connectionId = this.generateConnectionId();
-    
+
     try {
       if (!this.validateConnection(connection)) {
         throw new Error('Invalid connection');
@@ -376,8 +376,8 @@ export abstract class ConnectionPoolManager<T = any> {
 
       this.recordConnectionEvent('added', { connectionId, metadata });
       this.emitEvent(ConnectionPoolEvent.CONNECTION_ADDED, { connectionId, connection });
-      
-      this.logger.debug('Connection added to pool', {}, { connectionId });
+
+      // Connection added to pool
       return true;
     } catch (error) {
       this.logger.error('Failed to add connection to pool', {}, error);
@@ -399,8 +399,8 @@ export abstract class ConnectionPoolManager<T = any> {
 
       this.recordConnectionEvent('removed', { connectionId, reason });
       this.emitEvent(ConnectionPoolEvent.CONNECTION_REMOVED, { connectionId, reason });
-      
-      this.logger.debug('Connection removed from pool', {}, { connectionId, reason });
+
+      // Connection removed from pool
     } catch (error) {
       this.logger.error('Error removing connection from pool', {}, error);
     }
@@ -423,12 +423,12 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   async closeAllConnections(timeout: number = 5000): Promise<void> {
     const traceId = generateTraceId();
-    this.logger.info('Closing all connections', { traceId }, { 
-      activeConnections: this.connections.size 
+    this.logger.info('Closing all connections', { traceId }, {
+      activeConnections: this.connections.size
     });
 
     const closePromises: Promise<void>[] = [];
-    
+
     for (const [connectionId, connection] of this.connections) {
       closePromises.push(
         this.removeConnection(connection, 'Pool shutdown').catch(error => {
@@ -440,7 +440,7 @@ export abstract class ConnectionPoolManager<T = any> {
     try {
       await Promise.race([
         Promise.all(closePromises),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Close timeout')), timeout)
         )
       ]);
@@ -489,7 +489,7 @@ export abstract class ConnectionPoolManager<T = any> {
   canAcceptConnection(): boolean {
     const maxConnections = this.config.maxConnections;
     if (!maxConnections) return true;
-    
+
     const currentConnections = this.getActiveConnectionCount();
     return currentConnections < maxConnections;
   }
@@ -501,7 +501,7 @@ export abstract class ConnectionPoolManager<T = any> {
     const activeConnections = this.getActiveConnectionCount();
     const maxConnections = this.config.maxConnections || Infinity;
     const utilizationRatio = maxConnections === Infinity ? 0 : activeConnections / maxConnections;
-    
+
     let status = ConnectionPoolStatus.HEALTHY;
     let message = 'Connection pool is healthy';
 
@@ -550,10 +550,10 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   getMetrics(): ConnectionPoolMetrics {
     const uptime = Date.now() - this.startTime;
-    
+
     // Update performance metrics
     this.updatePerformanceMetrics();
-    
+
     return {
       ...this.metrics,
       uptime,
@@ -574,7 +574,7 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   async updateConfig(newConfig: Partial<ConnectionPoolConfig>): Promise<boolean> {
     const traceId = generateTraceId();
-    
+
     try {
       this.logger.info('Updating connection pool configuration', { traceId }, {
         oldConfig: this.config,
@@ -588,7 +588,7 @@ export abstract class ConnectionPoolManager<T = any> {
 
       // Apply new configuration
       Object.assign(this.config, updatedConfig);
-      
+
       // Update configuration in metrics
       this.metrics.poolConfig = this.config;
 
@@ -659,7 +659,7 @@ export abstract class ConnectionPoolManager<T = any> {
   private updatePerformanceMetrics(): void {
     const now = Date.now();
     const timeDiff = (now - this.lastMetricsUpdate) / 1000;
-    
+
     if (timeDiff > 0) {
       this.metrics.connectionsPerSecond = this.metrics.totalConnections / ((now - this.startTime) / 1000);
       this.metrics.performance.throughput = this.metrics.totalConnections / timeDiff;
@@ -669,13 +669,13 @@ export abstract class ConnectionPoolManager<T = any> {
     if (this.latencyBuffer.length > 0) {
       const sorted = this.latencyBuffer.sort((a, b) => a - b);
       const len = sorted.length;
-      
+
       this.metrics.performance.latency.p50 = sorted[Math.floor(len * 0.5)];
       this.metrics.performance.latency.p95 = sorted[Math.floor(len * 0.95)];
       this.metrics.performance.latency.p99 = sorted[Math.floor(len * 0.99)];
-      
+
       this.metrics.averageLatency = sorted.reduce((a, b) => a + b) / len;
-      
+
       // 清空缓冲区，避免内存泄漏
       if (this.latencyBuffer.length > 1000) {
         this.latencyBuffer = this.latencyBuffer.slice(-500);
@@ -718,11 +718,7 @@ export abstract class ConnectionPoolManager<T = any> {
       });
     });
 
-    if (connectionsToRemove.length > 0) {
-      this.logger.debug('Cleaned up expired connections', {}, { 
-        count: connectionsToRemove.length 
-      });
-    }
+    // Expired connections cleaned up silently (if any)
   }
 
   /**
@@ -746,7 +742,7 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   protected recordConnectionEvent(event: 'added' | 'removed' | 'error', _metadata?: any): void {
     const timestamp = Date.now();
-    
+
     switch (event) {
       case 'added':
         this.metrics.totalConnections++;
@@ -779,21 +775,21 @@ export abstract class ConnectionPoolManager<T = any> {
    */
   async destroy(): Promise<void> {
     const traceId = generateTraceId();
-    
+
     this.logger.info('Destroying connection pool manager', { traceId });
-    
+
     try {
       //  修复：清理定时器避免资源泄漏
       if (this.healthUpdateInterval) {
         clearInterval(this.healthUpdateInterval);
         this.healthUpdateInterval = undefined;
       }
-      
+
       if (this.cleanupInterval) {
         clearInterval(this.cleanupInterval);
         this.cleanupInterval = undefined;
       }
-      
+
       // 清理等待队列
       this.waitingQueue.forEach(item => {
         item.resolve({
@@ -807,7 +803,7 @@ export abstract class ConnectionPoolManager<T = any> {
 
       await this.closeAllConnections(5000);
       this.eventListeners.clear();
-      
+
       this.logger.info('Connection pool manager destroyed successfully', { traceId });
     } catch (error) {
       this.logger.error('Error destroying connection pool manager', { traceId }, error);
@@ -836,7 +832,7 @@ export abstract class ConnectionPoolManager<T = any> {
       // 设置协议特定的连接处理
       await this.setupProtocolSpecificHandlers(connection);
     }
-    
+
     return success;
   }
 

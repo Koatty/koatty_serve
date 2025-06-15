@@ -6,8 +6,8 @@
  * @LastEditTime: 2024-11-27 23:30:00
  */
 
-import { 
-  ConnectionPoolManager, 
+import {
+  ConnectionPoolManager,
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
@@ -63,9 +63,9 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
    * 验证gRPC连接
    */
   protected validateConnection(connection: GrpcConnection): boolean {
-    return connection && 
-           typeof connection.peer === 'string' && 
-           !connection.cancelled;
+    return connection &&
+      typeof connection.peer === 'string' &&
+      !connection.cancelled;
   }
 
   /**
@@ -102,21 +102,21 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
    */
   isConnectionHealthy(connection: GrpcConnection): boolean {
     if (!connection) return false;
-    
+
     const connectionId = this.findGrpcConnectionId(connection);
     if (!connectionId) return false;
-    
+
     const metadata = this.connectionMetadata.get(connectionId) as GrpcConnectionMetadata;
     if (!metadata) return false;
-    
+
     // 检查连接状态
     const isHealthy = !connection.cancelled;
-    
+
     // 检查是否超时
     const now = Date.now();
     const maxIdleTime = this.config.connectionTimeout || 300000; // 5分钟
     const isIdle = metadata.available && (now - metadata.lastUsed) > maxIdleTime;
-    
+
     return isHealthy && !isIdle;
   }
 
@@ -144,11 +144,11 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
     };
 
     const success = await this.addConnection(connection, metadata);
-    
+
     if (success) {
       this.setupConnectionEventHandlers(connection);
     }
-    
+
     return success;
   }
 
@@ -160,10 +160,7 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
     if (!connectionId) return;
 
     // 简化的事件处理，避免复杂的gRPC类型
-    this.logger.debug('gRPC connection event handlers set up', {}, { 
-      connectionId, 
-      peer: connection.peer 
-    });
+    // gRPC connection event handlers configured
 
     // 设置超时（如果有deadline）
     if (connection.deadline) {
@@ -191,16 +188,16 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
     if (metadata) {
       metadata.callCount++;
       metadata.lastUsed = Date.now();
-      
+
       if (!success) {
         metadata.errorCount++;
         metadata.lastErrorTime = Date.now();
         this.callMetrics.totalErrors++;
       }
-      
+
       // 更新调用类型统计
       this.updateCallMetrics(connection);
-      
+
       // 标记为可用
       metadata.available = true;
     }
@@ -255,8 +252,8 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
 
     for (const [id, metadata] of this.connectionMetadata) {
       const typedMetadata = metadata as GrpcConnectionMetadata;
-      if (typedMetadata.available && 
-          (now - typedMetadata.lastUsed) > maxIdleTime) {
+      if (typedMetadata.available &&
+        (now - typedMetadata.lastUsed) > maxIdleTime) {
         const connection = this.connections.get(id);
         if (connection) {
           connectionsToRemove.push({ id, connection });
@@ -271,11 +268,7 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
       });
     });
 
-    if (connectionsToRemove.length > 0) {
-      this.logger.debug('Cleaned up idle gRPC connections', {}, { 
-        count: connectionsToRemove.length 
-      });
-    }
+    // Idle gRPC connections cleaned up silently (if any)
   }
 
   /**
@@ -283,17 +276,17 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
    */
   getConnectionStats() {
     const baseStats = this.getMetrics();
-    
+
     let totalCalls = 0;
     let totalErrors = 0;
     let totalStreams = 0;
     let activeStreams = 0;
     let totalBytesReceived = 0;
     let totalBytesSent = 0;
-    
+
     for (const [connectionId, _connection] of this.connections) {
       const metadata = this.connectionMetadata.get(connectionId) as GrpcConnectionMetadata;
-      
+
       if (metadata) {
         totalCalls += metadata.callCount;
         totalErrors += metadata.errorCount;
@@ -303,7 +296,7 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
         totalBytesSent += metadata.totalBytesSent;
       }
     }
-    
+
     return {
       ...baseStats,
       grpcSpecific: {

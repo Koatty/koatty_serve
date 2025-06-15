@@ -8,8 +8,8 @@
 
 import * as WS from 'ws';
 import { IncomingMessage } from 'http';
-import { 
-  ConnectionPoolManager, 
+import {
+  ConnectionPoolManager,
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
@@ -39,7 +39,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('websocket', config);
-    
+
     // 启动心跳监控
     this.startHeartbeat();
   }
@@ -58,10 +58,10 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
     try {
       // 移除所有事件监听器
       connection.removeAllListeners();
-      
+
       // 关闭连接
-      if (connection.readyState === WS.WebSocket.OPEN || 
-          connection.readyState === WS.WebSocket.CONNECTING) {
+      if (connection.readyState === WS.WebSocket.OPEN ||
+        connection.readyState === WS.WebSocket.CONNECTING) {
         connection.terminate();
       }
     } catch (error) {
@@ -94,7 +94,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
     try {
       // 获取连接URL，优先使用options中的metadata.url
       const url = options.metadata?.url || 'ws://localhost:3000';
-      
+
       // 获取协议和选项
       const protocols = options.metadata?.protocols;
       const wsOptions: any = {
@@ -154,32 +154,32 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    */
   isConnectionHealthy(connection: WS.WebSocket): boolean {
     if (!connection) return false;
-    
+
     const isOpen = connection.readyState === WS.WebSocket.OPEN;
     const connectionId = this.findConnectionId(connection);
-    
+
     if (!connectionId) {
       // 如果连接还没有被添加到池中，只检查基本状态
       return isOpen;
     }
-    
+
     const metadata = this.connectionMetadata.get(connectionId) as WebSocketConnectionMetadata;
     if (!metadata) {
       // 如果没有元数据，只检查基本状态
       return isOpen;
     }
-    
+
     // 检查是否活跃（最近的ping/pong）
     const now = Date.now();
     const pingTimeout = this.config.protocolSpecific?.pongTimeout || 30000;
-    
+
     if (metadata.lastPingTime && !metadata.lastPongTime) {
       // 有ping但没有pong，检查超时
       if (now - metadata.lastPingTime > pingTimeout) {
         return false;
       }
     }
-    
+
     return isOpen && metadata.isAlive;
   }
 
@@ -208,9 +208,9 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
 
     // 处理连接错误
     connection.on('error', (error) => {
-      this.logger.warn('WebSocket connection error', {}, { 
-        connectionId, 
-        error: error.message 
+      this.logger.warn('WebSocket connection error', {}, {
+        connectionId,
+        error: error.message
       });
       this.removeConnection(connection, `Connection error: ${error.message}`).catch(err => {
         this.logger.error('Error removing errored connection', {}, err);
@@ -221,8 +221,8 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
     connection.on('ping', (data) => {
       try {
         connection.pong(data);
-      } catch (error) {
-        this.logger.debug('Failed to send pong', {}, { connectionId, error });
+      } catch {
+        // Pong send failed
       }
     });
 
@@ -258,7 +258,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    * 添加WebSocket连接（对外接口，使用统一的registerConnection）
    */
   async addWebSocketConnection(
-    connection: WS.WebSocket, 
+    connection: WS.WebSocket,
     request?: IncomingMessage
   ): Promise<boolean> {
     const metadata: Partial<WebSocketConnectionMetadata> = {
@@ -304,8 +304,8 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
             metadata.lastPingTime = Date.now();
             metadata.isAlive = false; // 将在pong时设为true
           }
-        } catch (error) {
-          this.logger.debug('Failed to ping connection', {}, { connectionId, error });
+        } catch {
+          // Ping failed
         }
       }
     }
@@ -316,10 +316,10 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
    */
   private cleanupDeadConnections(): void {
     const connectionsToRemove: WS.WebSocket[] = [];
-    
+
     for (const [connectionId, connection] of this.connections) {
       const metadata = this.connectionMetadata.get(connectionId) as WebSocketConnectionMetadata;
-      
+
       if (!metadata || !this.isConnectionHealthy(connection)) {
         connectionsToRemove.push(connection);
       }
@@ -332,11 +332,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
       });
     });
 
-    if (connectionsToRemove.length > 0) {
-      this.logger.debug('Cleaned up dead WebSocket connections', {}, { 
-        count: connectionsToRemove.length 
-      });
-    }
+    // Dead WebSocket connections cleaned up silently (if any)
   }
 
   /**
@@ -349,7 +345,7 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
 
     for (const [connectionId, metadata] of this.connectionMetadata) {
       const wsMetadata = metadata as WebSocketConnectionMetadata;
-      
+
       // 检查连接是否过期
       if (wsMetadata.available && (now - wsMetadata.lastUsed) > staleTimeout) {
         const connection = this.connections.get(connectionId);
@@ -375,27 +371,27 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   getConnectionStats() {
     const stats = this.getMetrics();
     const activeConnections = this.getActiveConnectionCount();
-    
+
     let availableConnections = 0;
     let healthyConnections = 0;
-    
+
     for (const [connectionId, connection] of this.connections) {
       const metadata = this.connectionMetadata.get(connectionId) as WebSocketConnectionMetadata;
-      
+
       if (metadata?.available) {
         availableConnections++;
       }
-      
+
       if (this.isConnectionHealthy(connection)) {
         healthyConnections++;
       }
     }
-    
+
     return {
       ...stats,
       availableConnections,
       healthyConnections,
-      utilizationRatio: this.config.maxConnections ? 
+      utilizationRatio: this.config.maxConnections ?
         activeConnections / this.config.maxConnections : 0
     };
   }

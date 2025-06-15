@@ -8,8 +8,8 @@
 
 import { Socket } from 'net';
 import { TLSSocket } from 'tls';
-import { 
-  ConnectionPoolManager, 
+import {
+  ConnectionPoolManager,
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
@@ -41,7 +41,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('http', config);
-    
+
     // 启动清理任务
     this.startCleanupTasks();
   }
@@ -50,10 +50,10 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
    * 验证HTTP连接
    */
   protected validateConnection(connection: Socket): boolean {
-    return connection instanceof Socket && 
-           !connection.destroyed && 
-           connection.readable && 
-           connection.writable;
+    return connection instanceof Socket &&
+      !connection.destroyed &&
+      connection.readable &&
+      connection.writable;
   }
 
   /**
@@ -101,23 +101,23 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
    */
   isConnectionHealthy(connection: Socket): boolean {
     if (!connection) return false;
-    
+
     const connectionId = this.findHttpConnectionId(connection);
     if (!connectionId) return false;
-    
+
     const metadata = this.connectionMetadata.get(connectionId) as HttpConnectionMetadata;
     if (!metadata) return false;
-    
+
     // 检查连接状态
-    const isHealthy = !connection.destroyed && 
-                     connection.readable && 
-                     connection.writable;
-    
+    const isHealthy = !connection.destroyed &&
+      connection.readable &&
+      connection.writable;
+
     // 检查是否超时
     const now = Date.now();
     const idleTimeout = this.config.keepAliveTimeout || 5000;
     const isIdle = metadata.available && (now - metadata.lastUsed) > idleTimeout;
-    
+
     return isHealthy && !isIdle;
   }
 
@@ -138,11 +138,11 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
     };
 
     const success = await this.addConnection(connection, metadata);
-    
+
     if (success) {
       this.setupConnectionEventHandlers(connection);
     }
-    
+
     return success;
   }
 
@@ -162,9 +162,9 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
 
     // 处理连接错误
     connection.on('error', (error) => {
-      this.logger.warn('HTTP connection error', {}, { 
-        connectionId, 
-        error: error.message 
+      this.logger.warn('HTTP connection error', {}, {
+        connectionId,
+        error: error.message
       });
       this.removeConnection(connection, `Connection error: ${error.message}`).catch(err => {
         this.logger.error('Error removing errored connection', {}, err);
@@ -173,7 +173,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
 
     // 处理连接超时
     connection.on('timeout', () => {
-      this.logger.debug('HTTP connection timeout', {}, { connectionId });
+      // HTTP connection timeout handled
       this.removeConnection(connection, 'Connection timeout').catch(error => {
         this.logger.error('Error removing timed out connection', {}, error);
       });
@@ -205,14 +205,14 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
       metadata.requestCount++;
       metadata.bytesSent += bytesSent;
       metadata.lastUsed = Date.now();
-      
+
       // 检查是否应该关闭连接
       const maxRequests = 100; // 可配置
       if (metadata.requestCount >= maxRequests) {
         await this.removeConnection(connection, 'Max requests reached');
         return;
       }
-      
+
       // 标记为可用状态，可以处理下一个请求
       metadata.available = true;
     }
@@ -239,7 +239,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
 
     for (const [connectionId, metadata] of this.connectionMetadata) {
       const httpMetadata = metadata as HttpConnectionMetadata;
-      
+
       // 检查连接是否空闲过久
       if (httpMetadata.available && (now - httpMetadata.lastUsed) > idleTimeout) {
         const connection = this.connections.get(connectionId);
@@ -256,11 +256,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
       });
     });
 
-    if (connectionsToRemove.length > 0) {
-      this.logger.debug('Cleaned up idle HTTP connections', {}, { 
-        count: connectionsToRemove.length 
-      });
-    }
+    // Idle HTTP connections cleaned up silently (if any)
   }
 
   /**
@@ -269,31 +265,31 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
   getConnectionStats() {
     const stats = this.getMetrics();
     const activeConnections = this.getActiveConnectionCount();
-    
+
     let availableConnections = 0;
     let totalRequests = 0;
     let totalBytesSent = 0;
     let totalBytesReceived = 0;
     let httpsConnections = 0;
-    
+
     for (const [connectionId, _connection] of this.connections) {
       const metadata = this.connectionMetadata.get(connectionId) as HttpConnectionMetadata;
-      
+
       if (metadata) {
         if (metadata.available) {
           availableConnections++;
         }
-        
+
         totalRequests += metadata.requestCount;
         totalBytesSent += metadata.bytesSent;
         totalBytesReceived += metadata.bytesReceived;
-        
+
         if (metadata.encrypted) {
           httpsConnections++;
         }
       }
     }
-    
+
     return {
       ...stats,
       availableConnections,
@@ -303,7 +299,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
       httpsConnections,
       httpConnections: activeConnections - httpsConnections,
       averageRequestsPerConnection: activeConnections > 0 ? totalRequests / activeConnections : 0,
-      utilizationRatio: this.config.maxConnections ? 
+      utilizationRatio: this.config.maxConnections ?
         activeConnections / this.config.maxConnections : 0
     };
   }
@@ -313,7 +309,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
    */
   setKeepAliveTimeout(timeout: number): void {
     this.config.keepAliveTimeout = timeout;
-    
+
     // 更新现有连接的超时设置
     for (const connection of this.connections.values()) {
       if (connection instanceof Socket) {
@@ -337,10 +333,10 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
   }> {
     const now = Date.now();
     const details: Array<any> = [];
-    
+
     for (const [connectionId, metadata] of this.connectionMetadata) {
       const httpMetadata = metadata as HttpConnectionMetadata;
-      
+
       details.push({
         id: connectionId,
         remoteAddress: httpMetadata.remoteAddress || 'unknown',
@@ -352,7 +348,7 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
         idle: now - httpMetadata.lastUsed
       });
     }
-    
+
     return details;
   }
 
@@ -396,9 +392,9 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
 
     // 处理连接错误
     connection.on('error', (error) => {
-      this.logger.warn('HTTP socket error', {}, { 
-        connectionId, 
-        error: error.message 
+      this.logger.warn('HTTP socket error', {}, {
+        connectionId,
+        error: error.message
       });
       this.removeConnection(connection, `Socket error: ${error.message}`).catch(err => {
         this.logger.error('Error removing errored HTTP connection', {}, err);

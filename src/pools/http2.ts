@@ -6,14 +6,14 @@
  * @LastEditTime: 2024-11-27 22:00:00
  */
 
-import { 
-  Http2Session, 
+import {
+  Http2Session,
   Http2Stream,
   constants as http2Constants
 } from 'http2';
 import { TLSSocket } from 'tls';
-import { 
-  ConnectionPoolManager, 
+import {
+  ConnectionPoolManager,
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
@@ -53,7 +53,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('http2', config);
-    
+
     // 启动HTTP/2特有的监控任务
     this.startHttp2MonitoringTasks();
   }
@@ -62,11 +62,11 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    * 验证HTTP/2会话
    */
   protected validateConnection(session: Http2Session): boolean {
-    return session && 
-           !session.destroyed && 
-           !session.closed &&
-           session.state &&
-           session.state.effectiveLocalWindowSize > 0;
+    return session &&
+      !session.destroyed &&
+      !session.closed &&
+      session.state &&
+      session.state.effectiveLocalWindowSize > 0;
   }
 
   /**
@@ -84,8 +84,8 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
               if (!stream.destroyed) {
                 stream.close(http2Constants.NGHTTP2_CANCEL);
               }
-            } catch (error) {
-              this.logger.debug('Error closing stream during cleanup', {}, error);
+            } catch {
+              // Stream close error handled silently
             }
           }
           this.activeStreams.delete(sessionId);
@@ -106,13 +106,13 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   protected async getAvailableConnection(): Promise<{ connection: Http2Session; id: string } | null> {
     for (const [id, metadata] of this.connectionMetadata) {
       const http2Metadata = metadata as Http2SessionMetadata;
-      
+
       // 检查会话是否可用且有容量
-      if (http2Metadata.available && 
-          !http2Metadata.isGoingAway &&
-          http2Metadata.activeStreams < http2Metadata.maxConcurrentStreams &&
-          this.isConnectionHealthy(this.connections.get(id)!)) {
-        
+      if (http2Metadata.available &&
+        !http2Metadata.isGoingAway &&
+        http2Metadata.activeStreams < http2Metadata.maxConcurrentStreams &&
+        this.isConnectionHealthy(this.connections.get(id)!)) {
+
         const session = this.connections.get(id);
         if (session) {
           // 更新使用时间
@@ -138,30 +138,30 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    */
   isConnectionHealthy(session: Http2Session): boolean {
     if (!session) return false;
-    
+
     const sessionId = this.findHttp2SessionId(session);
     if (!sessionId) return false;
-    
+
     const metadata = this.connectionMetadata.get(sessionId) as Http2SessionMetadata;
     if (!metadata) return false;
-    
+
     // 检查会话状态
-    const isSessionHealthy = !session.destroyed && 
-                            !session.closed &&
-                            !metadata.isGoingAway &&
-                            session.state &&
-                            session.state.effectiveLocalWindowSize > 0;
-    
+    const isSessionHealthy = !session.destroyed &&
+      !session.closed &&
+      !metadata.isGoingAway &&
+      session.state &&
+      session.state.effectiveLocalWindowSize > 0;
+
     // 检查ping响应时间
     const now = Date.now();
     const pingTimeout = this.config.protocolSpecific?.keepAliveTime || 30000;
-    
+
     if (metadata.lastPingTime && !metadata.lastPingAck) {
       if (now - metadata.lastPingTime > pingTimeout) {
         return false;
       }
     }
-    
+
     return isSessionHealthy;
   }
 
@@ -170,10 +170,10 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    */
   async addHttp2Session(session: Http2Session): Promise<boolean> {
     const socket = session.socket as TLSSocket;
-    
+
     // 获取会话设置
     const settings = session.localSettings || {};
-    
+
     const metadata: Partial<Http2SessionMetadata> = {
       remoteAddress: socket?.remoteAddress,
       remotePort: socket?.remotePort,
@@ -191,11 +191,11 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
     };
 
     const success = await this.addConnection(session, metadata);
-    
+
     if (success) {
       this.setupSessionEventHandlers(session);
     }
-    
+
     return success;
   }
 
@@ -218,9 +218,9 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
 
     // 处理会话错误
     session.on('error', (error) => {
-      this.logger.warn('HTTP/2 session error', {}, { 
-        sessionId, 
-        error: error.message 
+      this.logger.warn('HTTP/2 session error', {}, {
+        sessionId,
+        error: error.message
       });
       this.removeConnection(session, `Session error: ${error.message}`).catch(err => {
         this.logger.error('Error removing errored session', {}, err);
@@ -234,14 +234,14 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
         metadata.isGoingAway = true;
         metadata.available = false;
       }
-      
+
       this.logger.info('HTTP/2 session received GOAWAY', {}, {
         sessionId,
         errorCode,
         lastStreamID,
         opaqueData: opaqueData?.toString()
       });
-      
+
       // 延迟关闭会话以允许正在进行的流完成
       setTimeout(() => {
         this.removeConnection(session, `GOAWAY received: ${errorCode}`).catch(error => {
@@ -280,7 +280,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   /**
    * 处理新流
    */
-  private handleNewStream(sessionId: string, stream: Http2Stream, headers: any): void {
+  private handleNewStream(sessionId: string, stream: Http2Stream, _headers: any): void {
     const metadata = this.connectionMetadata.get(sessionId) as Http2SessionMetadata;
     if (!metadata) return;
 
@@ -291,31 +291,21 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
       metadata.totalStreams++;
       metadata.lastUsed = Date.now();
 
-      this.logger.debug('New HTTP/2 stream created', {}, {
-        sessionId,
-        streamId: stream.id,
-        method: headers[':method'],
-        path: headers[':path'],
-        activeStreams: metadata.activeStreams
-      });
+      // HTTP/2 stream created
 
       // 处理流事件
       stream.on('close', () => {
         streams.delete(stream);
         metadata.activeStreams = streams.size;
-        
-        this.logger.debug('HTTP/2 stream closed', {}, {
-          sessionId,
-          streamId: stream.id,
-          activeStreams: metadata.activeStreams
-        });
+
+        // HTTP/2 stream closed
       });
 
       stream.on('error', (error) => {
         metadata.streamErrors++;
         streams.delete(stream);
         metadata.activeStreams = streams.size;
-        
+
         this.logger.warn('HTTP/2 stream error', {}, {
           sessionId,
           streamId: stream.id,
@@ -338,7 +328,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    */
   private startSessionPing(session: Http2Session, sessionId: string): void {
     const pingInterval = this.config.protocolSpecific?.keepAliveTime || 30000;
-    
+
     const pingTimer = setInterval(() => {
       if (session.destroyed || session.closed) {
         clearInterval(pingTimer);
@@ -355,8 +345,8 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
             }
           });
         }
-      } catch (error) {
-        this.logger.debug('Error sending ping', {}, { sessionId, error });
+      } catch {
+        // Ping error handled silently
         clearInterval(pingTimer);
       }
     }, pingInterval);
@@ -394,8 +384,8 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
               }
             });
           }
-        } catch (error) {
-          this.logger.debug('Failed to ping session', {}, { sessionId, error });
+        } catch {
+          // Session ping failed
         }
       }
     }
@@ -406,7 +396,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
    */
   private performHealthCheck(): void {
     const unhealthySessions: Http2Session[] = [];
-    
+
     for (const [_sessionId, session] of this.connections) {
       if (!this.isConnectionHealthy(session)) {
         unhealthySessions.push(session);
@@ -420,11 +410,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
       });
     });
 
-    if (unhealthySessions.length > 0) {
-      this.logger.debug('Cleaned up unhealthy HTTP/2 sessions', {}, { 
-        count: unhealthySessions.length 
-      });
-    }
+    // Unhealthy HTTP/2 sessions cleaned up silently (if any)
   }
 
   /**
@@ -433,31 +419,31 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   getConnectionStats() {
     const stats = this.getMetrics();
     const activeSessions = this.getActiveConnectionCount();
-    
+
     let availableSessions = 0;
     let totalActiveStreams = 0;
     let totalStreams = 0;
     let totalStreamErrors = 0;
     let goingAwaySessions = 0;
-    
+
     for (const [sessionId, _session] of this.connections) {
       const metadata = this.connectionMetadata.get(sessionId) as Http2SessionMetadata;
-      
+
       if (metadata) {
         if (metadata.available && !metadata.isGoingAway) {
           availableSessions++;
         }
-        
+
         if (metadata.isGoingAway) {
           goingAwaySessions++;
         }
-        
+
         totalActiveStreams += metadata.activeStreams;
         totalStreams += metadata.totalStreams;
         totalStreamErrors += metadata.streamErrors;
       }
     }
-    
+
     return {
       ...stats,
       availableSessions,
@@ -466,7 +452,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
       totalStreams,
       totalStreamErrors,
       averageStreamsPerSession: activeSessions > 0 ? totalActiveStreams / activeSessions : 0,
-      utilizationRatio: this.config.maxConnections ? 
+      utilizationRatio: this.config.maxConnections ?
         activeSessions / this.config.maxConnections : 0
     };
   }
@@ -488,10 +474,10 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   }> {
     const now = Date.now();
     const details: Array<any> = [];
-    
+
     for (const [sessionId, metadata] of this.connectionMetadata) {
       const http2Metadata = metadata as Http2SessionMetadata;
-      
+
       details.push({
         id: sessionId,
         remoteAddress: http2Metadata.remoteAddress || 'unknown',
@@ -505,7 +491,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
         idle: now - http2Metadata.lastUsed
       });
     }
-    
+
     return details;
   }
 
@@ -519,7 +505,7 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
     try {
       // 发送GOAWAY帧
       session.goaway(0, 0, Buffer.from('Server shutdown'));
-      
+
       // 等待活跃流完成
       const streams = this.activeStreams.get(sessionId);
       if (streams && streams.size > 0) {
@@ -568,18 +554,18 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
         clearInterval(this.pingInterval);
         this.pingInterval = undefined;
       }
-      
+
       if (this.healthCheckInterval) {
         clearInterval(this.healthCheckInterval);
         this.healthCheckInterval = undefined;
       }
-      
+
       // 清理所有流映射
       this.activeStreams.clear();
-      
+
       // 调用父类的销毁方法
       await super.destroy();
-      
+
       this.logger.info('HTTP/2 connection pool destroyed');
     } catch (error) {
       this.logger.error('Error destroying HTTP/2 connection pool', {}, error);
