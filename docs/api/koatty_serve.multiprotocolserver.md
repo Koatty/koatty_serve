@@ -24,6 +24,7 @@ export declare class MultiProtocolServer implements KoattyServer
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [options](./koatty_serve.multiprotocolserver.options.md) | <code>readonly</code> | [ListeningOptions](./koatty_serve.listeningoptions.md) |  |
+|  [server?](./koatty_serve.multiprotocolserver.server.md) |  | NativeServer | _(Optional)_ |
 
 ## Methods
 

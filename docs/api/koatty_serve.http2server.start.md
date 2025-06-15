@@ -7,7 +7,7 @@
 **Signature:**
 
 ```typescript
-Start(listenCallback?: () => void): Http2SecureServer;
+Start(listenCallback?: () => void): NativeServer;
 ```
 
 ## Parameters
@@ -18,5 +18,5 @@ Start(listenCallback?: () => void): Http2SecureServer;
 
 **Returns:**
 
-Http2SecureServer
+NativeServer
 

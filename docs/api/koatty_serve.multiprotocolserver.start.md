@@ -9,7 +9,7 @@ Start all servers
 **Signature:**
 
 ```typescript
-Start(listenCallback?: () => void): any;
+Start(listenCallback?: () => void): NativeServer;
 ```
 
 ## Parameters
@@ -20,5 +20,5 @@ Start(listenCallback?: () => void): any;
 
 **Returns:**
 
-any
+NativeServer
 
