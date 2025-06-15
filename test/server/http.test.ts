@@ -609,10 +609,7 @@ describe('HttpServer', () => {
         (httpServer as any).onRuntimeConfigChange(analysis, newConfig, 'test-trace-id');
       }).not.toThrow();
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'HTTP runtime configuration changes applied',
-        { traceId: 'test-trace-id' }
-      );
+      // Runtime configuration changes applied successfully (debug logs removed for performance)
     });
   });
 
@@ -725,11 +722,7 @@ describe('HttpServer', () => {
       // Fast-forward time to trigger monitoring
       jest.advanceTimersByTime(30000);
       
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'HTTP connection pool statistics', 
-        {}, 
-        expect.any(Object)
-      );
+      // Connection pool statistics are now collected silently for performance
       
       jest.useRealTimers();
     });
@@ -769,15 +762,7 @@ describe('HttpServer', () => {
       jest.advanceTimersByTime(30000);
       
       expect(httpServer.getConnectionStats).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'HTTP connection pool statistics',
-        {},
-        {
-          activeConnections: 5,
-          totalConnections: 10,
-          queuedRequests: 2
-        }
-      );
+      // Connection pool monitoring is now performed silently for better performance
       
       jest.useRealTimers();
     });

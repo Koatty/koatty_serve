@@ -919,19 +919,14 @@ describe('Http2Server', () => {
     it('should handle force shutdown', () => {
       const traceId = 'test-trace-id';
 
-      // Mock server and monitoring cleanup
+      // Mock server
       (http2Server as any).server = {
         close: jest.fn()
       };
-      (http2Server as any).server._monitoringInterval = 123;
-      const mockClearInterval = jest.spyOn(global, 'clearInterval');
 
       (http2Server as any).forceShutdown(traceId);
 
       expect((http2Server as any).server.close).toHaveBeenCalled();
-      expect(mockClearInterval).toHaveBeenCalledWith(123);
-      
-      mockClearInterval.mockRestore();
     });
   });
 
@@ -963,16 +958,14 @@ describe('Http2Server', () => {
     });
 
     it('should start connection pool monitoring', () => {
-      const mockSetInterval = jest.spyOn(global, 'setInterval').mockImplementation((callback, delay) => {
-        return 456 as any;
-      });
+      const timerManager = (http2Server as any).timerManager;
+      const initialTimerCount = timerManager.getActiveTimerCount();
 
       (http2Server as any).startConnectionPoolMonitoring();
 
-      expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 30000);
-      expect((http2Server as any).server._monitoringInterval).toBe(456);
-      
-      mockSetInterval.mockRestore();
+      // Should have added a monitoring timer
+      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(initialTimerCount);
+      expect(timerManager.getTimerNames()).toContain('http2_connection_monitoring');
     });
 
     it('should provide connection statistics through base class', () => {

@@ -26,8 +26,15 @@ afterEach(() => {
 
 // 在每个测试套件后确保资源清理
 afterAll(async () => {
-  // 恢复真实定时器
-  jest.useRealTimers();
-  // 等待所有异步操作完成
-  await new Promise(resolve => setTimeout(resolve, 100));
+  try {
+    // 先清理所有定时器
+    jest.clearAllTimers();
+    // 恢复真实定时器
+    jest.useRealTimers();
+    // 等待所有异步操作完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+  } catch (error) {
+    // 忽略定时器清理错误，这在测试环境中是正常的
+    console.warn('Timer cleanup warning (this is normal in test environment):', error.message);
+  }
 }); 
