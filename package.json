@@ -93,9 +93,8 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.13.4",
-    "@modelcontextprotocol/server-sequential-thinking": "^0.6.2",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.17.1",
+    "koatty_core": "^1.18.0",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
