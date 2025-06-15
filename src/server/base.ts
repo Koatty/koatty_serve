@@ -10,6 +10,7 @@
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
 import { createLogger, generateTraceId } from "../utils/logger";
 import { deepEqual, executeWithTimeout, generateServerId } from "../utils/helper";
+import { TimerManager } from "../utils/timer-manager";
 import {
   ConnectionStats,
   ConnectionPoolStatus as HealthStatus,
@@ -59,13 +60,16 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
 
   // 连接池管理（模板方法需要的组件）
   protected connectionPool?: ConnectionPoolManager<any>;
-  protected cleanupInterval?: NodeJS.Timeout;
+  protected timerManager: TimerManager;
 
   constructor(protected app: KoattyApplication, options: T) {
     this.options = { ...options };
     this.protocol = options.protocol;
     this.status = 0;
     this.serverId = generateServerId(options.protocol);
+    
+    // 初始化定时器管理器
+    this.timerManager = new TimerManager();
 
     // 设置日志上下文
     this.logger = createLogger({
@@ -273,7 +277,7 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
   protected setupPeriodicCleanup(): void {
     if (!this.connectionPool) return;
 
-    this.cleanupInterval = setInterval(() => {
+    this.timerManager.addTimer('base_cleanup', () => {
       const metrics = this.connectionPool!.getMetrics();
       if (metrics.activeConnections === 0 && metrics.totalConnections > 0) {
         this.logger.debug(`No active ${this.protocol.toUpperCase()} connections in pool`);
@@ -335,10 +339,7 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
     this.logger.info('Step 5: Stopping monitoring and cleanup', { traceId });
 
     // 清理定期任务
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = undefined;
-    }
+    this.timerManager.destroy();
 
     // 记录最终连接统计
     if (this.connectionPool) {

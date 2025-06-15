@@ -8,6 +8,8 @@
 
 import { createLogger, generateTraceId } from "../utils/logger";
 import { ConnectionPoolConfig } from "../config/pool";
+import { TimerManager } from "../utils/timer-manager";
+import { UnifiedPoolMonitor, MonitoringTaskFactory } from "../utils/unified-pool-monitor";
 
 /**
  * 连接统计信息接口
@@ -125,9 +127,9 @@ export abstract class ConnectionPoolManager<T = any> {
   private latencyBuffer: number[] = [];
   private lastMetricsUpdate = Date.now();
 
-  //  修复：添加定时器引用存储
-  private healthUpdateInterval?: NodeJS.Timeout;
-  protected cleanupInterval?: NodeJS.Timeout;
+  //  修复：使用统一定时器管理器
+  protected timerManager: TimerManager;
+  protected unifiedMonitor: UnifiedPoolMonitor;
 
   constructor(protocol: string, config: ConnectionPoolConfig = {}) {
     this.protocol = protocol;
@@ -141,6 +143,13 @@ export abstract class ConnectionPoolManager<T = any> {
     // 初始化指标
     this.metrics = this.initializeMetrics();
     this.currentHealth = this.initializeHealth();
+    
+    // 初始化定时器管理器
+    this.timerManager = new TimerManager();
+    
+    // 初始化统一监控器
+    this.unifiedMonitor = new UnifiedPoolMonitor(this.protocol, 5000);
+    this.setupUnifiedMonitoring();
 
     this.logger.info('Connection pool manager initialized', {}, {
       protocol: this.protocol,
@@ -685,14 +694,39 @@ export abstract class ConnectionPoolManager<T = any> {
     this.lastMetricsUpdate = now;
   }
 
+  /**
+   * 设置统一监控
+   */
+  private setupUnifiedMonitoring(): void {
+    // 注册健康检查任务
+    const healthCheckTask = MonitoringTaskFactory.createHealthCheckTask(
+      () => this.updateHealthStatus(),
+      5000
+    );
+    this.unifiedMonitor.registerTask(healthCheckTask);
+
+    // 注册清理任务
+    const cleanupTask = MonitoringTaskFactory.createCleanupTask(
+      () => this.cleanupExpiredConnections(),
+      30000
+    );
+    this.unifiedMonitor.registerTask(cleanupTask);
+
+    // 启动统一监控
+    this.unifiedMonitor.startMonitoring();
+  }
+
   private startPeriodicTasks(): void {
+    // 保留原有的定时器管理器作为备用
+    // 统一监控器已经处理了这些任务
+    
     // 定期更新健康状态
-    this.healthUpdateInterval = setInterval(() => {
+    this.timerManager.addTimer('health_update', () => {
       this.updateHealthStatus();
     }, 5000);
 
     // 定期清理过期连接
-    this.cleanupInterval = setInterval(() => {
+    this.timerManager.addTimer('cleanup_expired', () => {
       this.cleanupExpiredConnections();
     }, 30000);
   }
@@ -780,15 +814,7 @@ export abstract class ConnectionPoolManager<T = any> {
 
     try {
       //  修复：清理定时器避免资源泄漏
-      if (this.healthUpdateInterval) {
-        clearInterval(this.healthUpdateInterval);
-        this.healthUpdateInterval = undefined;
-      }
-
-      if (this.cleanupInterval) {
-        clearInterval(this.cleanupInterval);
-        this.cleanupInterval = undefined;
-      }
+      this.timerManager.destroy();
 
       // 清理等待队列
       this.waitingQueue.forEach(item => {
