@@ -36,13 +36,8 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   protected initializeConnectionPool(): void {
     const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
     this.connectionPool = new HttpsConnectionPoolManager(poolConfig);
-    
-    this.logger.debug('HTTPS connection pool initialized', {}, {
-      maxConnections: poolConfig.maxConnections || 'unlimited',
-      keepAliveTimeout: poolConfig.keepAliveTimeout,
-      headersTimeout: poolConfig.headersTimeout,
-      requestTimeout: poolConfig.requestTimeout
-    });
+
+    // HTTPS connection pool initialized with configuration
   }
 
   /**
@@ -50,30 +45,30 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    */
   protected createProtocolServer(): void {
     const sslOptions = this.createSSLOptions();
-    
+
     (this as any).server = createServer(sslOptions, (req, res) => {
       const startTime = Date.now();
       this.app.callback()(req, res);
-      
+
       // 记录请求指标
       res.on('finish', () => {
         const responseTime = Date.now() - startTime;
         const success = res.statusCode < 400;
         this.recordRequest(success, responseTime);
-        
+
         // 记录HTTPS连接池请求完成
         if ((req as any).socket) {
           this.connectionPool.handleRequestComplete(
-            (req as any).socket as TLSSocket, 
+            (req as any).socket as TLSSocket,
             res.getHeaders()['content-length'] as number || 0
-          ).catch(error => {
-            this.logger.debug('Error handling HTTPS request complete', {}, error);
+          ).catch(() => {
+            // HTTPS request completion error handled silently
           });
         }
       });
     });
-    
-    this.logger.debug('HTTPS server instance created');
+
+    // HTTPS server instance created
   }
 
   /**
@@ -121,16 +116,16 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   private createAutoSSLOptions(sslConfig: SSL1Config, extConfig: any): ServerOptions {
     const keyPath = sslConfig.key || extConfig?.key;
     const certPath = sslConfig.cert || extConfig?.cert;
-    
+
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for HTTPS');
     }
-    
+
     const options: ServerOptions = {
       key: this.loadCertificate(keyPath, 'private key'),
       cert: this.loadCertificate(certPath, 'certificate')
     };
-    
+
     // 在auto模式下也处理扩展配置选项
     if (extConfig) {
       // 连接超时设置
@@ -140,12 +135,12 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       if (extConfig.sessionTimeout !== undefined) {
         options.sessionTimeout = extConfig.sessionTimeout;
       }
-      
+
       // SNI支持
       if (extConfig.SNICallback) {
         options.SNICallback = extConfig.SNICallback;
       }
-      
+
       // 会话恢复
       if (extConfig.sessionIdContext) {
         options.sessionIdContext = extConfig.sessionIdContext;
@@ -153,13 +148,13 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       if (extConfig.ticketKeys) {
         options.ticketKeys = extConfig.ticketKeys;
       }
-      
+
       // HTTP/2 兼容性
       if (extConfig.ALPNProtocols) {
         options.ALPNProtocols = extConfig.ALPNProtocols;
       }
     }
-    
+
     return options;
   }
 
@@ -170,11 +165,11 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     const keyPath = sslConfig.key || extConfig?.key;
     const certPath = sslConfig.cert || extConfig?.cert;
     const caPath = sslConfig.ca || extConfig?.ca;
-    
+
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for manual SSL mode');
     }
-    
+
     const options: ServerOptions = {
       key: this.loadCertificate(keyPath, 'private key'),
       cert: this.loadCertificate(certPath, 'certificate'),
@@ -183,11 +178,11 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       honorCipherOrder: sslConfig.honorCipherOrder,
       secureProtocol: sslConfig.secureProtocol
     };
-    
+
     if (caPath) {
       options.ca = this.loadCertificate(caPath, 'CA certificate');
     }
-    
+
     // 添加扩展配置选项
     if (extConfig) {
       // 连接超时设置
@@ -197,12 +192,12 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       if (extConfig.sessionTimeout !== undefined) {
         options.sessionTimeout = extConfig.sessionTimeout;
       }
-      
+
       // SNI支持
       if (extConfig.SNICallback) {
         options.SNICallback = extConfig.SNICallback;
       }
-      
+
       // 会话恢复
       if (extConfig.sessionIdContext) {
         options.sessionIdContext = extConfig.sessionIdContext;
@@ -210,13 +205,13 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       if (extConfig.ticketKeys) {
         options.ticketKeys = extConfig.ticketKeys;
       }
-      
+
       // HTTP/2 兼容性
       if (extConfig.ALPNProtocols) {
         options.ALPNProtocols = extConfig.ALPNProtocols;
       }
     }
-    
+
     return options;
   }
 
@@ -225,7 +220,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    */
   private createMutualTLSOptions(sslConfig: SSL1Config, extConfig: any): ServerOptions {
     const manualOptions = this.createManualSSLOptions(sslConfig, extConfig);
-    
+
     return {
       ...manualOptions,
       requestCert: sslConfig.requestCert !== false,
@@ -311,7 +306,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   ): ConfigChangeAnalysis {
     // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
-    
+
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
@@ -354,19 +349,19 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   ): void {
     // 处理HTTPS特定的运行时配置变更
     const httpsConfig = newConfig as Partial<HttpsServerOptions>;
-    
+
     // 更新连接池配置
     if (httpsConfig.connectionPool) {
       this.logger.info('Updating HTTPS connection pool configuration', { traceId }, {
         oldConfig: this.options.connectionPool,
         newConfig: httpsConfig.connectionPool
       });
-      
+
       const newPoolConfig = this.extractConnectionPoolConfig();
       this.connectionPool.updateConfig(newPoolConfig);
     }
 
-    this.logger.debug('HTTPS runtime configuration changes applied', { traceId });
+    // Runtime configuration changes applied
   }
 
   protected extractRelevantConfig(config: HttpsServerOptions) {
@@ -429,7 +424,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
 
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
     this.logger.info('Step 1: Stopping acceptance of new HTTPS connections', { traceId });
-    
+
     // 检查服务器是否真的在监听（对测试环境友好）
     if (this.server.listening) {
       // 停止HTTPS服务器监听
@@ -442,7 +437,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     } else {
       this.logger.debug('HTTPS server is not listening, skip close', { traceId });
     }
-    
+
     this.logger.debug('New HTTPS connection acceptance stopped', { traceId });
   }
 
@@ -453,10 +448,10 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     });
 
     const startTime = Date.now();
-    
+
     while (this.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
-      
+
       if (elapsed >= timeout) {
         this.logger.warn('HTTPS connection completion timeout reached', { traceId }, {
           remainingConnections: this.getActiveConnectionCount(),
@@ -464,7 +459,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         });
         break;
       }
-      
+
       // 每5秒记录一次进度
       if (elapsed % 5000 < 100) {
         this.logger.debug('Waiting for HTTPS connections to complete', { traceId }, {
@@ -472,10 +467,10 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
           elapsed: elapsed
         });
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
+
     this.logger.debug('HTTPS connection completion wait finished', { traceId }, {
       remainingConnections: this.getActiveConnectionCount()
     });
@@ -483,15 +478,15 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
     const remainingConnections = this.getActiveConnectionCount();
-    
+
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining HTTPS connections', { traceId }, {
         remainingConnections
       });
-      
+
       // 使用连接池强制关闭所有连接
       await this.connectionPool.closeAllConnections(5000);
-      
+
       this.logger.warn('Forced closure of remaining HTTPS connections', { traceId }, {
         forcedConnections: remainingConnections
       });
@@ -502,23 +497,23 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
 
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force HTTPS server shutdown initiated', { traceId });
-    
+
     // 清理监控间隔
     if ((this.server as any)._monitoringInterval) {
       clearInterval((this.server as any)._monitoringInterval);
       (this.server as any)._monitoringInterval = undefined;
     }
-    
+
     // 强制关闭HTTPS服务器
     this.server.close();
-    
+
     // 停止监控和清理
     this.stopMonitoringAndCleanup(traceId);
   }
 
   // ============= 实现KoattyServer接口 =============
 
-  Start(listenCallback?: () => void): Server {
+  Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
       hostname: this.options.hostname,
@@ -536,10 +531,10 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         serverId: this.serverId,
         sslMode: this.options.ssl?.mode || 'auto'
       });
-      
+
       // 启动连接池监控
       this.startConnectionPoolMonitoring();
-      
+
       if (listenCallback) {
         listenCallback();
       }
@@ -562,9 +557,9 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    * 启动连接池监控
    */
   private startConnectionPoolMonitoring(): void {
+    // Connection pool monitoring enabled (statistics collected silently)
     const monitoringInterval = setInterval(() => {
-      const stats = this.getConnectionStats();
-      this.logger.debug('HTTPS connection pool statistics', {}, stats);
+      this.getConnectionStats(); // Collect stats but don't log
     }, 30000); // 每30秒
 
     // 存储间隔以供清理

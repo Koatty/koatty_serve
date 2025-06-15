@@ -46,6 +46,7 @@ export class MultiProtocolServer implements KoattyServer {
   private failedServers: Map<string, Error> = new Map();
   private logger = createLogger({ module: 'multiprotocol' });
   readonly options: ListeningOptions;
+  server?: NativeServer; // 主服务器的原生服务器实例
 
   constructor(app: KoattyApplication, opt: ListeningOptions) {
     this.app = app;
@@ -66,9 +67,9 @@ export class MultiProtocolServer implements KoattyServer {
   /**
    * Start all servers
    */
-  Start(listenCallback?: () => void): any {
+  Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
-    
+
     try {
       this.logger.logServerEvent('starting', { traceId }, {
         protocols: this.getProtocolsArray(),
@@ -78,14 +79,23 @@ export class MultiProtocolServer implements KoattyServer {
 
       // Create and start protocol servers
       this.createProtocolServers(traceId, listenCallback);
-      
+
       this.logger.logServerEvent('started', { traceId }, {
         totalServers: this.servers.size,
         servers: Array.from(this.servers.keys()),
         failedServers: this.failedServers.size
       });
-      
-      return this;
+
+      // 设置主服务器：使用第一个成功启动的服务器作为主服务器
+      const primaryServerKey = Array.from(this.servers.keys())[0];
+      if (primaryServerKey) {
+        const primaryServer = this.servers.get(primaryServerKey);
+        if (primaryServer && typeof (primaryServer as ExtendedKoattyServer).getNativeServer === 'function') {
+          this.server = (primaryServer as ExtendedKoattyServer).getNativeServer!();
+        }
+      }
+
+      return this.server || null;
     } catch (error) {
       this.logger.logServerEvent('error', { traceId }, error);
       throw error;
@@ -102,7 +112,7 @@ export class MultiProtocolServer implements KoattyServer {
     });
 
     const stopPromises: Promise<void>[] = [];
-    
+
     // Stop all protocol servers
     this.servers.forEach((server, key) => {
       const promise = new Promise<void>((resolve) => {
@@ -118,15 +128,15 @@ export class MultiProtocolServer implements KoattyServer {
       });
       stopPromises.push(promise);
     });
-    
+
     Promise.allSettled(stopPromises).then((results) => {
       const failures = results.filter(r => r.status === 'rejected');
       if (failures.length > 0) {
-        this.logger.warn('Some servers failed to stop properly', { traceId }, { 
-          failureCount: failures.length 
+        this.logger.warn('Some servers failed to stop properly', { traceId }, {
+          failureCount: failures.length
         });
       }
-      
+
       this.servers.clear();
       this.failedServers.clear();
       this.logger.logServerEvent('stopped', { traceId });
@@ -140,17 +150,17 @@ export class MultiProtocolServer implements KoattyServer {
   RegisterService(impl: (...args: any[]) => any, protocolType?: KoattyProtocol, port?: number) {
     // Safer type handling without unsafe type assertions
     let targetProtocol: KoattyProtocol;
-    
+
     if (protocolType) {
       targetProtocol = protocolType;
     } else {
       const protocols = this.getProtocolsArray();
       targetProtocol = protocols[0];
     }
-    
+
     const targetPort = port ?? this.options.port;
     const server = this.getServer(targetProtocol, targetPort);
-    
+
     return server?.RegisterService?.(impl);
   }
 
@@ -176,11 +186,11 @@ export class MultiProtocolServer implements KoattyServer {
    */
   getNativeServer(protocolType?: KoattyProtocol, port?: number): NativeServer {
     const server = this.getServer(protocolType, port);
-    
+
     if (server && typeof (server as ExtendedKoattyServer).getNativeServer === 'function') {
       return (server as ExtendedKoattyServer).getNativeServer!();
     }
-    
+
     return null;
   }
 
@@ -190,7 +200,7 @@ export class MultiProtocolServer implements KoattyServer {
   getServer(protocolType?: KoattyProtocol, port?: number): KoattyServer | undefined {
     const defaultProtocol = protocolType || this.getProtocolsArray()[0];
     const defaultPort = port || this.options.port;
-    
+
     return this.servers.get(`${defaultProtocol}:${defaultPort}`);
   }
 
@@ -212,8 +222,8 @@ export class MultiProtocolServer implements KoattyServer {
    * Get protocols as array
    */
   private getProtocolsArray(): KoattyProtocol[] {
-    return Array.isArray(this.options.protocol) 
-      ? this.options.protocol 
+    return Array.isArray(this.options.protocol)
+      ? this.options.protocol
       : [this.options.protocol];
   }
 
@@ -226,7 +236,7 @@ export class MultiProtocolServer implements KoattyServer {
     protocols.forEach((protocolType, index) => {
       // For multiple protocols, use different ports (base port + index)
       const port = this.options.port + index;
-      
+
       const options: SingleServerOptions = {
         hostname: this.options.hostname,
         port,
@@ -238,10 +248,10 @@ export class MultiProtocolServer implements KoattyServer {
       };
 
       try {
-        this.logger.info('Creating individual server', { 
-          traceId, 
-          protocol: protocolType, 
-          port: port 
+        this.logger.info('Creating individual server', {
+          traceId,
+          protocol: protocolType,
+          port: port
         });
 
         const server = this.createServerInstance(protocolType, options);
@@ -253,15 +263,15 @@ export class MultiProtocolServer implements KoattyServer {
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        this.logger.error('Failed to create individual server', { 
-          traceId, 
-          protocol: protocolType, 
-          port: port 
+        this.logger.error('Failed to create individual server', {
+          traceId,
+          protocol: protocolType,
+          port: port
         }, error);
-        
+
         // Record failed server but continue with others
         this.failedServers.set(`${protocolType}:${port}`, error instanceof Error ? error : new Error(errorMessage));
-        
+
         // Only throw if this is the last protocol and no servers were created successfully
         if (index === protocols.length - 1 && this.servers.size === 0) {
           throw new Error(`All servers failed to start. Last error: ${errorMessage}`);
@@ -329,7 +339,7 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
 
   // Ensure protocol is always an array internally for consistent handling
   // The MultiProtocolServer will handle both single and multiple protocols properly
-  
+
   // Create multi-protocol server
   return new MultiProtocolServer(app, options);
 }

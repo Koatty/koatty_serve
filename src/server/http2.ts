@@ -38,12 +38,8 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   protected initializeConnectionPool(): void {
     const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
     this.connectionPool = new Http2ConnectionPoolManager(poolConfig);
-    
-    this.logger.debug('HTTP/2 connection pool initialized', {}, {
-      maxConnections: poolConfig.maxConnections || 'unlimited',
-      maxSessionMemory: poolConfig.protocolSpecific?.maxSessionMemory,
-      maxHeaderListSize: poolConfig.protocolSpecific?.maxHeaderListSize
-    });
+
+    // HTTP/2 connection pool initialized with configuration
   }
 
   /**
@@ -51,20 +47,14 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
    */
   protected createProtocolServer(): void {
     const http2Options = this.createHTTP2Options();
-    
+
     (this as any).server = createSecureServer(http2Options, (req, res) => {
       this.app.callback()(req, res);
-      
-      // 记录请求指标
-      res.on('finish', () => {
-        // HTTP/2连接池会自动处理流的统计
-        if ((req as any).stream && (req as any).stream.session) {
-          // 连接池已在session事件中处理
-        }
-      });
+
+      // 请求指标由连接池自动处理
     });
-    
-    this.logger.debug('HTTP/2 server instance created');
+
+    // HTTP/2 server instance created
   }
 
   /**
@@ -98,7 +88,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     const http2Config = this.options.http2;
 
     let sslOptions: SecureServerOptions = {};
-    
+
     if (sslConfig) {
       sslOptions = this.createSSLOptions(sslConfig, extConfig);
     } else if (extConfig) {
@@ -140,11 +130,11 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   private createAutoSSLOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
     const keyPath = sslConfig.key || extConfig?.key;
     const certPath = sslConfig.cert || extConfig?.cert;
-    
+
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for HTTP/2');
     }
-    
+
     return {
       key: this.loadCertificate(keyPath, 'private key'),
       cert: this.loadCertificate(certPath, 'certificate')
@@ -158,11 +148,11 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     const keyPath = sslConfig.key || extConfig?.key;
     const certPath = sslConfig.cert || extConfig?.cert;
     const caPath = sslConfig.ca || extConfig?.ca;
-    
+
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for manual SSL mode');
     }
-    
+
     const options: SecureServerOptions = {
       key: this.loadCertificate(keyPath, 'private key'),
       cert: this.loadCertificate(certPath, 'certificate'),
@@ -171,11 +161,11 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       honorCipherOrder: sslConfig.honorCipherOrder,
       secureProtocol: sslConfig.secureProtocol
     };
-    
+
     if (caPath) {
       options.ca = this.loadCertificate(caPath, 'CA certificate');
     }
-    
+
     return options;
   }
 
@@ -184,7 +174,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
    */
   private createMutualTLSOptions(sslConfig: SSL2Config, extConfig: any): SecureServerOptions {
     const manualOptions = this.createManualSSLOptions(sslConfig, extConfig);
-    
+
     return {
       ...manualOptions,
       requestCert: sslConfig.requestCert !== false,
@@ -221,8 +211,8 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
         this.logger.error('Failed to add HTTP/2 session to pool', {}, error);
         try {
           session.close();
-        } catch (closeError) {
-          this.logger.debug('Error closing failed session', {}, closeError);
+        } catch {
+          // Session close error handled silently
         }
       });
     });
@@ -261,7 +251,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   ): ConfigChangeAnalysis {
     // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
-    
+
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
@@ -314,14 +304,14 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
   ): void {
     // 处理HTTP/2特定的运行时配置变更
     const http2Config = newConfig as Partial<Http2ServerOptions>;
-    
+
     // 更新连接池配置
     if (http2Config.connectionPool) {
       this.logger.info('Updating HTTP/2 connection pool configuration', { traceId }, {
         oldConfig: this.options.connectionPool,
         newConfig: http2Config.connectionPool
       });
-      
+
       const newPoolConfig = this.extractConnectionPoolConfig();
       this.connectionPool.updateConfig(newPoolConfig);
     }
@@ -403,7 +393,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
 
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
     this.logger.info('Step 1: Stopping acceptance of new HTTP/2 connections', { traceId });
-    
+
     // 停止HTTP/2服务器监听
     if (this.server.listening) {
       await new Promise<void>((resolve, reject) => {
@@ -413,7 +403,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
         });
       });
     }
-    
+
     this.logger.debug('New HTTP/2 connection acceptance stopped', { traceId });
   }
 
@@ -424,10 +414,10 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     });
 
     const startTime = Date.now();
-    
+
     while (this.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
-      
+
       if (elapsed >= timeout) {
         this.logger.warn('HTTP/2 session completion timeout reached', { traceId }, {
           remainingSessions: this.getActiveConnectionCount(),
@@ -435,7 +425,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
         });
         break;
       }
-      
+
       // 每5秒记录一次进度
       if (elapsed % 5000 < 100) {
         this.logger.debug('Waiting for HTTP/2 sessions to complete', { traceId }, {
@@ -443,10 +433,10 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
           elapsed: elapsed
         });
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
+
     this.logger.debug('HTTP/2 session completion wait finished', { traceId }, {
       remainingSessions: this.getActiveConnectionCount()
     });
@@ -454,15 +444,15 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
     const remainingConnections = this.getActiveConnectionCount();
-    
+
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining HTTP/2 sessions', { traceId }, {
         remainingSessions: remainingConnections
       });
-      
+
       // 使用连接池强制关闭所有会话
       await this.connectionPool.closeAllConnections(5000);
-      
+
       this.logger.warn('Forced closure of remaining HTTP/2 sessions', { traceId }, {
         forcedSessions: remainingConnections
       });
@@ -473,10 +463,10 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
 
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force HTTP/2 server shutdown initiated', { traceId });
-    
+
     // 强制关闭HTTP/2服务器
     this.server.close();
-    
+
     // 停止监控和清理
     this.stopMonitoringAndCleanup(traceId);
   }
@@ -499,7 +489,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
 
   // ============= 实现KoattyServer接口 =============
 
-  Start(listenCallback?: () => void): Http2SecureServer {
+  Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
     this.logger.logServerEvent('starting', { traceId }, {
       hostname: this.options.hostname,
@@ -518,10 +508,10 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
         sslMode: this.options.ssl?.mode || 'auto',
         allowHTTP1: this.options.ssl?.allowHTTP1 !== false
       });
-      
+
       // 启动连接池监控
       this.startConnectionPoolMonitoring();
-      
+
       if (listenCallback) {
         listenCallback();
       }
