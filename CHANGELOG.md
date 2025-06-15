@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.7.0](https://github.com/koatty/koatty_serve/compare/v2.6.0...v2.7.0) (2025-06-15)
+
+
+### Features
+
+* implement unified timer management and graceful shutdown system across all protocol servers ([90c847d](https://github.com/koatty/koatty_serve/commit/90c847d08e4f88d3c5dd013e94be185f8c83d9ba))
+
 ## [2.6.0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0) (2025-06-08)
 
 
