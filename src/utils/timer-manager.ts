@@ -145,13 +145,13 @@ export class TimerManager {
       taskQueue.push(optimizedTask);
       this.performanceMetrics.totalTasks++;
 
-      this.logger.debug('Optimized task added', {}, {
-        taskId,
-        name: task.name,
-        originalInterval: task.interval,
-        optimizedFrequency: frequency,
-        queueSize: taskQueue.length
-      });
+      // this.logger.debug('Optimized task added', {}, {
+      //   taskId,
+      //   name: task.name,
+      //   originalInterval: task.interval,
+      //   optimizedFrequency: frequency,
+      //   queueSize: taskQueue.length
+      // });
 
       // 重新优化定时器
       this.optimizeTimers();
@@ -197,11 +197,11 @@ export class TimerManager {
 
     this.timers.set(timerId, timerInfo);
     
-    this.logger.debug('Physical timer created', { 
-      interval, 
-      name, 
-      totalTimers: this.timers.size 
-    });
+    // this.logger.debug('Physical timer created', { 
+    //   interval, 
+    //   name, 
+    //   totalTimers: this.timers.size 
+    // });
     
     return timerId;
   }
@@ -213,21 +213,21 @@ export class TimerManager {
    */
   clearTimer(timerIdOrName: string): boolean {
     // 首先尝试从任务队列中移除（通过ID或名称）
-    for (const [frequency, tasks] of this.taskQueues) {
+    for (const [_frequency, tasks] of this.taskQueues) {
       const taskIndex = tasks.findIndex(task => 
         task.id === timerIdOrName || task.name === timerIdOrName
       );
       if (taskIndex !== -1) {
-        const task = tasks[taskIndex];
-        tasks.splice(taskIndex, 1);
+        // const task = tasks[taskIndex];
+        // tasks.splice(taskIndex, 1);
         this.performanceMetrics.totalTasks--;
         
-        this.logger.debug(`Logical timer '${timerIdOrName}' cleared`, {}, {
-          name: task.name,
-          id: task.id,
-          frequency,
-          remainingTasks: tasks.length
-        });
+        // this.logger.debug(`Logical timer '${timerIdOrName}' cleared`, {}, {
+        //   name: task.name,
+        //   id: task.id,
+        //   _frequency,
+        //   remainingTasks: tasks.length
+        // });
         
         // 重新优化定时器
         this.optimizeTimers();
@@ -241,11 +241,11 @@ export class TimerManager {
       clearInterval(timerInfo.timer);
       this.timers.delete(timerIdOrName);
       
-      this.logger.debug(`Physical timer '${timerIdOrName}' cleared`, {}, {
-        name: timerInfo.name,
-        uptime: Date.now() - timerInfo.createdAt,
-        remainingTimers: this.timers.size
-      });
+      // this.logger.debug(`Physical timer '${timerIdOrName}' cleared`, {}, {
+      //   name: timerInfo.name,
+      //   uptime: Date.now() - timerInfo.createdAt,
+      //   remainingTimers: this.timers.size
+      // });
       
       return true;
     }
@@ -282,10 +282,10 @@ export class TimerManager {
     for (const [timerId, timerInfo] of this.timers) {
       try {
         clearInterval(timerInfo.timer);
-        this.logger.debug(`Physical timer '${timerId}' cleared in batch`, {}, {
-          name: timerInfo.name,
-          uptime: Date.now() - timerInfo.createdAt
-        });
+        // this.logger.debug(`Physical timer '${timerId}' cleared in batch`, {}, {
+        //   name: timerInfo.name,
+        //   uptime: Date.now() - timerInfo.createdAt
+        // });
       } catch (error) {
         this.logger.error(`Error clearing timer '${timerId}':`, {}, error);
       }
@@ -426,7 +426,7 @@ export class TimerManager {
    * 优化定时器 - Phase 3 核心优化逻辑
    */
   private optimizeTimers(): void {
-    const startTime = Date.now();
+    // const startTime = Date.now();
 
     // 清理现有的合并定时器
     this.clearConsolidatedTimers();
@@ -438,15 +438,15 @@ export class TimerManager {
       }
     }
 
-    const optimizationTime = Date.now() - startTime;
+    // const optimizationTime = Date.now() - startTime;
     this.performanceMetrics.lastOptimization = Date.now();
 
-    this.logger.debug('Timer optimization completed', {}, {
-      optimizationTime,
-      totalTasks: this.performanceMetrics.totalTasks,
-      activeFrequencies: this.consolidatedTimers.size,
-      consolidatedTimers: Array.from(this.consolidatedTimers.keys())
-    });
+    // this.logger.debug('Timer optimization completed', {}, {
+    //   optimizationTime,
+    //   totalTasks: this.performanceMetrics.totalTasks,
+    //   activeFrequencies: this.consolidatedTimers.size,
+    //   consolidatedTimers: Array.from(this.consolidatedTimers.keys())
+    // });
   }
 
   /**
@@ -461,19 +461,19 @@ export class TimerManager {
 
     this.consolidatedTimers.set(frequency, timerId);
 
-    this.logger.debug('Consolidated timer created', {}, {
-      frequency,
-      taskCount: tasks.length,
-      timerId,
-      tasks: tasks.map(t => ({ name: t.name, priority: t.priority }))
-    });
+    // this.logger.debug('Consolidated timer created', {}, {
+    //   frequency,
+    //   taskCount: tasks.length,
+    //   timerId,
+    //   tasks: tasks.map(t => ({ name: t.name, priority: t.priority }))
+    // });
   }
 
   /**
    * 执行任务批次 - Phase 3 优化
    */
   private executeTaskBatch(frequency: TimerFrequency, tasks: TimerTask[]): void {
-    const batchStartTime = Date.now();
+    // const batchStartTime = Date.now();
     let executedCount = 0;
 
     // 按优先级排序执行
@@ -507,19 +507,19 @@ export class TimerManager {
       }
     }
 
-    const batchExecutionTime = Date.now() - batchStartTime;
+    // const batchExecutionTime = Date.now() - batchStartTime;
     this.performanceMetrics.executedTasks += executedCount;
 
     // 记录批次执行统计（仅在有执行任务时）
-    if (executedCount > 0) {
-      this.logger.debug('Task batch executed', {}, {
-        frequency,
-        totalTasks: tasks.length,
-        executedTasks: executedCount,
-        batchExecutionTime,
-        averageTaskTime: executedCount > 0 ? batchExecutionTime / executedCount : 0
-      });
-    }
+    // if (executedCount > 0) {
+    //   this.logger.debug('Task batch executed', {}, {
+    //     frequency,
+    //     totalTasks: tasks.length,
+    //     executedTasks: executedCount,
+    //     batchExecutionTime,
+    //     averageTaskTime: executedCount > 0 ? batchExecutionTime / executedCount : 0
+    //   });
+    // }
   }
 
   /**
