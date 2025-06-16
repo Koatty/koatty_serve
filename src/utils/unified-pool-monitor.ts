@@ -94,12 +94,12 @@ export class UnifiedPoolMonitor {
       uptime: 0
     });
 
-    this.logger.debug('Monitoring task registered', {}, {
-      taskName: task.name,
-      interval: task.interval,
-      priority: task.priority,
-      protocol: this.protocol
-    });
+    // this.logger.debug('Monitoring task registered', {}, {
+    //   taskName: task.name,
+    //   interval: task.interval,
+    //   priority: task.priority,
+    //   protocol: this.protocol
+    // });
   }
 
   /**
@@ -110,10 +110,10 @@ export class UnifiedPoolMonitor {
       this.taskStats.delete(taskName);
       this.lastExecutionTimes.delete(taskName);
       
-      this.logger.debug('Monitoring task unregistered', {}, {
-        taskName,
-        protocol: this.protocol
-      });
+      // this.logger.debug('Monitoring task unregistered', {}, {
+      //   taskName,
+      //   protocol: this.protocol
+      // });
     }
   }
 
@@ -124,11 +124,11 @@ export class UnifiedPoolMonitor {
     const task = this.tasks.get(taskName);
     if (task) {
       task.enabled = enabled;
-      this.logger.debug('Monitoring task status changed', {}, {
-        taskName,
-        enabled,
-        protocol: this.protocol
-      });
+      // this.logger.debug('Monitoring task status changed', {}, {
+      //   taskName,
+      //   enabled,
+      //   protocol: this.protocol
+      // });
     }
   }
 
@@ -186,10 +186,10 @@ export class UnifiedPoolMonitor {
       return;
     }
 
-    this.logger.debug('Executing monitoring cycle', { traceId }, {
-      tasksCount: tasksToExecute.length,
-      protocol: this.protocol
-    });
+    // this.logger.debug('Executing monitoring cycle', { traceId }, {
+    //   tasksCount: tasksToExecute.length,
+    //   protocol: this.protocol
+    // });
 
     // 并行执行相同优先级的任务，串行执行不同优先级的任务
     const tasksByPriority = this.groupTasksByPriority(tasksToExecute);
@@ -244,10 +244,10 @@ export class UnifiedPoolMonitor {
     priority: number, 
     traceId: string
   ): Promise<void> {
-    this.logger.debug(`Executing priority ${priority} tasks`, { traceId }, {
-      tasksCount: tasks.length,
-      taskNames: tasks.map(t => t.name)
-    });
+    // this.logger.debug(`Executing priority ${priority} tasks`, { traceId }, {
+    //   tasksCount: tasks.length,
+    //   taskNames: tasks.map(t => t.name)
+    // });
 
     // 并行执行同优先级任务
     const promises = tasks.map(task => this.executeTask(task, traceId));
@@ -274,10 +274,10 @@ export class UnifiedPoolMonitor {
       stats.averageExecutionTime = this.calculateAverageExecutionTime(stats, executionTime);
       stats.uptime = Date.now() - this.startTime;
 
-      this.logger.debug(`Task executed successfully: ${task.name}`, { traceId }, {
-        executionTime,
-        protocol: this.protocol
-      });
+      // this.logger.debug(`Task executed successfully: ${task.name}`, { traceId }, {
+      //   executionTime,
+      //   protocol: this.protocol
+      // });
 
       return {
         taskName: task.name,
@@ -419,7 +419,7 @@ export class UnifiedPoolMonitor {
     this.taskStats.clear();
     this.lastExecutionTimes.clear();
     
-    this.logger.debug('Unified pool monitor destroyed', {}, { protocol: this.protocol });
+    // this.logger.debug('Unified pool monitor destroyed', {}, { protocol: this.protocol });
   }
 }
 
