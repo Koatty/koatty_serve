@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.8.0](https://github.com/koatty/koatty_serve/compare/v2.7.1...v2.8.0) (2025-06-16)
+
+
+### Features
+
+* implement unified GracefulShutdownManager with step-based shutdown flow, timeout control and test coverage ([3856b44](https://github.com/koatty/koatty_serve/commit/3856b44e054fa6a47d720402b0c165452117fb88))
+
 ### [2.7.1](https://github.com/koatty/koatty_serve/compare/v2.7.0...v2.7.1) (2025-06-16)
 
 ## [2.7.0](https://github.com/koatty/koatty_serve/compare/v2.6.0...v2.7.0) (2025-06-15)
