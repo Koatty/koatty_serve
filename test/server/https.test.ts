@@ -146,8 +146,8 @@ describe('HttpsServer', () => {
           sessionIdContext: 'test-context',
           ticketKeys: Buffer.from('test-keys'),
           ALPNProtocols: ['h2', 'http/1.1']
-        }
-      });
+          }
+        });
 
       expect(mockHttps.createServer).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -252,7 +252,7 @@ describe('HttpsServer', () => {
           }
         });
       }).toThrow('SSL key and cert are required for manual SSL mode');
-    });
+      });
   });
 
   describe('Server Lifecycle', () => {
@@ -306,7 +306,7 @@ describe('HttpsServer', () => {
 
       // Verify the graceful shutdown was called
       expect((server as any).gracefulShutdown).toHaveBeenCalled();
-    });
+      });
 
     it('should handle connection lifecycle methods', () => {
       const server = new HttpsServer(mockApp as KoattyApplication, {
@@ -399,7 +399,7 @@ describe('HttpsServer', () => {
       
       (httpsServer as any).stopConnectionPoolMonitoring = mockStopMonitoring;
       (httpsServer as any).startConnectionPoolMonitoring = mockStartMonitoring;
-
+      
       const analysis = {
         requiresRestart: false,
         affectedComponents: ['connectionPool'],
@@ -455,8 +455,8 @@ describe('HttpsServer', () => {
             mode: 'manual',
             key: '/nonexistent/key.pem',
             cert: '/nonexistent/cert.pem'
-          }
-        });
+        }
+      });
       }).toThrow();
     });
 
@@ -747,7 +747,7 @@ describe('HttpsServer', () => {
         const result = (httpsServer as any).loadCertificate('/path/to/server.key', 'private key');
         expect(result).toBe('mocked-private-key');
         expect(loadCertSpy).toHaveBeenCalledWith('/path/to/server.key', 'private key');
-      });
+    });
 
       it('should handle certificate content directly', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -784,7 +784,7 @@ describe('HttpsServer', () => {
         // Mock fs.readFileSync to throw error
         mockFs.readFileSync.mockImplementation(() => {
           throw new Error('ENOENT: no such file or directory');
-        });
+      });
 
         expect(() => {
           (httpsServer as any).loadCertificate('/nonexistent/path.key', 'private key');
@@ -825,7 +825,7 @@ describe('HttpsServer', () => {
         secureConnectionHandler(mockTlsSocket);
 
         expect(mockAddConnection).toHaveBeenCalledWith(mockTlsSocket);
-      });
+    });
 
               it('should handle TLS client errors', () => {
           const httpsServer = new HttpsServer(mockApp, {
@@ -901,7 +901,7 @@ describe('HttpsServer', () => {
 
         const result = (httpsServer as any).hasSSLConfigChanged(oldConfig, newConfig);
         expect(result).toBe(true);
-      });
+    });
 
       it('should detect certificate changes', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -974,7 +974,7 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const
-        };
+      };
 
         const result = (httpsServer as any).hasSSLConfigChanged(oldConfig, newConfig);
         expect(result).toBe(false);
@@ -989,7 +989,7 @@ describe('HttpsServer', () => {
             protocol: 'https',
             ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
           });
-
+      
         // Mock server listening state
         (httpsServer as any).server = {
           listening: true,
@@ -997,11 +997,11 @@ describe('HttpsServer', () => {
             setImmediate(callback);
           })
         };
-
+      
         await (httpsServer as any).stopAcceptingNewConnections('test-trace-id');
 
         expect((httpsServer as any).server.close).toHaveBeenCalled();
-      });
+    });
 
               it('should skip close when server is not listening', async () => {
           const httpsServer = new HttpsServer(mockApp, {
@@ -1010,7 +1010,7 @@ describe('HttpsServer', () => {
             protocol: 'https',
             ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
           });
-
+      
         // Mock server not listening
         (httpsServer as any).server = {
           listening: false,
@@ -1018,9 +1018,9 @@ describe('HttpsServer', () => {
         };
 
         await (httpsServer as any).stopAcceptingNewConnections('test-trace-id');
-
+      
         expect((httpsServer as any).server.close).not.toHaveBeenCalled();
-      });
+    });
 
       it('should wait for connections with timeout in waitForConnectionCompletion', async () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1049,7 +1049,7 @@ describe('HttpsServer', () => {
         const elapsed = Date.now() - startTime;
 
         expect(elapsed).toBeGreaterThanOrEqual(100); // Should have waited some time
-      });
+    });
 
       it('should force close connections when remaining', async () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1101,7 +1101,7 @@ describe('HttpsServer', () => {
         await (httpsServer as any).forceCloseRemainingConnections('test-trace-id');
 
         expect(mockCloseAllConnections).not.toHaveBeenCalled();
-      });
+    });
 
       it('should handle force shutdown with monitoring cleanup', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1129,8 +1129,8 @@ describe('HttpsServer', () => {
 
         expect(mockClose).toHaveBeenCalled();
         expect(mockStopMonitoring).toHaveBeenCalledWith('test-trace-id');
-      });
     });
+  });
 
     describe('Connection Pool Monitoring', () => {
       it('should start connection pool monitoring with interval', () => {
@@ -1150,7 +1150,7 @@ describe('HttpsServer', () => {
           activeConnections: 5,
           totalConnections: 100
         });
-
+      
         const timerManager = (httpsServer as any).timerManager;
         const initialTimerCount = timerManager.getActiveTimerCount();
 
@@ -1186,7 +1186,7 @@ describe('HttpsServer', () => {
           secureProtocol: 'TLSv1_2_method',
           mutualTLS: true
         });
-      });
+    });
 
       it('should return default security metrics for auto mode', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1197,8 +1197,8 @@ describe('HttpsServer', () => {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
-          }
-        });
+        }
+      });
 
         const metrics = httpsServer.getSecurityMetrics();
 
@@ -1236,7 +1236,7 @@ describe('HttpsServer', () => {
           current: 25,
           max: 150
         });
-      });
+    });
 
       it('should handle missing connection pool in getConnectionsStatus', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1260,7 +1260,7 @@ describe('HttpsServer', () => {
           current: 0,
           max: 0
         });
-      });
+    });
     });
 
     describe('Server Lifecycle with Real Start', () => {
@@ -1292,9 +1292,9 @@ describe('HttpsServer', () => {
       expect(mockServer.listen).toHaveBeenCalledWith(3443, '127.0.0.1', expect.any(Function));
           done();
         });
-
+      
         expect(result).toBe(mockServer);
-      });
+    });
 
       it('should destroy server with graceful shutdown', async () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1327,7 +1327,7 @@ describe('HttpsServer', () => {
             cert: 'test-cert'
           }
         });
-
+      
         const error = new Error('Shutdown failed');
         (httpsServer as any).gracefulShutdown = jest.fn().mockRejectedValue(error);
 

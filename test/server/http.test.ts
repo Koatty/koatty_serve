@@ -791,7 +791,7 @@ describe('HttpServer', () => {
           setImmediate(callback);
         }
       });
-
+      
       httpServer.Start();
 
       const stopPromise = new Promise<void>((resolve) => {
