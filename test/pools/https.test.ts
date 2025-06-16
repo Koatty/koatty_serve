@@ -682,22 +682,22 @@ describe('HttpsConnectionPoolManager', () => {
       expect(result).toBeNull(); // HTTPS connections are server-side, so this should return null
     });
 
-    it('should start cleanup tasks on initialization', () => {
-      const startCleanupTasksSpy = jest.spyOn(HttpsConnectionPoolManager.prototype as any, 'startCleanupTasks').mockImplementation(() => {});
+    it('should register cleanup tasks on initialization', () => {
+      const registerCleanupTasksSpy = jest.spyOn(HttpsConnectionPoolManager.prototype as any, 'registerHttpsCleanupTasks').mockImplementation(() => {});
       
       new HttpsConnectionPoolManager(defaultConfig);
       
-      expect(startCleanupTasksSpy).toHaveBeenCalled();
-      startCleanupTasksSpy.mockRestore();
+      expect(registerCleanupTasksSpy).toHaveBeenCalled();
+      registerCleanupTasksSpy.mockRestore();
     });
 
-    it('should start security monitoring on initialization', () => {
+    it('should start unified monitoring on initialization', () => {
       const poolManager = new HttpsConnectionPoolManager(defaultConfig);
       
-      // 验证TimerManager已经初始化并且有定时器
-      const timerManager = (poolManager as any).timerManager;
-      expect(timerManager).toBeDefined();
-      expect(timerManager.getActiveTimerCount()).toBeGreaterThan(0);
+      // 验证UnifiedPoolMonitor已经初始化并且有任务
+      const unifiedMonitor = (poolManager as any).unifiedMonitor;
+      expect(unifiedMonitor).toBeDefined();
+      expect(unifiedMonitor.getMonitorStatus().tasksCount).toBeGreaterThan(0);
     });
 
     it('should update security metrics on successful handshake', () => {
@@ -748,14 +748,14 @@ describe('HttpsConnectionPoolManager', () => {
       validateConnectionSpy.mockRestore();
     });
 
-    it('should start and stop cleanup monitoring intervals', () => {
-      // Mock the startCleanupTasks method
-      const startCleanupTasksSpy = jest.spyOn(poolManager as any, 'startCleanupTasks').mockImplementation(() => {});
+    it('should register and manage cleanup monitoring tasks', () => {
+      // Mock the registerHttpsCleanupTasks method
+      const registerCleanupTasksSpy = jest.spyOn(poolManager as any, 'registerHttpsCleanupTasks').mockImplementation(() => {});
       
-      (poolManager as any).startCleanupTasks();
+      (poolManager as any).registerHttpsCleanupTasks();
       
-      expect(startCleanupTasksSpy).toHaveBeenCalled();
-      startCleanupTasksSpy.mockRestore();
+      expect(registerCleanupTasksSpy).toHaveBeenCalled();
+      registerCleanupTasksSpy.mockRestore();
     });
 
     it('should start and stop security monitoring intervals', () => {
