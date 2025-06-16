@@ -9,7 +9,7 @@
 
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
 import { createLogger, generateTraceId } from "../utils/logger";
-import { deepEqual, executeWithTimeout, generateServerId } from "../utils/helper";
+import { deepEqual, generateServerId } from "../utils/helper";
 import { TimerManager } from "../utils/timer-manager";
 import {
   ConnectionStats,
@@ -18,6 +18,10 @@ import {
   ConnectionPoolEvent
 } from "../pools/pool";
 import { BaseServerOptions, ListeningOptions } from "../config/config";
+import {
+  GracefulShutdownManager, ShutdownStepFactory,
+  GracefulShutdownOptions, ShutdownResult
+} from "../utils/graceful-shutdown";
 
 /**
  * Configuration change detection result
@@ -27,15 +31,6 @@ export interface ConfigChangeAnalysis {
   changedKeys: (keyof ListeningOptions)[];
   restartReason?: string;
   canApplyRuntime?: boolean;
-}
-
-/**
- * Graceful shutdown options
- */
-export interface GracefulShutdownOptions {
-  timeout?: number;        // Total timeout (milliseconds)
-  drainDelay?: number;     // Waiting time after stopping accepting new connections
-  stepTimeout?: number;    // Timeout for each step
 }
 
 /**
@@ -54,22 +49,21 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
   protected configVersion = 0;
   protected logger = createLogger({ module: 'base' });
   protected serverId: string;
-  protected isShuttingDown = false;
   protected shutdownTimeout = 30000;
   protected drainDelay = 5000;
-
-  // 连接池管理（模板方法需要的组件）
   protected connectionPool?: ConnectionPoolManager<any>;
   protected timerManager: TimerManager;
+  protected shutdownManager: GracefulShutdownManager;
 
   constructor(protected app: KoattyApplication, options: T) {
     this.options = { ...options };
     this.protocol = options.protocol;
     this.status = 0;
     this.serverId = generateServerId(options.protocol);
-    
+
     // 初始化定时器管理器
     this.timerManager = new TimerManager();
+    this.shutdownManager = new GracefulShutdownManager(this.protocol);
 
     // 设置日志上下文
     this.logger = createLogger({
@@ -172,61 +166,45 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
 
   /**
    * 模板方法：优雅关闭流程
+   * 现在使用统一的 GracefulShutdownManager 来处理关闭流程
    */
-  async gracefulShutdown(options: GracefulShutdownOptions = {}): Promise<void> {
-    if (this.isShuttingDown) {
+  async gracefulShutdown(options: GracefulShutdownOptions = {}): Promise<ShutdownResult> {
+    if (this.shutdownManager.isInShutdown()) {
       this.logger.warn('Graceful shutdown already in progress');
-      return;
+      throw new Error('Graceful shutdown already in progress');
     }
 
-    this.isShuttingDown = true;
-    const traceId = generateTraceId();
-    const timeout = options.timeout || this.shutdownTimeout;
-    const drainDelay = options.drainDelay || this.drainDelay;
-    const stepTimeout = options.stepTimeout || Math.floor(timeout / 5);
+    // 构建关闭步骤
+    const steps = [
+      ShutdownStepFactory.createStopAcceptingStep(
+        (traceId) => this.stopAcceptingNewConnections(traceId),
+        options.stepTimeout || 5000
+      ),
+      ShutdownStepFactory.createWaitConnectionsStep(
+        (timeout, traceId) => this.waitForConnectionCompletion(timeout, traceId),
+        options.stepTimeout || 15000
+      ),
+      ShutdownStepFactory.createForceCloseStep(
+        (traceId) => this.forceCloseRemainingConnections(traceId),
+        options.stepTimeout || 5000
+      ),
+      ShutdownStepFactory.createStopMonitoringStep(
+        (traceId) => this.stopMonitoringAndCleanup(traceId),
+        3000
+      )
+    ];
 
-    this.logger.info('Graceful shutdown started', { traceId }, {
-      timeout, drainDelay, stepTimeout
-    });
+    // 执行优雅关闭
+    const result = await this.shutdownManager.performGracefulShutdown(steps, options);
 
-    try {
-      // Step 1: 停止接受新连接（各协议自定义）
-      await executeWithTimeout(
-        () => this.stopAcceptingNewConnections(traceId),
-        stepTimeout,
-        'Stop accepting new connections'
-      );
-
-      // Step 2: 等待排空延迟（公共逻辑）
-      this.logger.info('Step 2: Waiting for drain delay', { traceId }, { drainDelay });
-      await new Promise(resolve => setTimeout(resolve, drainDelay));
-
-      // Step 3: 等待现有连接完成（各协议自定义）
-      await executeWithTimeout(
-        () => this.waitForConnectionCompletion(stepTimeout, traceId),
-        stepTimeout,
-        'Wait for connection completion'
-      );
-
-      // Step 4: 强制关闭剩余连接（各协议自定义）
-      await executeWithTimeout(
-        () => this.forceCloseRemainingConnections(traceId),
-        stepTimeout,
-        'Force close remaining connections'
-      );
-
-      // Step 5: 停止监控和清理（公共逻辑）
-      this.stopMonitoringAndCleanup(traceId);
-
-      this.logger.info('Graceful shutdown completed successfully', { traceId });
-
-    } catch (error) {
-      this.logger.error('Graceful shutdown failed, attempting force shutdown', { traceId }, error);
-      // 回退到强制关闭
-      this.forceShutdown(traceId);
-    } finally {
-      this.isShuttingDown = false;
+    if (result.status === 'failed') {
+      this.logger.error('Graceful shutdown failed', {}, {
+        failedSteps: result.failedSteps.map(f => f.step),
+        totalTime: result.totalTime
+      });
     }
+
+    return result;
   }
 
   /**
@@ -292,10 +270,18 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
     this.logger.info('Performing graceful restart due to critical configuration changes', { traceId });
 
     // 执行优雅关闭
-    await this.gracefulShutdown({
+    const shutdownResult = await this.gracefulShutdown({
       timeout: this.shutdownTimeout,
       drainDelay: this.drainDelay
     });
+
+    // 检查关闭是否成功
+    if (shutdownResult.status === 'failed' || shutdownResult.status === 'forced') {
+      this.logger.warn('Graceful shutdown was not clean during restart', { traceId }, {
+        status: shutdownResult.status,
+        failedSteps: shutdownResult.failedSteps.map(f => f.step)
+      });
+    }
 
     // 应用新配置
     this.options = mergedConfig;
