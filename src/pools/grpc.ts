@@ -57,6 +57,25 @@ export class GrpcConnectionPoolManager extends ConnectionPoolManager<GrpcConnect
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('grpc', config);
+    
+    // 注册gRPC特定的清理任务到统一监控器
+    this.registerGrpcCleanupTasks();
+  }
+
+  /**
+   * 注册gRPC特定的清理任务到统一监控器
+   */
+  private registerGrpcCleanupTasks(): void {
+    // 注册gRPC过期连接清理任务
+    const grpcCleanupTask = {
+      name: 'grpc_expired_cleanup',
+      interval: 60000, // 60秒
+      priority: 3,
+      execute: () => this.cleanupExpiredGrpcConnections(),
+      description: 'gRPC expired connections cleanup'
+    };
+    
+    this.unifiedMonitor.registerTask(grpcCleanupTask);
   }
 
   /**

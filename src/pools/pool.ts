@@ -156,8 +156,6 @@ export abstract class ConnectionPoolManager<T = any> {
       config: this.config
     });
 
-    // 启动定期清理和监控
-    this.startPeriodicTasks();
   }
 
   /**
@@ -716,21 +714,6 @@ export abstract class ConnectionPoolManager<T = any> {
     this.unifiedMonitor.startMonitoring();
   }
 
-  private startPeriodicTasks(): void {
-    // 保留原有的定时器管理器作为备用
-    // 统一监控器已经处理了这些任务
-    
-    // 定期更新健康状态
-    this.timerManager.addTimer('health_update', () => {
-      this.updateHealthStatus();
-    }, 5000);
-
-    // 定期清理过期连接
-    this.timerManager.addTimer('cleanup_expired', () => {
-      this.cleanupExpiredConnections();
-    }, 30000);
-  }
-
   private cleanupExpiredConnections(): void {
     const now = Date.now();
     const timeout = this.config.connectionTimeout || 30000;
@@ -813,8 +796,9 @@ export abstract class ConnectionPoolManager<T = any> {
     this.logger.info('Destroying connection pool manager', { traceId });
 
     try {
-      //  修复：清理定时器避免资源泄漏
+      //  修复：清理定时器和统一监控器避免资源泄漏
       this.timerManager.destroy();
+      this.unifiedMonitor.destroy();
 
       // 清理等待队列
       this.waitingQueue.forEach(item => {

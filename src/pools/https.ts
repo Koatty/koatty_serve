@@ -6,8 +6,8 @@
  * @LastEditTime: 2024-11-27 23:30:00
  */
 
-import {
-  ConnectionPoolManager,
+import { 
+  ConnectionPoolManager, 
   ConnectionRequestOptions
 } from './pool';
 import { ConnectionPoolConfig } from '../config/pool';
@@ -46,12 +46,12 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
     failedHandshakes: 0,
     averageHandshakeTime: 0
   };
-
+  
   constructor(config: ConnectionPoolConfig = {}) {
     super('https', config);
-
-    // 启动定期清理和安全监控
-    this.startCleanupTasks();
+    
+    // 注册HTTPS特定的清理任务到统一监控器
+    this.registerHttpsCleanupTasks();
     // 安全指标监控已启用（静默收集）
   }
 
@@ -59,10 +59,10 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    * 验证HTTPS连接
    */
   protected validateConnection(connection: TLSSocket): boolean {
-    return connection instanceof TLSSocket &&
-      !connection.destroyed &&
-      connection.readable &&
-      connection.writable;
+    return connection instanceof TLSSocket && 
+           !connection.destroyed && 
+           connection.readable && 
+           connection.writable;
   }
 
   /**
@@ -73,7 +73,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       if (!connection.destroyed) {
         // 优雅关闭TLS连接
         connection.end();
-
+        
         // 如果在合理时间内未关闭，强制销毁
         setTimeout(() => {
           if (!connection.destroyed) {
@@ -118,24 +118,24 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    */
   isConnectionHealthy(connection: TLSSocket): boolean {
     if (!connection) return false;
-
+    
     const connectionId = this.findHttpsConnectionId(connection);
     if (!connectionId) return false;
-
+    
     const metadata = this.connectionMetadata.get(connectionId) as HttpsConnectionMetadata;
     if (!metadata) return false;
-
+    
     // 检查连接状态
-    const isHealthy = !connection.destroyed &&
-      connection.readable &&
-      connection.writable &&
-      connection.authorized; // TLS特有的验证
-
+    const isHealthy = !connection.destroyed && 
+                     connection.readable && 
+                     connection.writable &&
+                     connection.authorized; // TLS特有的验证
+    
     // 检查是否超时
     const now = Date.now();
     const idleTimeout = this.config.keepAliveTimeout || 5000;
     const isIdle = metadata.available && (now - metadata.lastUsed) > idleTimeout;
-
+    
     return isHealthy && !isIdle;
   }
 
@@ -144,7 +144,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    */
   async addHttpsConnection(connection: TLSSocket): Promise<boolean> {
     const handshakeStart = Date.now();
-
+    
     try {
       // 等待TLS握手完成
       if (!connection.authorized && !connection.destroyed) {
@@ -152,22 +152,22 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
           const timeout = setTimeout(() => {
             reject(new Error('TLS handshake timeout'));
           }, 10000);
-
+          
           connection.once('secureConnect', () => {
             clearTimeout(timeout);
             resolve(void 0);
           });
-
+          
           connection.once('error', (error) => {
             clearTimeout(timeout);
             reject(error);
           });
         });
       }
-
+      
       const handshakeDuration = Date.now() - handshakeStart;
       this.updateSecurityMetrics(true, handshakeDuration, connection);
-
+      
       const metadata: Partial<HttpsConnectionMetadata> = {
         remoteAddress: connection.remoteAddress,
         remotePort: connection.remotePort,
@@ -185,11 +185,11 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       };
 
       const success = await this.addConnection(connection, metadata);
-
+      
       if (success) {
         this.setupConnectionEventHandlers(connection);
       }
-
+      
       return success;
     } catch (error) {
       this.updateSecurityMetrics(false, Date.now() - handshakeStart);
@@ -203,12 +203,12 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    */
   private calculateSecurityScore(connection: TLSSocket): number {
     let score = 0;
-
+    
     // 基础授权检查 (40分)
     if (connection.authorized) {
       score += 40;
     }
-
+    
     // 协议版本检查 (20分)
     const protocol = connection.getProtocol();
     if (protocol === 'TLSv1.3') {
@@ -218,7 +218,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
     } else if (protocol === 'TLSv1.1') {
       score += 10;
     }
-
+    
     // 加密套件检查 (20分)
     const cipher = connection.getCipher();
     if (cipher) {
@@ -226,7 +226,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       if (cipher.name.includes('GCM')) score += 5;
       if (cipher.name.includes('256')) score += 5;
     }
-
+    
     // 证书检查 (20分)
     try {
       const cert = connection.getPeerCertificate();
@@ -234,7 +234,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
         const expiry = new Date(cert.valid_to);
         const now = new Date();
         const daysToExpiry = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
+        
         if (daysToExpiry > 90) score += 20;
         else if (daysToExpiry > 30) score += 15;
         else if (daysToExpiry > 7) score += 10;
@@ -244,7 +244,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       // 证书检查失败
       this.logger.error('Failed to calculate security score', {}, error);
     }
-
+    
     return Math.min(score, 100);
   }
 
@@ -253,18 +253,18 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
    */
   private updateSecurityMetrics(success: boolean, handshakeDuration: number, connection?: TLSSocket): void {
     this.securityMetrics.totalHandshakes++;
-
+    
     if (!success) {
       this.securityMetrics.failedHandshakes++;
     }
-
+    
     if (connection && !connection.authorized) {
       this.securityMetrics.failedHandshakes++;
     }
-
+    
     // 更新平均握手时间
-    this.securityMetrics.averageHandshakeTime =
-      (this.securityMetrics.averageHandshakeTime * (this.securityMetrics.totalHandshakes - 1) + handshakeDuration)
+    this.securityMetrics.averageHandshakeTime = 
+      (this.securityMetrics.averageHandshakeTime * (this.securityMetrics.totalHandshakes - 1) + handshakeDuration) 
       / this.securityMetrics.totalHandshakes;
   }
 
@@ -284,8 +284,8 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
 
     // 处理连接错误
     connection.on('error', (error) => {
-      this.logger.warn('HTTPS connection error', {}, {
-        connectionId,
+      this.logger.warn('HTTPS connection error', {}, { 
+        connectionId, 
         error: error.message,
         authorized: connection.authorized
       });
@@ -296,9 +296,9 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
 
     // 处理TLS错误
     connection.on('tlsClientError', (error) => {
-      this.logger.warn('TLS client error', {}, {
-        connectionId,
-        error: error.message
+      this.logger.warn('TLS client error', {}, { 
+        connectionId, 
+        error: error.message 
       });
       this.securityMetrics.failedHandshakes++;
     });
@@ -337,7 +337,7 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
       metadata.requestCount++;
       metadata.bytesSent += bytesSent;
       metadata.lastUsed = Date.now();
-
+      
       // 标记连接为可用
       metadata.available = true;
     }
@@ -347,13 +347,19 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
   }
 
   /**
-   * 启动清理任务
+   * 注册HTTPS特定的清理任务到统一监控器
    */
-  private startCleanupTasks(): void {
-    // 定期清理空闲连接 - 使用TimerManager
-    this.timerManager.addTimer('https_idle_cleanup', () => {
-      this.cleanupIdleConnections();
-    }, 30000); // 每30秒
+  private registerHttpsCleanupTasks(): void {
+    // 注册HTTPS空闲连接清理任务
+    const httpsCleanupTask = {
+      name: 'https_idle_cleanup',
+      interval: 30000, // 30秒
+      priority: 3,
+      execute: () => this.cleanupIdleConnections(),
+      description: 'HTTPS idle connections cleanup'
+    };
+    
+    this.unifiedMonitor.registerTask(httpsCleanupTask);
   }
 
 
@@ -368,8 +374,8 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
 
     for (const [id, metadata] of this.connectionMetadata) {
       const typedMetadata = metadata as HttpsConnectionMetadata;
-      if (typedMetadata.available &&
-        (now - typedMetadata.lastUsed) > maxIdleTime) {
+      if (typedMetadata.available && 
+          (now - typedMetadata.lastUsed) > maxIdleTime) {
         const connection = this.connections.get(id);
         if (connection) {
           connectionsToRemove.push({ id, connection });
@@ -409,27 +415,27 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
 
     for (const [_id, metadata] of this.connectionMetadata) {
       const typedMetadata = metadata as HttpsConnectionMetadata;
-
+      
       if (typedMetadata.available) stats.available++;
       if (typedMetadata.authorized) stats.authorized++;
       else stats.unauthorized++;
-
+      
       stats.totalRequests += typedMetadata.requestCount;
       stats.totalBytesSent += typedMetadata.bytesSent;
       stats.totalBytesReceived += typedMetadata.bytesReceived;
       totalSecurityScore += typedMetadata.securityScore;
-
+      
       // 协议统计
       const protocol = typedMetadata.protocol || 'unknown';
       stats.protocols[protocol] = (stats.protocols[protocol] || 0) + 1;
-
+      
       // 加密套件统计
       const cipher = typedMetadata.cipher || 'unknown';
       stats.ciphers[cipher] = (stats.ciphers[cipher] || 0) + 1;
     }
 
-    stats.averageSecurityScore = this.connections.size > 0
-      ? totalSecurityScore / this.connections.size
+    stats.averageSecurityScore = this.connections.size > 0 
+      ? totalSecurityScore / this.connections.size 
       : 0;
 
     return {

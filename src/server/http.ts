@@ -35,7 +35,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   protected initializeConnectionPool(): void {
     const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
     this.connectionPool = new HttpConnectionPoolManager(poolConfig);
-
+    
     // Connection pool initialized with configuration
   }
 
@@ -45,12 +45,12 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   protected createProtocolServer(): void {
     (this as any).server = createServer((req, res) => {
       this.app.callback()(req, res);
-
+      
       // 记录请求指标
       res.on('finish', () => {
         if (req.socket) {
           this.connectionPool.handleRequestComplete(
-            req.socket,
+            req.socket, 
             res.getHeaders()['content-length'] as number || 0
           ).catch(() => {
             // Request completion error handled silently
@@ -103,7 +103,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
    */
   private configureConnectionPoolSettings(): void {
     const poolConfig = this.options.connectionPool;
-
+    
     if (!poolConfig) {
       // Using default connection pool configuration
       return;
@@ -155,7 +155,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   ): ConfigChangeAnalysis {
     // 关键配置变更需要重启
     const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
-
+    
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
@@ -189,7 +189,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   ): void {
     // 处理HTTP特定的运行时配置变更
     const httpConfig = newConfig as Partial<HttpServerOptions>;
-
+    
     // 更新连接池限制（如果支持）
     if (httpConfig.connectionPool?.maxConnections) {
       this.logger.info('Updating connection pool limits', { traceId }, {
@@ -238,7 +238,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
 
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
     this.logger.info('Step 1: Stopping acceptance of new HTTP connections', { traceId });
-
+    
     // HTTP服务器停止监听新连接
     if (this.server.listening) {
       await new Promise<void>((resolve, reject) => {
@@ -248,7 +248,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
         });
       });
     }
-
+    
     this.logger.debug('New HTTP connection acceptance stopped', { traceId });
   }
 
@@ -259,10 +259,10 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     });
 
     const startTime = Date.now();
-
+    
     while (this.getActiveConnectionCount() > 0) {
       const elapsed = Date.now() - startTime;
-
+      
       if (elapsed >= timeout) {
         this.logger.warn('HTTP connection completion timeout reached', { traceId }, {
           remainingConnections: this.getActiveConnectionCount(),
@@ -270,24 +270,24 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
         });
         break;
       }
-
+      
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-
+    
     // Connection completion wait finished
   }
 
   protected async forceCloseRemainingConnections(traceId: string): Promise<void> {
     const remainingConnections = this.getActiveConnectionCount();
-
+    
     if (remainingConnections > 0) {
       this.logger.info('Step 4: Force closing remaining HTTP connections', { traceId }, {
         remainingConnections
       });
-
+      
       // 使用连接池强制关闭所有连接
       await this.connectionPool.closeAllConnections(5000);
-
+      
       this.logger.warn('Forced closure of remaining HTTP connections', { traceId }, {
         forcedConnections: remainingConnections
       });
@@ -298,10 +298,10 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
 
   protected forceShutdown(traceId: string): void {
     this.logger.warn('Force HTTP server shutdown initiated', { traceId });
-
+    
     // 强制关闭HTTP服务器
     this.server.close();
-
+    
     // 停止监控和清理
     this.stopMonitoringAndCleanup(traceId);
   }
@@ -317,7 +317,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     });
 
     const finalCallback = listenCallback || this.listenCallback;
-
+    
     this.server.listen(this.options.port, this.options.hostname, () => {
       this.logger.logServerEvent('started', { traceId }, {
         address: `${this.options.hostname}:${this.options.port}`,
@@ -327,10 +327,10 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
         connectionPoolEnabled: !!this.connectionPool,
         serverId: this.serverId
       });
-
+      
       // 启动连接池监控
       this.startConnectionPoolMonitoring();
-
+      
       if (finalCallback) {
         finalCallback();
       }
