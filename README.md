@@ -1,17 +1,17 @@
 # koatty_serve
 
-高性能单协议服务器框架，为Koatty提供统一的HTTP、HTTPS、HTTP/2、WebSocket、gRPC服务支持。采用现代化架构设计，具备企业级的配置管理、连接池、优雅关闭、健康检查和性能监控功能。
+高性能单协议服务器框架，为Koatty提供统一的HTTP、HTTPS、HTTP/2、HTTP/3、WebSocket、gRPC服务支持。采用现代化架构设计，具备企业级的配置管理、连接池、优雅关闭、健康检查和性能监控功能。
 
 ## 🚀 核心特性
 
 ### 🏗️ 统一架构设计
 - ✅ **模板方法模式**: 基于`BaseServer`的统一服务器架构
 - ✅ **单协议设计**: 每个服务器实例专注于单一协议，职责清晰
-- ✅ **多种协议支持**: HTTP、HTTPS、HTTP/2、WebSocket、WSS、gRPC
+- ✅ **多种协议支持**: HTTP、HTTPS、HTTP/2、HTTP/3 (QUIC)、WebSocket、WSS、gRPC
 - ✅ **配置统一管理**: `ConfigHelper`提供一致的配置接口
 - ✅ **连接池系统**: 高性能的协议专用连接池管理
 
-### 🔧 企业级配置管理
+### 🔧 统一配置管理
 - 🔄 **统一配置接口**: 所有协议使用相同的配置模式
 - 🔥 **配置热重载**: 智能检测配置变更，自动决定重启策略
 - 📋 **类型安全**: 完整的TypeScript类型定义和验证
@@ -23,7 +23,7 @@
 - 🔄 **自动清理**: 过期连接自动清理和资源回收
 - 🎯 **负载均衡**: 智能连接分配和负载管理
 
-### 🛡️ 企业级运维
+### 🛡️ 运维监控
 - 🔄 **优雅关闭**: 五步式优雅关闭流程
 - 🏥 **健康检查**: 多层次健康状态监控
 - 📊 **性能监控**: 实时指标收集和历史数据
@@ -179,6 +179,45 @@ grpcServer.Start(() => {
   console.log('gRPC服务器已启动: 127.0.0.1:50051');
 });
 ```
+
+### HTTP/3服务器（基于QUIC）
+
+```typescript
+import { Http3Server } from "koatty_serve";
+import { ConfigHelper } from "koatty_serve/config";
+
+const http3Config = ConfigHelper.createHttp3Config({
+  hostname: '0.0.0.0',
+  port: 443,
+  ssl: {
+    mode: 'auto',
+    key: './ssl/server.key',
+    cert: './ssl/server.crt',
+    alpnProtocols: ['h3'],  // HTTP/3 ALPN
+  },
+  quic: {
+    maxIdleTimeout: 30000,
+    maxUdpPayloadSize: 65527,
+    initialMaxStreamsBidi: 100,
+    initialMaxStreamsUni: 100,
+  },
+  http3: {
+    maxHeaderListSize: 16384,
+    qpackMaxTableCapacity: 4096,
+  },
+  connectionPool: {
+    maxConnections: 2000,
+    keepAliveTimeout: 65000
+  }
+});
+
+const http3Server = new Http3Server(app, http3Config);
+http3Server.Start(() => {
+  console.log('HTTP/3服务器已启动: https://0.0.0.0:443 (QUIC)');
+});
+```
+
+**注意**: HTTP/3 基于 QUIC 协议（UDP），使用 `@matrixai/quic` 作为 QUIC 传输层（基于 Cloudflare QuICHE），并实现了完整的 HTTP/3 帧解析和 QPACK 头部压缩（符合 RFC 9114 和 RFC 9204 规范）。
 
 ### WebSocket服务器
 
@@ -490,6 +529,7 @@ const grpcConfig = ConfigHelper.createGrpcConfig({
 - `HttpServer` - HTTP服务器实现
 - `HttpsServer` - HTTPS服务器实现  
 - `Http2Server` - HTTP/2服务器实现
+- `Http3Server` - HTTP/3服务器实现（基于QUIC）
 - `WsServer` - WebSocket服务器实现
 - `GrpcServer` - gRPC服务器实现
 
@@ -498,13 +538,14 @@ const grpcConfig = ConfigHelper.createGrpcConfig({
 - `ConfigHelper` - 统一配置创建器
 - `ConnectionPoolConfig` - 连接池配置接口
 - `BaseServerOptions` - 基础服务器选项
-- `SSLConfig`, `SSL1Config`, `SSL2Config` - SSL配置接口
+- `SSLConfig`, `SSL1Config`, `SSL2Config`, `SSL3Config` - SSL配置接口
 
 ### 连接池类
 
 - `HttpConnectionPoolManager` - HTTP连接池
 - `HttpsConnectionPoolManager` - HTTPS连接池
 - `Http2ConnectionPoolManager` - HTTP/2连接池
+- `Http3ConnectionPoolManager` - HTTP/3连接池（QUIC）
 - `WebSocketConnectionPoolManager` - WebSocket连接池
 - `GrpcConnectionPoolManager` - gRPC连接池
 
