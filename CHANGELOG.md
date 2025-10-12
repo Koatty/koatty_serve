@@ -2,37 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
-## [2.8.0](https://github.com/koatty/koatty_serve/compare/v2.7.1...v2.8.0) (2025-06-16)
+## [2.6.0-0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0-0) (2025-10-12)
 
 
 ### Features
 
-* implement unified GracefulShutdownManager with step-based shutdown flow, timeout control and test coverage ([3856b44](https://github.com/koatty/koatty_serve/commit/3856b44e054fa6a47d720402b0c165452117fb88))
-
-### [2.7.1](https://github.com/koatty/koatty_serve/compare/v2.7.0...v2.7.1) (2025-06-16)
-
-## [2.7.0](https://github.com/koatty/koatty_serve/compare/v2.6.0...v2.7.0) (2025-06-15)
-
-
-### Features
-
-* implement unified timer management and graceful shutdown system across all protocol servers ([90c847d](https://github.com/koatty/koatty_serve/commit/90c847d08e4f88d3c5dd013e94be185f8c83d9ba))
-
-## [2.6.0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0) (2025-06-08)
-
-
-### Features
-
-* enhance connection pool management with protocol prefix filtering, WebSocket connection creation support, and improved server shutdown handling ([3dfa7ef](https://github.com/koatty/koatty_serve/commit/3dfa7ef20995ff72cfccfdb2d0849bf84b53e7bd))
+* enhance connection pool and server monitoring with RingBuffer for latency metrics, improved event listener error handling, and server health tracking ([e4c4860](https://github.com/koatty/koatty_serve/commit/e4c4860cd09a0d7de06c367c4154b7cf74e1329b))
 * refactor MultiProtocolServer for unified protocol management with enhanced status tracking, primary server instance handling, and improved service registration safety ([5d4c376](https://github.com/koatty/koatty_serve/commit/5d4c376bbd68c2b7beb2367d07e4f4b75f414b11))
-* refactor server configuration methods to include application context ([7f3c03f](https://github.com/koatty/koatty_serve/commit/7f3c03f9dcc79ec5bbb8d6557722722a69ebb956))
-
-
-### Bug Fixes
-
-* add interval references and prevent resource leaks in all connection pool managers ([9a25034](https://github.com/koatty/koatty_serve/commit/9a2503422646943e41cc0a0cb8620e0ada83c3f2))
-* add interval references and prevent resource leaks in ConnectionPoolManager ([4a2a0da](https://github.com/koatty/koatty_serve/commit/4a2a0da4e7917bf82766ee47d539b832b5b4bb23))
-* ensure proper cleanup of HTTP/2-specific monitoring intervals during server shutdown ([9a96afc](https://github.com/koatty/koatty_serve/commit/9a96afcee74d751315aad5ffaa0caf8bf23071e4))
+* refactor server implementation from MultiProtocolServer to SingleProtocolServer with simplified protocol handling and removed multi-protocol support ([a4d1c0f](https://github.com/koatty/koatty_serve/commit/a4d1c0fea848b669b48586642c0b1e50c6ef54c5))
+* update README to reflect single protocol design and add NewServe examples, bump version to 2.5.0 ([347efee](https://github.com/koatty/koatty_serve/commit/347efee81f3c16550e734f26e1588db08809ac0b))
 
 ## [2.5.0](https://github.com/koatty/koatty_serve/compare/v2.4.0...v2.5.0) (2025-06-06)
 
