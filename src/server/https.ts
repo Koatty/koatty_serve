@@ -516,6 +516,9 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     });
 
     this.server.listen(this.options.port, this.options.hostname, () => {
+      // Record start time
+      this.startTime = Date.now();
+      
       this.logger.logServerEvent('started', { traceId }, {
         address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,

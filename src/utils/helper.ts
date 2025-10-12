@@ -9,6 +9,8 @@
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
+import { randomBytes, randomUUID } from "crypto";
+
 /**
  * Performs a deep equality comparison between two objects.
  * @param obj1 - The first object to compare
@@ -43,36 +45,77 @@ export function deepEqual(obj1: any, obj2: any, visited = new WeakSet()): boolea
   return false;
 }
 
-  /**
-   * Execute operation with timeout
-   */
- export function executeWithTimeout<T>(
-    operation: () => Promise<T> | T,
-    timeout: number,
-    operationName: string
-  ): Promise < T > {
-    return new Promise<T>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error(`${operationName} timed out after ${timeout}ms`));
-      }, timeout);
+/**
+ * Execute operation with timeout
+ */
+export function executeWithTimeout<T>(
+  operation: () => Promise<T> | T,
+  timeout: number,
+  operationName: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`${operationName} timed out after ${timeout}ms`));
+    }, timeout);
 
-      Promise.resolve(operation())
-        .then((result) => {
-          clearTimeout(timeoutId);
-          resolve(result);
-        })
-        .catch((error) => {
-          clearTimeout(timeoutId);
-          reject(error);
-        });
-    });
-  }
+    Promise.resolve(operation())
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
 
 /**
- * Generate a unique server ID
- * @param protocol - The protocol of the server
- * @returns {string} The server ID
+ * Generate short unique ID from UUID v4
+ * Uses Node.js crypto module for cryptographically strong randomness
+ * Removes hyphens and takes first 12 characters for brevity
  */
-export function generateServerId(protocol: string): string {
-  return `${protocol}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+function generateShortId(): string {
+  // Use crypto.randomUUID() for simple UUID generation
+  // Available in Node.js 14.17+ and modern browsers
+  try {
+    return randomUUID().replace(/-/g, '').substring(0, 12);
+  } catch {
+    // Fallback: use randomBytes to generate UUID v4
+    const bytes = randomBytes(16);
+    
+    // Set version (4) and variant bits according to RFC 4122
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+    
+    // Convert to hex string
+    return bytes.toString('hex').substring(0, 12);
+  }
+}
+
+/**
+ * Generate unique trace ID
+ * Format: trace_<uuid>
+ * @returns Unique trace identifier
+ */
+export function generateTraceId(): string {
+  return `trace_${generateShortId()}`;
+}
+
+/**
+ * Generate unique connection ID
+ * Format: conn_<uuid>
+ * @returns Unique connection identifier
+ */
+export function generateConnectionId(): string {
+  return `conn_${generateShortId()}`;
+}
+
+/**
+ * Generate unique request ID
+ * Format: req_<uuid>
+ * @returns Unique request identifier
+ */
+export function generateRequestId(): string {
+  return `req_${generateShortId()}`;
 }
