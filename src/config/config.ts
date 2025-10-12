@@ -61,7 +61,7 @@ export interface SSL2Config extends SSL1Config {
 export interface ListeningOptions {
   hostname: string;
   port: number;
-  protocol: KoattyProtocol | KoattyProtocol[]; // 支持单协议或协议数组
+  protocol: KoattyProtocol;
   trace?: boolean; // Full stack debug & trace, default: false
   ext?: Record<string, any>; // Other extended configuration
   connectionPool?: ConnectionPoolConfig;
@@ -77,7 +77,7 @@ export interface ListeningOptions {
 export interface BaseServerOptions extends ListeningOptions {
   hostname: string;
   port: number;
-  protocol: KoattyProtocol; // 支持单协议或协议数组
+  protocol: KoattyProtocol;
   trace?: boolean; // Full stack debug & trace, default: false
   ext?: Record<string, any>; // Other extended configuration
   connectionPool?: ConnectionPoolConfig;

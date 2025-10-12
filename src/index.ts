@@ -18,7 +18,7 @@ export { WsServer } from "./server/ws";
 // Export serve functions and types
 export { 
   NewServe, 
-  MultiProtocolServer,
+  SingleProtocolServer,
 } from "./server/serve";
 
 export {
