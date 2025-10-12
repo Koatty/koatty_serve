@@ -48,12 +48,14 @@ interface Http2SessionMetadata {
  */
 export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Session> {
   private readonly activeStreams = new Map<string, Set<Http2Stream>>();
+  private pingInterval?: NodeJS.Timeout;
+  private healthCheckInterval?: NodeJS.Timeout;
 
   constructor(config: ConnectionPoolConfig = {}) {
     super('http2', config);
     
-    // 注册HTTP/2特有的监控任务到统一监控器
-    this.registerHttp2MonitoringTasks();
+    // 启动HTTP/2特有的监控任务
+    this.startHttp2MonitoringTasks();
   }
 
   /**
@@ -327,9 +329,9 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   private startSessionPing(session: Http2Session, sessionId: string): void {
     const pingInterval = this.config.protocolSpecific?.keepAliveTime || 30000;
     
-    // 会话级ping保留在TimerManager中，因为需要动态创建和销毁
-    this.timerManager.addTimer(`http2_session_ping_${sessionId}`, () => {
+    const pingTimer = setInterval(() => {
       if (session.destroyed || session.closed) {
+        clearInterval(pingTimer);
         return;
       }
 
@@ -350,31 +352,19 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
   }
 
   /**
-   * 注册HTTP/2监控任务到统一监控器
+   * 启动HTTP/2监控任务
    */
-  private registerHttp2MonitoringTasks(): void {
+  private startHttp2MonitoringTasks(): void {
+    // Ping间隔
     const pingInterval = this.config.protocolSpecific?.keepAliveTime || 30000;
-    
-    // 注册HTTP/2 ping任务
-    const http2PingTask = {
-      name: 'http2_ping',
-      interval: pingInterval,
-      priority: 2,
-      execute: () => this.pingAllSessions(),
-      description: 'HTTP/2 session ping monitoring'
-    };
-    
-    // 注册HTTP/2健康检查任务
-    const http2HealthTask = {
-      name: 'http2_health_check',
-      interval: 60000, // 1分钟
-      priority: 1,
-      execute: () => this.performHealthCheck(),
-      description: 'HTTP/2 session health check'
-    };
-    
-    this.unifiedMonitor.registerTask(http2PingTask);
-    this.unifiedMonitor.registerTask(http2HealthTask);
+    this.pingInterval = setInterval(() => {
+      this.pingAllSessions();
+    }, pingInterval);
+
+    // 健康检查间隔
+    this.healthCheckInterval = setInterval(() => {
+      this.performHealthCheck();
+    }, 60000); // 1分钟
   }
 
   /**
@@ -519,25 +509,17 @@ export class Http2ConnectionPoolManager extends ConnectionPoolManager<Http2Sessi
       const streams = this.activeStreams.get(sessionId);
       if (streams && streams.size > 0) {
         await new Promise((resolve) => {
-          const checkTimerId = `http2_stream_check_${sessionId}`;
-          const timeoutTimerId = `http2_stream_timeout_${sessionId}`;
-
-          const cleanup = () => {
-            this.timerManager.clearTimer(checkTimerId);
-            this.timerManager.clearTimer(timeoutTimerId);
-            resolve(void 0);
-          };
-
-          // 定期检查流状态
-          this.timerManager.addTimer(checkTimerId, () => {
+          const checkInterval = setInterval(() => {
             if (streams.size === 0) {
-              cleanup();
+              clearInterval(checkInterval);
+              resolve(void 0);
             }
           }, 100);
 
-          // 超时处理 - 使用setTimeout for one-time execution
+          // 超时处理
           setTimeout(() => {
-            cleanup();
+            clearInterval(checkInterval);
+            resolve(void 0);
           }, timeout);
         });
       }

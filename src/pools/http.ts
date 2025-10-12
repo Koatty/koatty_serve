@@ -43,8 +43,8 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
   constructor(config: ConnectionPoolConfig = {}) {
     super('http', config);
     
-    // 注册HTTP特定的清理任务到统一监控器
-    this.registerHttpCleanupTasks();
+    // 启动定期清理
+    this.startCleanupTasks();
   }
 
   /**
@@ -220,19 +220,14 @@ export class HttpConnectionPoolManager extends ConnectionPoolManager<Socket> {
   }
 
   /**
-   * 注册HTTP特定的清理任务到统一监控器
+   * 启动清理任务
    */
-  private registerHttpCleanupTasks(): void {
-    // 注册HTTP空闲连接清理任务
-    const httpCleanupTask = {
-      name: 'http_idle_cleanup',
-      interval: 30000, // 30秒
-      priority: 3,
-      execute: () => this.cleanupIdleConnections(),
-      description: 'HTTP idle connections cleanup'
-    };
-    
-    this.unifiedMonitor.registerTask(httpCleanupTask);
+  private startCleanupTasks(): void {
+    const cleanupInterval = 30000; // 30秒
+
+    this.httpCleanupInterval = setInterval(() => {
+      this.cleanupIdleConnections();
+    }, cleanupInterval);
   }
 
   /**

@@ -46,13 +46,14 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
     failedHandshakes: 0,
     averageHandshakeTime: 0
   };
+  private cleanupInterval?: NodeJS.Timeout;
   
   constructor(config: ConnectionPoolConfig = {}) {
     super('https', config);
     
-    // 注册HTTPS特定的清理任务到统一监控器
-    this.registerHttpsCleanupTasks();
-    // 安全指标监控已启用（静默收集）
+    // 启动定期清理和安全监控
+    this.startCleanupTasks();
+    this.startSecurityMonitoring();
   }
 
   /**
@@ -349,20 +350,20 @@ export class HttpsConnectionPoolManager extends ConnectionPoolManager<TLSSocket>
   /**
    * 注册HTTPS特定的清理任务到统一监控器
    */
-  private registerHttpsCleanupTasks(): void {
-    // 注册HTTPS空闲连接清理任务
-    const httpsCleanupTask = {
-      name: 'https_idle_cleanup',
-      interval: 30000, // 30秒
-      priority: 3,
-      execute: () => this.cleanupIdleConnections(),
-      description: 'HTTPS idle connections cleanup'
-    };
-    
-    this.unifiedMonitor.registerTask(httpsCleanupTask);
+  private startCleanupTasks(): void {
+    // 定期清理空闲连接
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupIdleConnections();
+    }, 30000); // 每30秒
   }
 
-
+  /**
+   * 启动安全监控
+   */
+  private startSecurityMonitoring(): void {
+    // 安全指标监控已启用（静默收集）
+    // 实际的安全指标在每次连接建立时收集
+  }
 
   /**
    * 清理空闲连接

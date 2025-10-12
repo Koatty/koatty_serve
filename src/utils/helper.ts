@@ -119,3 +119,13 @@ export function generateConnectionId(): string {
 export function generateRequestId(): string {
   return `req_${generateShortId()}`;
 }
+
+/**
+ * Generate unique server ID
+ * Format: <protocol>_server_<uuid>
+ * @param protocol - The server protocol (e.g., 'http', 'grpc', 'ws')
+ * @returns Unique server identifier
+ */
+export function generateServerId(protocol: string): string {
+  return `${protocol}_server_${generateShortId()}`;
+}
