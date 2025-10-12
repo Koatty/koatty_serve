@@ -31,14 +31,14 @@ describe("Config", () => {
       expect(options.protocol).toBe("http");
     });
 
-    it("should support multiple protocols in ListeningOptions", () => {
+    it("should support single protocol in ListeningOptions", () => {
       const options: ListeningOptions = {
         hostname: "localhost",
         port: 3000,
-        protocol: ["http", "https"]
+        protocol: "http"
       };
-      expect(Array.isArray(options.protocol)).toBe(true);
-      expect(options.protocol).toEqual(["http", "https"]);
+      expect(typeof options.protocol).toBe("string");
+      expect(options.protocol).toBe("http");
     });
   });
 

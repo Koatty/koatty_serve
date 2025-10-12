@@ -31,16 +31,16 @@ interface SingleServerOptions {
 }
 
 /**
- * Multi-protocol server manager
+ * Single protocol server
  */
-export class MultiProtocolServer implements KoattyServer {
+export class SingleProtocolServer implements KoattyServer {
   private app: KoattyApplication;
-  private servers: Map<string, KoattyServer> = new Map(); // Use any to avoid type conflicts
-  private logger = createLogger({ module: 'multiprotocol' });
+  private serverInstance: KoattyServer | null = null; // Actual server instance
+  private logger = createLogger({ module: 'singleprotocol' });
 
   readonly protocol: string = 'http';
   readonly options: ListeningOptions;
-  readonly server: any; // Primary server instance
+  readonly server: NativeServer; // Native server instance (for KoattyServer interface)
   status: number = 0; // Server status
   listenCallback?: () => void;
 
@@ -53,21 +53,21 @@ export class MultiProtocolServer implements KoattyServer {
       ...opt
     };
 
-    // Initialize server as null, will be set when servers are created
+    // Initialize server as null, will be set when server is created
     (this as any).server = null;
     this.status = 0;
 
-    this.logger.info('Multi-protocol server initialized', {}, {
-      protocols: Array.isArray(this.options.protocol) ? this.options.protocol : [this.options.protocol],
+    this.logger.info('Single protocol server initialized', {}, {
+      protocol: this.options.protocol,
       hostname: this.options.hostname,
-      basePort: this.options.port
+      port: this.options.port
     });
 
     CreateTerminus(app, this);
   }
 
   /**
-   * Start all servers
+   * Start server
    */
   Start(listenCallback?: () => void): any {
     const traceId = generateTraceId();
@@ -75,25 +75,20 @@ export class MultiProtocolServer implements KoattyServer {
     
     try {
       this.logger.logServerEvent('starting', { traceId }, {
-        protocols: Array.isArray(this.options.protocol) ? this.options.protocol : [this.options.protocol],
+        protocol: this.options.protocol,
         hostname: this.options.hostname,
-        basePort: this.options.port
+        port: this.options.port
       });
 
-      // Create and start protocol servers
-      this.createProtocolServers(traceId);
+      // Create and start server
+      this.createServer(traceId);
       
-      // Set the primary server instance (first server created)
-      if (this.servers.size > 0 && !(this as any).server) {
-        (this as any).server = this.servers.values().next().value;
-      }
-      
-      // Update status to indicate servers are running
-      this.status = this.servers.size > 0 ? 200 : 500;
+      // Update status to indicate server is running
+      this.status = this.serverInstance ? 200 : 500;
       
       this.logger.logServerEvent('started', { traceId }, {
-        totalServers: this.servers.size,
-        servers: Array.from(this.servers.keys())
+        protocol: this.options.protocol,
+        port: this.options.port
       });
 
       if (this.listenCallback) {
@@ -108,211 +103,132 @@ export class MultiProtocolServer implements KoattyServer {
   }
 
   /**
-   * Stop all servers
+   * Stop server
    */
   Stop(callback?: () => void): void {
     const traceId = generateTraceId();
     this.logger.logServerEvent('stopping', { traceId }, {
-      totalServers: this.servers.size
+      protocol: this.options.protocol,
+      port: this.options.port
     });
 
-    const stopPromises: Promise<void>[] = [];
-    
-    // Stop all protocol servers
-    this.servers.forEach((server, key) => {
-      stopPromises.push(new Promise<void>((resolve) => {
-        if (server && typeof server.Stop === 'function') {
-          server.Stop(() => {
-            this.logger.debug('Individual server stopped', { traceId }, { serverKey: key });
-            resolve();
-          });
-        } else {
-          this.logger.warn('Server has no Stop method', { traceId }, { serverKey: key });
-          resolve();
-        }
-      }));
-    });
-    
-    Promise.all(stopPromises).then(() => {
-      this.servers.clear();
+    if (this.serverInstance && typeof this.serverInstance.Stop === 'function') {
+      this.serverInstance.Stop(() => {
+        this.serverInstance = null;
+        (this as any).server = null;
+        this.status = 0;
+        this.logger.logServerEvent('stopped', { traceId });
+        if (callback) callback();
+      });
+    } else {
+      this.logger.warn('Server has no Stop method', { traceId });
+      this.serverInstance = null;
       (this as any).server = null;
       this.status = 0;
-      this.logger.logServerEvent('stopped', { traceId });
       if (callback) callback();
-    }).catch((error) => {
-      this.logger.logServerEvent('error', { traceId }, error);
-      if (callback) callback();
-    });
+    }
   }
 
   /**
    * Register Service for gRPC server
    */
-  RegisterService(impl: (...args: any[]) => any, protocolType?: KoattyProtocol, port?: number) {
-    // Safer type handling without unsafe type assertions
-    let targetProtocol: KoattyProtocol;
-    
-    if (protocolType) {
-      targetProtocol = protocolType;
-    } else {
-      const protocols = Array.isArray(this.options.protocol) 
-        ? this.options.protocol 
-        : [this.options.protocol];
-      targetProtocol = protocols[0];
+  RegisterService(impl: (...args: any[]) => any) {
+    if (this.serverInstance && typeof (this.serverInstance as any).RegisterService === 'function') {
+      return (this.serverInstance as any).RegisterService(impl);
     }
     
-    const targetPort = port ?? this.options.port;
-    const server = this.getServer(targetProtocol, targetPort);
-    
-    return server?.RegisterService?.(impl);
+    this.logger.warn('Server does not support RegisterService method');
+    return undefined;
   }
 
   /**
-   * Get status by protocol and port
-   * @param protocolType 
-   * @param port 
+   * Get server status
    * @returns 
    */
-  getStatus(protocolType?: KoattyProtocol, port?: number): number {
-    // Safer type handling without unsafe type assertions
-    let targetProtocol: KoattyProtocol;
-    
-    if (protocolType) {
-      targetProtocol = protocolType;
-    } else {
-      const protocols = Array.isArray(this.options.protocol) 
-        ? this.options.protocol 
-        : [this.options.protocol];
-      targetProtocol = protocols[0];
-    }
-    
-    const targetPort = port ?? this.options.port;
-    const server = this.getServer(targetProtocol, targetPort);
-    
-    return (server as any)?.status ?? this.status;
+  getStatus(): number {
+    return this.status;
   }
 
   /**
-   * Get native server by protocol and port
-   * @param protocolType 
-   * @param port 
+   * Get native server
    * @returns 
    */
-  getNativeServer(protocolType?: KoattyProtocol, port?: number): NativeServer {
-    // Safer type handling without unsafe type assertions
-    let targetProtocol: KoattyProtocol;
-    
-    if (protocolType) {
-      targetProtocol = protocolType;
-    } else {
-      const protocols = Array.isArray(this.options.protocol) 
-        ? this.options.protocol 
-        : [this.options.protocol];
-      targetProtocol = protocols[0];
-    }
-    
-    const targetPort = port ?? this.options.port;
-    const server = this.getServer(targetProtocol, targetPort);
-    
-    if (server && typeof (server as any).getNativeServer === 'function') {
-      return (server as any).getNativeServer();
-    }
-    
-    // Fallback to the first available server's native server
-    for (const [, s] of this.servers) {
-      if (s && typeof (s as any).getNativeServer === 'function') {
-        return (s as any).getNativeServer();
-      }
+  getNativeServer(): NativeServer {
+    if (this.serverInstance && typeof (this.serverInstance as any).getNativeServer === 'function') {
+      return (this.serverInstance as any).getNativeServer();
     }
     
     return this.server;
   }
 
-
   /**
-   * Get server by protocol and port
+   * Create server based on configuration
    */
-  getServer(protocolType: KoattyProtocol, port: number): KoattyServer | undefined {
-    return this.servers.get(`${protocolType}:${port}`);
-  }
-
-  /**
-   * Get all running servers
-   */
-  getAllServers(): Map<string, KoattyServer> {
-    return this.servers;
-  }
-
-  /**
-   * Create protocol servers based on configuration
-   */
-  private createProtocolServers(traceId?: string): void {
-    const protocols = Array.isArray(this.options.protocol) 
-      ? this.options.protocol 
-      : [this.options.protocol];
-
-    protocols.forEach((protocolType, index) => {
-      // For multiple protocols, use different ports (base port + index)
-      const port = this.options.port + index;
-      
-      const options: SingleServerOptions = {
-        hostname: this.options.hostname,
-        port,
-        protocol: protocolType,
-        trace: this.options.trace,
-        ext: {
-          ...this.options.ext
-        }
-      };
-
-      try {
-        this.logger.info('Creating individual server', { 
-          traceId, 
-          protocol: protocolType, 
-          port: port 
-        });
-
-        // Handle secure protocols with error handling
-        const secureProtocols = new Set(["https", "http2", "wss"]);
-        if (secureProtocols.has(protocolType)) {
-          this.configureSSLForProtocol(protocolType, options, traceId);
-        }
-
-        if (["https", "http2"].includes(protocolType) && port === 80) {
-          options.port = 443;
-        }
-
-        if (protocolType === "grpc") {
-          options.ext.protoFile = this.app.config("protoFile", "router");
-        }
-
-        // Handle WebSocket specific options
-        if (["ws", "wss"].includes(protocolType)) {
-          this.configureWebSocketOptions(options, traceId);
-        }
-
-        const server = this.createServerInstance(protocolType, options);
-        const serverKey = `${protocolType}:${options.port}`;
-        this.servers.set(serverKey, server);
-
-        // Start the server
-        server.Start(() => {
-          this.logger.info('Individual server started successfully', { 
-            traceId, 
-            protocol: protocolType, 
-            port: options.port 
-          });
-        });
-
-      } catch (error) {
-        this.logger.error('Failed to create individual server', { 
-          traceId, 
-          protocol: protocolType, 
-          port: port 
-        }, error);
-        throw error;
+  private createServer(traceId?: string): void {
+    const protocolType = this.options.protocol;
+    const port = this.options.port;
+    
+    const options: SingleServerOptions = {
+      hostname: this.options.hostname,
+      port,
+      protocol: protocolType,
+      trace: this.options.trace,
+      ext: {
+        ...this.options.ext
       }
-    });
+    };
+
+    try {
+      this.logger.info('Creating server', { 
+        traceId, 
+        protocol: protocolType, 
+        port: port 
+      });
+
+      // Handle secure protocols with error handling
+      const secureProtocols = new Set(["https", "http2", "wss"]);
+      if (secureProtocols.has(protocolType)) {
+        this.configureSSLForProtocol(protocolType, options, traceId);
+      }
+
+      if (["https", "http2"].includes(protocolType) && port === 80) {
+        options.port = 443;
+      }
+
+      if (protocolType === "grpc") {
+        options.ext.protoFile = this.app.config("protoFile", "router");
+      }
+
+      // Handle WebSocket specific options
+      if (["ws", "wss"].includes(protocolType)) {
+        this.configureWebSocketOptions(options, traceId);
+      }
+
+      const server = this.createServerInstance(protocolType, options);
+      this.serverInstance = server;
+
+      // Start the server
+      server.Start(() => {
+        // Set the native server instance
+        if (typeof (server as any).getNativeServer === 'function') {
+          (this as any).server = (server as any).getNativeServer();
+        }
+        
+        this.logger.info('Server started successfully', { 
+          traceId, 
+          protocol: protocolType, 
+          port: options.port 
+        });
+      });
+
+    } catch (error) {
+      this.logger.error('Failed to create server', { 
+        traceId, 
+        protocol: protocolType, 
+        port: port 
+      }, error);
+      throw error;
+    }
   }
 
   /**
@@ -440,11 +356,6 @@ export function NewServe(app: KoattyApplication, opt?: ListeningOptions): Koatty
     ...opt
   };
 
-  // If protocol is not an array, convert it to an array
-  if (!Array.isArray(options.protocol)) {
-    options.protocol = [options.protocol];
-  }
-
-  // Create multi-protocol server
-  return new MultiProtocolServer(app, options);
+  // Create single-protocol server
+  return new SingleProtocolServer(app, options);
 }
