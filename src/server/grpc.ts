@@ -454,7 +454,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
-    this.logger.logServerEvent('starting', { traceId }, {
+    this.logger.info('Server starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
       protocol: this.options.protocol
@@ -467,14 +467,14 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     
     this.server.bindAsync(bindAddress, credentials, (err, port) => {
       if (err) {
-        this.logger.logServerEvent('error', { traceId }, err);
+        this.logger.error('Server error', { traceId }, err);
         return;
       }
       
       // Record start time
       this.startTime = Date.now();
       
-      this.logger.logServerEvent('started', { traceId }, {
+      this.logger.info('Server started', { traceId }, {
         address: bindAddress,
         actualPort: port,
         hostname: this.options.hostname,
