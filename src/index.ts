@@ -12,12 +12,13 @@
 export { GrpcServer } from "./server/grpc";
 export { HttpServer } from "./server/http";
 export { Http2Server } from "./server/http2";
+export { Http3Server } from "./server/http3";
 export { HttpsServer } from "./server/https";
 export { WsServer } from "./server/ws";
 
 // Export serve functions and types
-export { 
-  NewServe, 
+export {
+  NewServe,
   SingleProtocolServer,
 } from "./server/serve";
 
@@ -27,4 +28,4 @@ export {
 } from "./config/config";
 
 // Export utilities
-export * from "./utils/terminus";
+export { BindProcessEvent } from "./utils/terminus";
