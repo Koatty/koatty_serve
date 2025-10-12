@@ -342,40 +342,111 @@ class WebSocketConnectionPoolManager extends ConnectionPoolManager<WebSocket> {
 ### 配置类型系统
 
 ```typescript
-// 基础服务器选项
+// 监听选项（用于传递配置）
+interface ListeningOptions {
+  hostname: string;
+  port: number;
+  protocol: string;
+  trace?: boolean;
+  ext?: {                        // 扩展配置字段
+    ssl?: BaseSSLConfig;         // SSL 配置
+    protoFile?: string;          // gRPC proto 文件
+    schemaFile?: string;         // GraphQL schema 文件
+    [key: string]: any;          // 其他扩展配置
+  };
+  connectionPool?: ConnectionPoolConfig;
+}
+
+// 基础服务器选项（不包含 ext）
 interface BaseServerOptions {
   hostname: string;
   port: number;
-  protocol: KoattyProtocol;
+  protocol: string;
   trace?: boolean;
-  ext?: Record<string, any>;
   connectionPool?: ConnectionPoolConfig;
 }
 
 // SSL配置层次
 interface BaseSSLConfig {
-  key?: string;
-  cert?: string;
-  ca?: string;
-  passphrase?: string;
-  ciphers?: string;
-  honorCipherOrder?: boolean;
-  secureProtocol?: string;
+  enabled?: boolean;
+  key?: string;                  // 私钥路径或内容
+  cert?: string;                 // 证书路径或内容
+  ca?: string;                   // CA证书路径或内容
+  passphrase?: string;           // 私钥密码
+  ciphers?: string;              // 加密套件
+  honorCipherOrder?: boolean;    // 遵循加密套件顺序
+  secureProtocol?: string;       // SSL/TLS 协议版本
 }
 
+// gRPC 和 WebSocket 使用的简单 SSL 配置
 interface SSLConfig extends BaseSSLConfig {
-  enabled: boolean;
-  keyFile?: string;
-  certFile?: string;
-  caFile?: string;
-  clientCertRequired?: boolean;
+  clientCertRequired?: boolean;  // 是否需要客户端证书
 }
 
+// HTTPS 使用的高级 SSL 配置
 interface SSL1Config extends BaseSSLConfig {
+  mode: 'auto' | 'manual' | 'mutual_tls';  // SSL 模式
+  requestCert?: boolean;                    // 请求客户端证书
+  rejectUnauthorized?: boolean;             // 拒绝未授权连接
+  // 扩展配置选项
+  handshakeTimeout?: number;                // TLS 握手超时
+  sessionTimeout?: number;                  // TLS 会话超时
+  SNICallback?: Function;                   // SNI 回调
+  sessionIdContext?: string;                // 会话 ID 上下文
+  ticketKeys?: Buffer;                      // TLS 会话票据密钥
+  ALPNProtocols?: string[];                 // ALPN 协议
+}
+
+// HTTP/2 使用的 SSL 配置（支持 HTTP/1.1 降级）
+interface SSL2Config extends SSL1Config {
+  allowHTTP1?: boolean;                     // 允许 HTTP/1.1 回退
+}
+
+// HTTP/3 使用的 SSL 配置（基于 QUIC，必须使用 TLS 1.3）
+interface SSL3Config extends BaseSSLConfig {
   mode: 'auto' | 'manual' | 'mutual_tls';
   requestCert?: boolean;
   rejectUnauthorized?: boolean;
+  // QUIC 特定配置
+  alpnProtocols?: string[];                 // ALPN 协议（默认: ['h3']）
+  maxIdleTimeout?: number;                  // 最大空闲超时
+  initialMaxStreamsBidi?: number;           // 初始最大双向流数量
+  initialMaxStreamsUni?: number;            // 初始最大单向流数量
 }
+```
+
+### 配置方式
+
+koatty_serve 支持两种 SSL 配置方式（向后兼容）：
+
+#### 方式一：直接配置（推荐）
+
+```typescript
+const httpsConfig = ConfigHelper.createHttpsConfig({
+  hostname: '0.0.0.0',
+  port: 443,
+  ssl: {                        // 直接在顶层配置 SSL
+    mode: 'auto',
+    key: './ssl/server.key',
+    cert: './ssl/server.crt'
+  }
+});
+```
+
+#### 方式二：通过 ext 配置（向后兼容）
+
+```typescript
+const httpsConfig = ConfigHelper.createHttpsConfig({
+  hostname: '0.0.0.0',
+  port: 443,
+  ext: {
+    ssl: {                      // 通过 ext 配置 SSL
+      mode: 'auto',
+      key: './ssl/server.key',
+      cert: './ssl/server.crt'
+    }
+  }
+});
 ```
 
 ### 配置热重载
@@ -485,23 +556,78 @@ terminus模块会自动处理进程信号（SIGTERM、SIGINT等），并调用`s
 
 ## 🔐 SSL/TLS配置
 
-### HTTPS/HTTP2 SSL配置
+### HTTPS SSL配置
+
+#### 基础配置
 
 ```typescript
 const httpsConfig = ConfigHelper.createHttpsConfig({
   hostname: '0.0.0.0',
   port: 443,
   ssl: {
-    mode: 'mutual_tls',          // auto | manual | mutual_tls
+    mode: 'auto',               // auto | manual | mutual_tls
+    key: './ssl/server.key',    // 私钥路径或内容
+    cert: './ssl/server.crt'    // 证书路径或内容
+  }
+});
+```
+
+#### 高级配置（双向TLS + 扩展选项）
+
+```typescript
+const httpsConfig = ConfigHelper.createHttpsConfig({
+  hostname: '0.0.0.0',
+  port: 443,
+  ssl: {
+    mode: 'mutual_tls',                    // 双向 TLS 认证
     key: './ssl/server.key',
     cert: './ssl/server.crt',
-    ca: './ssl/ca.crt',
-    passphrase: 'your-passphrase',
+    ca: './ssl/ca.crt',                    // CA 证书
+    passphrase: 'your-passphrase',         // 私钥密码
     ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:!RC4:!LOW:!MD5:!aNULL',
     honorCipherOrder: true,
     secureProtocol: 'TLSv1_2_method',
     requestCert: true,
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
+    // 扩展配置选项
+    handshakeTimeout: 10000,               // TLS 握手超时（毫秒）
+    sessionTimeout: 300000,                // TLS 会话超时（毫秒）
+    sessionIdContext: 'koatty-https',      // 会话 ID 上下文
+    ALPNProtocols: ['http/1.1', 'h2']     // ALPN 协议列表
+  }
+});
+```
+
+### HTTP/2 SSL配置
+
+```typescript
+const http2Config = ConfigHelper.createHttp2Config({
+  hostname: '0.0.0.0',
+  port: 443,
+  ssl: {
+    mode: 'auto',
+    key: './ssl/server.key',
+    cert: './ssl/server.crt',
+    allowHTTP1: true,                      // 允许回退到 HTTP/1.1
+    ALPNProtocols: ['h2', 'http/1.1']     // HTTP/2 优先
+  }
+});
+```
+
+### HTTP/3 SSL配置（QUIC）
+
+```typescript
+const http3Config = ConfigHelper.createHttp3Config({
+  hostname: '0.0.0.0',
+  port: 443,
+  ssl: {
+    mode: 'auto',
+    key: './ssl/server.key',
+    cert: './ssl/server.crt',
+    alpnProtocols: ['h3'],                 // HTTP/3 ALPN
+    maxIdleTimeout: 30000,                 // QUIC 最大空闲超时
+    initialMaxStreamsBidi: 100,            // 初始最大双向流
+    initialMaxStreamsUni: 100              // 初始最大单向流
   }
 });
 ```
@@ -514,10 +640,25 @@ const grpcConfig = ConfigHelper.createGrpcConfig({
   port: 50051,
   ssl: {
     enabled: true,
-    keyFile: './certs/server.key',
-    certFile: './certs/server.crt',
-    caFile: './certs/ca.crt',
-    clientCertRequired: true
+    key: './certs/server.key',
+    cert: './certs/server.crt',
+    ca: './certs/ca.crt',
+    clientCertRequired: true               // 需要客户端证书
+  }
+});
+```
+
+### WebSocket SSL配置（WSS）
+
+```typescript
+const wssConfig = ConfigHelper.createWebSocketConfig({
+  hostname: '0.0.0.0',
+  port: 8443,
+  protocol: 'wss',                         // WebSocket Secure
+  ssl: {
+    enabled: true,
+    key: './ssl/server.key',
+    cert: './ssl/server.crt'
   }
 });
 ```
