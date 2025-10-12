@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0-2](https://github.com/koatty/koatty_serve/compare/v2.9.0-1...v2.9.0-2) (2025-10-12)
+
+
+### Features
+
+* add Koatty-style server startup logs with protocol and URL info for all server types ([aa1c106](https://github.com/koatty/koatty_serve/commit/aa1c1065383c8589ba56d511c1eba517268c50e0))
+
 ## [2.9.0-1](https://github.com/koatty/koatty_serve/compare/v2.8.0...v2.9.0-1) (2025-10-12)
 
 
