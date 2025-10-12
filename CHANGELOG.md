@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0-1](https://github.com/koatty/koatty_serve/compare/v2.8.0...v2.9.0-1) (2025-10-12)
+
+
+### Features
+
+* add HTTP/3 protocol support with MatrixAI QUIC and Node.js native implementations, including config, adapters and connection pool ([d07f72a](https://github.com/koatty/koatty_serve/commit/d07f72a5285073bf779aed1c3cc47bb6c091885f))
+* add HTTP/3 server integration tests with QPACK and frame handling, including certificate fixtures and end-to-end request/response simulation ([fd88238](https://github.com/koatty/koatty_serve/commit/fd88238f922be81ae9cbe8ea434b617ca3439b85))
+* add HTTP/3 server support with QUIC protocol implementation, including config, adapters, connection pool and comprehensive testing ([e72b2a5](https://github.com/koatty/koatty_serve/commit/e72b2a53dc997d2d55fde235c300f51452dc5ead))
+* enhance connection pool and server monitoring with RingBuffer for latency metrics, improved event listener error handling, and server health tracking ([dd3d24d](https://github.com/koatty/koatty_serve/commit/dd3d24d8bf8e5afb48a5ba6fd2e81c2e0a38e49c))
+* refactor server implementation from MultiProtocolServer to SingleProtocolServer with simplified protocol handling and removed multi-protocol support ([f10c6a6](https://github.com/koatty/koatty_serve/commit/f10c6a61ed5680317620e69a1078b13564e8fcec))
+* update README to reflect single protocol design and add NewServe examples, bump version to 2.5.0 ([da5beb7](https://github.com/koatty/koatty_serve/commit/da5beb7fda873c0d34dcdda2f7b9e0ce434b3f4f))
+
 ## [2.6.0-0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0-0) (2025-10-12)
 
 
