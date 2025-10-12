@@ -640,4 +640,20 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       }
     };
   }
+
+  /**
+   * 销毁服务器
+   */
+  async destroy(): Promise<void> {
+    const traceId = generateTraceId();
+    this.logger.info('Destroying gRPC server', { traceId });
+
+    try {
+      await this.gracefulShutdown();
+      this.logger.info('gRPC server destroyed successfully', { traceId });
+    } catch (error) {
+      this.logger.error('Error destroying gRPC server', { traceId }, error);
+      throw error;
+    }
+  }
 }

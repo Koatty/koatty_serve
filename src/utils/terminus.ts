@@ -109,21 +109,47 @@ export async function onSignal(event: string, app: KoattyApplication, server: Ko
   }
   signalHandlers.clear();
   
+  // 触发 appStop 事件，确保应用层清理逻辑执行
   await asyncEvent(app, 'appStop');
   await asyncEvent(process, 'beforeExit');
-  // Don't bother with graceful shutdown in development
-  if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
-    return process.exit(0);
-  }
 
+  // 设置强制关闭超时
   const forceShutdown = setTimeout(() => {
     Logger.Error('Could not close connections in time, forcefully shutting down');
     process.exit(1);
   }, forceTimeout);
 
-  server.Stop(() => {
+  try {
+    // 调用服务器的销毁方法（内部会执行 gracefulShutdown）
+    if (typeof (server as any).destroy === 'function') {
+      Logger.Info('Starting server destroy (graceful shutdown)');
+      await (server as any).destroy();
+      Logger.Info('Server destroy completed');
+    } 
+    // 降级到 Stop 方法（向后兼容）
+    else if (typeof server.Stop === 'function') {
+      Logger.Info('Starting graceful shutdown with Stop method');
+      await new Promise<void>((resolve, reject) => {
+        server.Stop((err?: Error) => {
+          if (err) {
+            Logger.Error('Server Stop failed', err);
+            reject(err);
+          } else {
+            Logger.Info('Server Stop completed');
+            resolve();
+          }
+        });
+      });
+    } else {
+      Logger.Warn('Server has no destroy or Stop method');
+    }
+
     clearTimeout(forceShutdown);
-    Logger.Warn('Closed out remaining connections');
+    Logger.Warn('Closed out remaining connections, exiting gracefully');
     process.exit(0);
-  });
+  } catch (error) {
+    clearTimeout(forceShutdown);
+    Logger.Error('Server destroy error, forcing exit', error);
+    process.exit(1);
+  }
 }
