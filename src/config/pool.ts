@@ -131,6 +131,35 @@ export class PoolConfigHelper {
   }
 
   /**
+   * 创建HTTP/3连接池配置
+   */
+  static createHttp3Config(options: {
+    maxConnections?: number;
+    maxIdleTimeout?: number;
+    maxUdpPayloadSize?: number;
+    initialMaxStreamsBidi?: number;
+    initialMaxStreamsUni?: number;
+    connectionTimeout?: number;
+    keepAliveTimeout?: number;
+    requestTimeout?: number;
+    headersTimeout?: number;
+  } = {}): ConnectionPoolConfig {
+    return {
+      maxConnections: options.maxConnections || 1000,
+      connectionTimeout: options.connectionTimeout || 30000,
+      keepAliveTimeout: options.keepAliveTimeout,
+      requestTimeout: options.requestTimeout,
+      headersTimeout: options.headersTimeout,
+      protocolSpecific: {
+        maxIdleTimeout: options.maxIdleTimeout || 30000,
+        maxUdpPayloadSize: options.maxUdpPayloadSize || 65527,
+        initialMaxStreamsBidi: options.initialMaxStreamsBidi || 100,
+        initialMaxStreamsUni: options.initialMaxStreamsUni || 100
+      }
+    };
+  }
+
+  /**
    * 创建gRPC连接池配置
    */
   static createGrpcConfig(options: {
@@ -231,6 +260,8 @@ export class PoolConfigHelper {
         return this.createWebSocketConfig();
       case 'http2':
         return this.createHttp2Config();
+      case 'http3':
+        return this.createHttp3Config();
       case 'grpc':
         return this.createGrpcConfig();
       default:

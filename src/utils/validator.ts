@@ -46,7 +46,7 @@ export class ConfigValidator {
     this.validatePort(options.port);
     
     // Validate protocol
-    this.validateProtocol(options.protocol);
+    this.validateProtocol(options.protocol as KoattyProtocol);
     
     // Validate protocol-specific configuration
     if (['https', 'http2', 'wss'].includes(options.protocol)) {

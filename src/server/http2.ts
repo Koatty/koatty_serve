@@ -12,11 +12,7 @@ import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { Http2ConnectionPoolManager } from "../pools/http2";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, Http2ServerOptions, ListeningOptions, SSL2Config } from "../config/config";
-
-
-
 
 /**
  * HTTP/2 Server implementation using template method pattern
@@ -36,8 +32,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
    * 初始化HTTP/2连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new Http2ConnectionPoolManager(poolConfig);
+    this.connectionPool = new Http2ConnectionPoolManager(this.options.connectionPool);
     
     // HTTP/2 connection pool initialized with configuration
   }
@@ -84,15 +79,12 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
    */
   private createHTTP2Options(): SecureServerOptions {
     const sslConfig = this.options.ssl;
-    const extConfig = this.options.ext;
     const http2Config = this.options.http2;
 
     let sslOptions: SecureServerOptions = {};
     
     if (sslConfig) {
-      sslOptions = this.createSSLOptions(sslConfig, extConfig);
-    } else if (extConfig) {
-      sslOptions = this.createAutoSSLOptions({ mode: 'auto' }, extConfig);
+      sslOptions = this.createSSLOptions(sslConfig, {});
     }
 
     // HTTP/2 specific options
@@ -225,25 +217,6 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     });
   }
 
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    const http2Options = this.options.http2;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000, // 30秒连接超时
-      keepAliveTimeout: options?.keepAliveTimeout,
-      requestTimeout: options?.requestTimeout,
-      headersTimeout: options?.headersTimeout,
-      protocolSpecific: {
-        maxSessionMemory: http2Options?.maxSessionMemory || options?.maxSessionMemory,
-        maxHeaderListSize: http2Options?.maxHeaderListSize || options?.maxHeaderListSize
-      }
-    };
-  }
-
   protected analyzeConfigChanges(
     changedKeys: (keyof Http2ServerOptions)[],
     oldConfig: Http2ServerOptions,
@@ -312,8 +285,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
         newConfig: http2Config.connectionPool
       });
       
-      const newPoolConfig = this.extractConnectionPoolConfig();
-      this.connectionPool.updateConfig(newPoolConfig);
+      this.connectionPool.updateConfig(http2Config.connectionPool);
     }
 
     this.logger.debug('HTTP/2 runtime configuration changes applied', { traceId });

@@ -15,7 +15,6 @@ import { BaseServer, ConfigChangeAnalysis, ConnectionStats } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { HealthStatus } from "./base";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, GrpcServerOptions, ListeningOptions } from "../config/config";
 import { GrpcConnectionPoolManager } from "../pools/factory";
 
@@ -54,8 +53,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    * 初始化gRPC连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new GrpcConnectionPoolManager(poolConfig);
+    this.connectionPool = new GrpcConnectionPoolManager(this.options.connectionPool);
   }
 
   /**
@@ -63,12 +61,10 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   protected createProtocolServer(): void {
     const opts = this.options as GrpcServerOptions;
-    opts.ext = opts.ext || {};
     
     // Enhanced channel options with connection pooling
     const channelOptions: ChannelOptions = {
       ...opts.channelOptions,
-      ...opts.ext,
       // Connection pool configuration
       'grpc.keepalive_time_ms': opts.connectionPool?.protocolSpecific?.keepAliveTime || 30000,
       'grpc.keepalive_timeout_ms': opts.connectionPool?.keepAliveTimeout || 5000,
@@ -107,12 +103,12 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   // ============= 实现 BaseServer 抽象方法 =============
 
   protected analyzeConfigChanges(
-    changedKeys: (keyof ListeningOptions)[],
+    changedKeys: (keyof GrpcServerOptions)[],
     oldConfig: GrpcServerOptions,
     newConfig: GrpcServerOptions
   ): ConfigChangeAnalysis {
     // Critical changes that require restart
-    const criticalKeys: (keyof ListeningOptions)[] = ['hostname', 'port', 'protocol'];
+    const criticalKeys: (keyof GrpcServerOptions)[] = ['hostname', 'port', 'protocol'];
     
     if (changedKeys.some(key => criticalKeys.includes(key))) {
       return {
@@ -310,9 +306,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
         status: HealthStatus.HEALTHY,
         message: 'SSL/TLS is enabled',
         details: {
-          keyFile: !!this.options.ssl.keyFile,
-          certFile: !!this.options.ssl.certFile,
-          caFile: !!this.options.ssl.caFile,
+          keyFile: !!this.options.ssl.key,
+          certFile: !!this.options.ssl.cert,
+          caFile: !!this.options.ssl.ca,
           clientCertRequired: this.options.ssl.clientCertRequired
         }
       };
@@ -366,9 +362,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
     return (
       oldSSL.enabled !== newSSL.enabled ||
-      oldSSL.keyFile !== newSSL.keyFile ||
-      oldSSL.certFile !== newSSL.certFile ||
-      oldSSL.caFile !== newSSL.caFile ||
+      oldSSL.key !== newSSL.key ||
+      oldSSL.cert !== newSSL.cert ||
+      oldSSL.ca !== newSSL.ca ||
       oldSSL.clientCertRequired !== newSSL.clientCertRequired
     );
   }
@@ -407,15 +403,15 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       const keyCertPairs: Array<{ private_key: Buffer; cert_chain: Buffer }> = [];
 
       // Load CA certificate if provided
-      if (opts.ssl.caFile || opts.ext?.ca) {
-        const caPath = opts.ssl.caFile || opts.ext?.ca;
+      if (opts.ssl.ca) {
+        const caPath = opts.ssl.ca || "";
         rootCerts = readFileSync(caPath!);
         this.logger.info('CA certificate loaded successfully', { traceId }, { caFile: caPath });
       }
 
       // Load server key and certificate
-      const keyPath = opts.ssl.keyFile || opts.ext?.key;
-      const certPath = opts.ssl.certFile || opts.ext?.cert;
+      const keyPath = opts.ssl.key ;
+      const certPath = opts.ssl.cert ;
 
       if (!keyPath || !certPath) {
         throw new Error('SSL enabled but key or cert file not provided');
@@ -624,22 +620,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   }
 
   // ============= gRPC特定的私有方法 =============
-
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000, // 30秒连接超时
-      protocolSpecific: {
-        keepAliveTime: options?.protocolSpecific?.keepAliveTime,
-        maxReceiveMessageLength: options?.protocolSpecific?.maxReceiveMessageLength,
-        maxSendMessageLength: options?.protocolSpecific?.maxSendMessageLength
-      }
-    };
-  }
 
   /**
    * 销毁服务器

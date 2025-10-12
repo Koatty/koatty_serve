@@ -17,7 +17,7 @@ import {
   ConnectionPoolManager,
   ConnectionPoolEvent
 } from "../pools/pool";
-import { BaseServerOptions, ListeningOptions } from "../config/config";
+import { ListeningOptions } from "../config/config";
 // 优雅关闭相关类型定义
 export interface GracefulShutdownOptions {
   timeout?: number;        // 总超时时间
@@ -41,7 +41,7 @@ export interface ShutdownResult {
  */
 export interface ConfigChangeAnalysis {
   requiresRestart: boolean;
-  changedKeys: (keyof ListeningOptions)[];
+  changedKeys: string[];
   restartReason?: string;
   canApplyRuntime?: boolean;
 }
@@ -50,7 +50,7 @@ export interface ConfigChangeAnalysis {
  * Base server class with template method pattern
  * 模板方法模式：定义算法骨架，子类实现具体步骤
  */
-export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions>
+export abstract class BaseServer<T extends ListeningOptions = ListeningOptions>
   implements KoattyServer {
   options: T;
   readonly server: any;

@@ -40,7 +40,6 @@ import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { Http3ConnectionPoolManager, Http3Session } from "../pools/http3";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, Http3ServerOptions, ListeningOptions, SSL3Config } from "../config/config";
 import { Http3ServerAdapter, Http3ServerConfig, getHttp3Version, hasNativeHttp3Support } from "../adapters/http3-matrixai";
 
@@ -62,12 +61,11 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
    * 初始化HTTP/3连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new Http3ConnectionPoolManager(poolConfig);
+    this.connectionPool = new Http3ConnectionPoolManager(this.options.connectionPool);
     
     this.logger.info('HTTP/3 connection pool initialized', {}, {
-      maxConnections: poolConfig.maxConnections,
-      maxIdleTimeout: poolConfig.protocolSpecific?.maxIdleTimeout
+      maxConnections: this.options.connectionPool.maxConnections,
+      maxIdleTimeout: this.options.connectionPool.protocolSpecific?.maxIdleTimeout
     });
   }
 
@@ -96,8 +94,8 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
       const http3Config: Http3ServerConfig = {
         hostname: this.options.hostname,
         port: this.options.port,
-        certFile: this.resolveFilePath(this.options.ssl?.cert || this.options.ext?.cert || ''),
-        keyFile: this.resolveFilePath(this.options.ssl?.key || this.options.ext?.key || ''),
+        certFile: this.resolveFilePath(this.options.ssl?.cert || ''),
+        keyFile: this.resolveFilePath(this.options.ssl?.key || ''),
         caFile: this.options.ssl?.ca ? this.resolveFilePath(this.options.ssl.ca) : undefined,
         maxIdleTimeout: this.options.quic?.maxIdleTimeout,
         maxUdpPayloadSize: this.options.quic?.maxUdpPayloadSize,
@@ -233,10 +231,9 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     const sslConfig = this.options.ssl;
     const quicConfig = this.options.quic;
     const http3Config = this.options.http3;
-    const extConfig = this.options.ext;
 
     // 加载SSL证书
-    const sslOptions = this.createSSLOptions(sslConfig, extConfig);
+    const sslOptions = this.createSSLOptions(sslConfig, {});
 
     // QUIC 传输参数
     const transportParams = {
@@ -408,30 +405,6 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     });
   }
 
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    const quicOptions = this.options.quic;
-    
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000,
-      keepAliveTimeout: options?.keepAliveTimeout,
-      requestTimeout: options?.requestTimeout,
-      headersTimeout: options?.headersTimeout,
-      protocolSpecific: {
-        maxIdleTimeout: quicOptions?.maxIdleTimeout || 30000,
-        maxUdpPayloadSize: quicOptions?.maxUdpPayloadSize || 65527,
-        initialMaxStreamsBidi: quicOptions?.initialMaxStreamsBidi || 100,
-        initialMaxStreamsUni: quicOptions?.initialMaxStreamsUni || 100,
-      }
-    };
-  }
-
-  // ============= 实现配置管理抽象方法 =============
-
   protected analyzeConfigChanges(
     changedKeys: (keyof Http3ServerOptions)[],
     oldConfig: Http3ServerOptions,
@@ -510,8 +483,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
         newConfig: http3Config.connectionPool
       });
       
-      const newPoolConfig = this.extractConnectionPoolConfig();
-      this.connectionPool.updateConfig(newPoolConfig);
+      this.connectionPool.updateConfig(this.options.connectionPool);
     }
 
     this.logger.debug('HTTP/3 runtime configuration changes applied', { traceId });

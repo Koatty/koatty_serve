@@ -13,7 +13,6 @@ import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { WebSocketConnectionPoolManager } from "../pools/ws";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, ListeningOptions, WebSocketServerOptions } from "../config/config";
 
 
@@ -46,8 +45,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 初始化WebSocket连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new WebSocketConnectionPoolManager(poolConfig);
+    this.connectionPool = new WebSocketConnectionPoolManager(this.options.connectionPool);
     
     // WebSocket connection pool initialized with configuration
   }
@@ -94,15 +92,10 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 创建HTTP/HTTPS服务器
    */
   private createHttpServer(): HttpServer | HttpsServer {
-    if (this.options.ext?.server) {
-      // Using external HTTP server
-      return this.options.ext.server;
-    }
-    
     if (this.options.protocol === "wss") {
       const opt: httpsServerOptions = {
-        key: this.options.ext?.key,
-        cert: this.options.ext?.cert,
+        key: this.options.ssl?.key,
+        cert: this.options.ssl?.cert,
       };
       // HTTPS server created for WSS
       return httpsCreateServer(opt);
@@ -110,22 +103,6 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       // HTTP server created for WS
       return createServer();
     }
-  }
-
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: options?.connectionTimeout || 30000,
-      protocolSpecific: {
-        pingInterval: options?.pingInterval || 30000,
-        pongTimeout: options?.pongTimeout || 5000,
-        heartbeatInterval: options?.heartbeatInterval || 60000
-      }
-    };
   }
 
   /**
@@ -304,8 +281,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
       });
       
       // 更新连接池配置
-      const newPoolConfig = this.extractConnectionPoolConfig();
-      this.connectionPool.updateConfig(newPoolConfig);
+      this.connectionPool.updateConfig(this.options.connectionPool);
     }
 
     this.logger.debug('WebSocket runtime configuration changes applied', { traceId });
@@ -346,9 +322,9 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     if (oldConfig.protocol !== 'wss' && newConfig.protocol !== 'wss') return false;
     
     return (
-      oldConfig.ext?.key !== newConfig.ext?.key ||
-      oldConfig.ext?.cert !== newConfig.ext?.cert ||
-      oldConfig.ext?.ca !== newConfig.ext?.ca
+      oldConfig.ssl?.key !== newConfig.ssl?.key ||
+      oldConfig.ssl?.cert !== newConfig.ssl?.cert ||
+      oldConfig.ssl?.ca !== newConfig.ssl?.ca
     );
   }
 

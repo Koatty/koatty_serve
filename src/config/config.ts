@@ -7,7 +7,9 @@
  */
 import * as WS from 'ws';
 import { ChannelOptions } from "@grpc/grpc-js";
-import { ConnectionPoolConfig } from "./pool";
+import { ConnectionPoolConfig, PoolConfigHelper } from "./pool";
+import { createLogger } from '../utils/logger';
+import fs from 'fs';
 
 // KoattyProtocol
 export type KoattyProtocol = 'http' | "https" | 'http2' | 'http3' | 'grpc' | 'ws' | 'wss';
@@ -16,9 +18,10 @@ export type KoattyProtocol = 'http' | "https" | 'http2' | 'http3' | 'grpc' | 'ws
  * 基础SSL配置
  */
 export interface BaseSSLConfig {
-  key?: string;                             // Private key file path or content
-  cert?: string;                            // Certificate file path or content
-  ca?: string;                              // CA certificate file path or content
+  enabled?: boolean;
+  key?: string;                             // Private key path
+  cert?: string;                            // Certificate path
+  ca?: string;                              // CA certificate path
   passphrase?: string;                      // Private key passphrase
   ciphers?: string;                         // Allowed cipher suites
   honorCipherOrder?: boolean;               // Honor cipher order
@@ -29,10 +32,6 @@ export interface BaseSSLConfig {
  * gRPC和WebSocket使用的简单SSL配置
  */
 export interface SSLConfig extends BaseSSLConfig {
-  enabled: boolean;
-  keyFile?: string;
-  certFile?: string;
-  caFile?: string;
   clientCertRequired?: boolean;
 }
 
@@ -43,6 +42,13 @@ export interface SSL1Config extends BaseSSLConfig {
   mode: 'auto' | 'manual' | 'mutual_tls';  // SSL mode
   requestCert?: boolean;                    // Request client certificate
   rejectUnauthorized?: boolean;             // Reject unauthorized connections
+  // 扩展配置选项
+  handshakeTimeout?: number;                // TLS handshake timeout
+  sessionTimeout?: number;                  // TLS session timeout
+  SNICallback?: (servername: string, cb: (err: Error | null, ctx?: any) => void) => void;  // SNI callback
+  sessionIdContext?: string;                // Session ID context
+  ticketKeys?: Buffer;                      // TLS session ticket keys
+  ALPNProtocols?: string[];                 // ALPN protocols
 }
 
 /**
@@ -74,9 +80,15 @@ export interface SSL3Config extends BaseSSLConfig {
 export interface ListeningOptions {
   hostname: string;
   port: number;
-  protocol: KoattyProtocol;
+  protocol: string;
   trace?: boolean; // Full stack debug & trace, default: false
-  ext?: Record<string, any>; // Other extended configuration
+  ext?: {
+    ssl?: { [key: string]: any; } & BaseSSLConfig;
+    
+    protoFile?: string;
+    schemaFile?: string;
+    [key: string]: any;
+  };
   connectionPool?: ConnectionPoolConfig;
 }
 
@@ -85,16 +97,15 @@ export interface ListeningOptions {
  *
  * @export
  * @interface BaseServerOptions
- * @extends {ListeningOptions}
  */
-export interface BaseServerOptions extends ListeningOptions {
+export interface BaseServerOptions {
   hostname: string;
   port: number;
-  protocol: KoattyProtocol;
+  protocol: string;
   trace?: boolean; // Full stack debug & trace, default: false
-  ext?: Record<string, any>; // Other extended configuration
   connectionPool?: ConnectionPoolConfig;
 }
+
 /**
  * HTTP Server Options extending base options
  */
@@ -108,12 +119,6 @@ export interface HttpServerOptions extends BaseServerOptions {
 export interface HttpsServerOptions extends BaseServerOptions {
   ssl?: SSL1Config;
   connectionPool?: ConnectionPoolConfig;
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
 }
 
 /**
@@ -134,12 +139,6 @@ export interface Http2ServerOptions extends BaseServerOptions {
     };
   };
   connectionPool?: ConnectionPoolConfig;
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
 }
 
 /**
@@ -172,12 +171,6 @@ export interface Http3ServerOptions extends BaseServerOptions {
     disableActiveMigration?: boolean;
   };
   connectionPool?: ConnectionPoolConfig;
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
 }
 
 /**
@@ -191,253 +184,241 @@ export interface WebSocketServerOptions extends BaseServerOptions {
 
 /**
  * gRPC Server Options with enhanced configuration
- *
- * @export
- * @interface GrpcServerOptions
- * @extends {ListeningOptions}
  */
 export interface GrpcServerOptions extends BaseServerOptions {
   channelOptions?: ChannelOptions;
   ssl?: SSLConfig;
   connectionPool?: ConnectionPoolConfig;
-  ext?: {
-    key?: string;
-    cert?: string;
-    ca?: string;
-    [key: string]: any;
-  };
 }
 
 export class ConfigHelper {
-  static createHttpConfig(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): HttpServerOptions {
+  private static logger = createLogger({ module: 'config' });
+
+  static configureSSLForProtocol(protocolType: string,
+   options: ListeningOptions, traceId?: string): void {
+    const secureProtocols = new Set(["https", "http2", "http3", "wss", "graphql"]);
+    if (!secureProtocols.has(protocolType)) {
+      return;
+    }
+    try {
+      const keyPath = options.ext?.ssl.key || "";
+      const crtPath = options.ext?.ssl.cert || "";
+
+      options.ext.ssl = {
+        ...options.ext.ssl,
+        enabled: false,
+      };
+      if (!keyPath || !crtPath || (!fs.existsSync(keyPath) || !fs.existsSync(crtPath))) {
+        options.ext.ssl.enabled = false;
+        if (protocolType !== "graphql") {
+          const error = new Error(`SSL certificate files not configured for ${protocolType} protocol`);
+          this.logger.error('SSL configuration missing', {
+            traceId,
+            protocol: protocolType
+          }, error);
+          throw error;
+        }
+      } else {
+        options.ext.ssl.enabled = true;
+      }
+      
+      this.logger.info('SSL certificates loaded successfully', {
+        traceId,
+        protocol: protocolType
+      });
+    } catch (error) {
+      this.logger.error('Failed to load SSL certificates', {
+        traceId,
+        protocol: protocolType
+      }, error);
+      throw error; // Re-throw to prevent server startup with invalid SSL config
+    }
+  }
+
+  static createHttpConfig(options: ListeningOptions = {
+    hostname: 'localhost',
+    port: 3000,
+    protocol: 'http',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): HttpServerOptions {
+    if (!options.ext) {
+      options.ext = {};
+    }
+    
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createHttpConfig();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+    
     return {
-      ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
-        requestTimeout: options.connectionPool?.requestTimeout || 30000,
-        headersTimeout: options.connectionPool?.headersTimeout || 10000
-      },
+      connectionPool: poolConfig,
       hostname: options.hostname || 'localhost',
       port: options.port || 3000,
       protocol: options.protocol || 'http',
-      trace: options.trace || false,
-      ext: options.ext || {}
+      trace: options.trace || false
     }
   }
 
-  static createHttpsConfig(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ssl?: SSL1Config;
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): HttpsServerOptions {
-    return {
-      ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
-        requestTimeout: options.connectionPool?.requestTimeout || 30000,
-        headersTimeout: options.connectionPool?.headersTimeout || 10000
-      },
-      ssl: {
-        ...options.ssl,
-        key: options.ext?.key || '',
-        cert: options.ext?.cert || '',
-        ca: options.ext?.ca || ''
-      },
+  static createHttpsConfig(options: any = {
+    hostname: 'localhost',
+    port: 443,
+    protocol: 'https',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): HttpsServerOptions {
+    if (!options.ext) {
+      options.ext = {};
+    }
+    
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createHttpsConfig();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+    
+    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
+    const sslConfig = options.ssl || options.ext.ssl || {};
+    
+    const config = {
+      connectionPool: poolConfig,
+      ssl: sslConfig,
       hostname: options.hostname || 'localhost',
       port: options.port || 443,
       protocol: options.protocol || 'https',
-      trace: options.trace || false,
-      ext: options.ext || {}
+      trace: options.trace || false
     }
+    if (config.port === 80) {
+      config.port = 443;
+    }
+    return config;
   }
 
-  static createHttp2Config(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ssl?: SSL2Config;
-    http2?: Http2ServerOptions['http2'];
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): Http2ServerOptions {
-    return {
-      ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
-        requestTimeout: options.connectionPool?.requestTimeout || 30000,
-        headersTimeout: options.connectionPool?.headersTimeout || 10000
-      },
-      ssl: {
-        ...options.ssl,
-        key: options.ext?.key || '',
-        cert: options.ext?.cert || '',
-        ca: options.ext?.ca || ''
-      },
-      hostname: options.hostname || 'localhost',
-      port: options.port || 443,
-      protocol: options.protocol || 'http2',
-      trace: options.trace || false,
-      ext: options.ext || {}
-    }
-  }
-
-  static createGrpcConfig(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ssl?: SSLConfig;
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): GrpcServerOptions {
-    // 处理gRPC特定的连接池配置
-    const connectionPool: ConnectionPoolConfig = {
-      ...options.connectionPool,
-      maxConnections: options.connectionPool?.maxConnections || 1000,
-      connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-      protocolSpecific: {
-        ...options.connectionPool?.protocolSpecific,
-        // gRPC特定的配置
-        keepAliveTime: (options.connectionPool?.protocolSpecific as any)?.keepAliveTime || 30000,
-        maxReceiveMessageLength: (options.connectionPool?.protocolSpecific as any)?.maxReceiveMessageLength || 4 * 1024 * 1024,
-        maxSendMessageLength: (options.connectionPool?.protocolSpecific as any)?.maxSendMessageLength || 4 * 1024 * 1024
-      }
-    };
+  static createHttp2Config(options: any = {
+    hostname: 'localhost',
+    port: 443,
+    protocol: 'http2',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): Http2ServerOptions {
     if (!options.ext) {
       options.ext = {};
     }
 
-    return {
-      ...options,
-      connectionPool,
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createHttp2Config();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+
+    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
+    const sslConfig = options.ssl || options.ext.ssl || {};
+
+    const config =  {
+      connectionPool: poolConfig,
+      ssl: sslConfig,
+      http2: options.http2 || options.ext.http2 || {},
       hostname: options.hostname || 'localhost',
-      port: options.port || 50051, // gRPC默认端口
+      port: options.port || 443,
+      protocol: options.protocol || 'http2',
+      trace: options.trace || false
+    }
+    if (config.port === 80) {
+      config.port = 443;
+    }
+    return config;
+  }
+
+  static createGrpcConfig(options: any = {
+    hostname: 'localhost',
+    port: 50051,
+    protocol: 'grpc',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): GrpcServerOptions {
+    if (!options.ext) {
+      options.ext = {};
+    }
+
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createGrpcConfig();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+
+    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
+    const sslConfig = options.ssl || options.ext.ssl || {};
+
+    return {
+      channelOptions: options.connectionPool || {},
+      ssl: sslConfig,
+      connectionPool: poolConfig,
+      hostname: options.hostname || 'localhost',
+      port: options.port || 50051,
       protocol: options.protocol || 'grpc',
       trace: options.trace || false,
-      ext: options.ext || {}
     }
   }
 
-  static createHttp3Config(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ssl?: SSL3Config;
-    http3?: Http3ServerOptions['http3'];
-    quic?: Http3ServerOptions['quic'];
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): Http3ServerOptions {
-    return {
-      ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
-        requestTimeout: options.connectionPool?.requestTimeout || 30000,
-        headersTimeout: options.connectionPool?.headersTimeout || 10000,
-        protocolSpecific: {
-          ...options.connectionPool?.protocolSpecific,
-          // HTTP/3特定的配置
-          maxIdleTimeout: (options.connectionPool?.protocolSpecific as any)?.maxIdleTimeout || 30000,
-          maxUdpPayloadSize: (options.connectionPool?.protocolSpecific as any)?.maxUdpPayloadSize || 65527,
-        }
-      },
-      ssl: {
-        mode: options.ssl?.mode || 'auto',
-        key: options.ssl?.key || options.ext?.key || '',
-        cert: options.ssl?.cert || options.ext?.cert || '',
-        ca: options.ssl?.ca || options.ext?.ca || '',
-        alpnProtocols: options.ssl?.alpnProtocols || ['h3'],
-        maxIdleTimeout: options.ssl?.maxIdleTimeout || 30000,
-        initialMaxStreamsBidi: options.ssl?.initialMaxStreamsBidi || 100,
-        initialMaxStreamsUni: options.ssl?.initialMaxStreamsUni || 100,
-        ...options.ssl
-      },
-      http3: {
-        maxHeaderListSize: options.http3?.maxHeaderListSize || 16384,
-        maxFieldSectionSize: options.http3?.maxFieldSectionSize || 16384,
-        qpackMaxTableCapacity: options.http3?.qpackMaxTableCapacity || 4096,
-        qpackBlockedStreams: options.http3?.qpackBlockedStreams || 100,
-        ...options.http3
-      },
-      quic: {
-        maxIdleTimeout: options.quic?.maxIdleTimeout || 30000,
-        maxUdpPayloadSize: options.quic?.maxUdpPayloadSize || 65527,
-        initialMaxData: options.quic?.initialMaxData || 10485760, // 10MB
-        initialMaxStreamDataBidiLocal: options.quic?.initialMaxStreamDataBidiLocal || 1048576, // 1MB
-        initialMaxStreamDataBidiRemote: options.quic?.initialMaxStreamDataBidiRemote || 1048576,
-        initialMaxStreamDataUni: options.quic?.initialMaxStreamDataUni || 1048576,
-        initialMaxStreamsBidi: options.quic?.initialMaxStreamsBidi || 100,
-        initialMaxStreamsUni: options.quic?.initialMaxStreamsUni || 100,
-        ackDelayExponent: options.quic?.ackDelayExponent || 3,
-        maxAckDelay: options.quic?.maxAckDelay || 25,
-        disableActiveMigration: options.quic?.disableActiveMigration || false,
-        ...options.quic
-      },
+  static createHttp3Config(options: any = {
+    hostname: 'localhost',
+    port: 443,
+    protocol: 'http3',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): Http3ServerOptions {
+    if (!options.ext) {
+      options.ext = {};
+    }
+    
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createHttp3Config();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+    
+    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
+    const sslConfig = options.ssl || options.ext.ssl || {};
+    
+    const config =  {
+      connectionPool: poolConfig,
+      ssl: sslConfig,
+      http3: options.http3 || options.ext.http3 || {},
+      quic: options.quic || options.ext.quic || {},
       hostname: options.hostname || 'localhost',
       port: options.port || 443,
       protocol: options.protocol || 'http3',
-      trace: options.trace || false,
-      ext: options.ext || {}
+      trace: options.trace || false
     }
+    if (config.port === 80) {
+      config.port = 443;
+    }
+    return config;
   }
 
-  static createWebSocketConfig(options: {
-    hostname?: string;
-    port?: number;
-    protocol?: KoattyProtocol;
-    trace?: boolean;
-    ssl?: SSLConfig;
-    ext?: Record<string, any>;
-    connectionPool?: ConnectionPoolConfig;
-  } = {}): WebSocketServerOptions {
+  static createWebSocketConfig(options: any = {
+    hostname: 'localhost',
+    port: 8080,
+    protocol: 'ws',
+    trace: false,
+    ext: {},
+    connectionPool: {}
+  }): WebSocketServerOptions {
+    if (!options.ext) {
+      options.ext = {};
+    }
+    
+    // 使用 PoolConfigHelper 创建默认连接池配置
+    const defaultPoolConfig = PoolConfigHelper.createWebSocketConfig();
+    const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
+    
+    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
+    const sslConfig = options.ssl || options.ext.ssl || {};
+    
     return {
-      ...options,
-      connectionPool: {
-        ...options.connectionPool,
-        maxConnections: options.connectionPool?.maxConnections || 1000,
-        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
-        pingInterval: options.connectionPool?.pingInterval || 10000,
-        pongTimeout: options.connectionPool?.pongTimeout || 5000,
-        heartbeatInterval: options.connectionPool?.heartbeatInterval || 30000
-      },
-      ssl: {
-        ...options.ssl,
-        enabled: options.ssl?.enabled || false,
-        keyFile: options.ext?.keyFile || '',
-        certFile: options.ext?.certFile || '',
-        caFile: options.ext?.caFile || '',
-        clientCertRequired: options.ssl?.clientCertRequired || false
-      },
+      wsOptions: options.wsOptions || options.ext.wsOptions || {},
+      ssl: sslConfig,
+      connectionPool: poolConfig,
       hostname: options.hostname || 'localhost',
       port: options.port || 8080,
       protocol: options.protocol || 'ws',
-      trace: options.trace || false,
-      ext: options.ext || {}
+      trace: options.trace || false
     }
   }
 }

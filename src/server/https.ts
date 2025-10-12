@@ -13,7 +13,6 @@ import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { HttpsConnectionPoolManager } from "../pools/https";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, HttpsServerOptions, ListeningOptions, SSL1Config } from "../config/config";
 
 /**
@@ -34,8 +33,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    * 初始化HTTPS连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new HttpsConnectionPoolManager(poolConfig);
+    this.connectionPool = new HttpsConnectionPoolManager(this.options.connectionPool);
     
     // HTTPS connection pool initialized with configuration
   }
@@ -97,25 +95,24 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
    */
   private createSSLOptions(): ServerOptions {
     const sslConfig = this.options.ssl || { mode: 'auto' };
-    const extConfig = this.options.ext || {};
 
     switch (sslConfig.mode) {
       case 'manual':
-        return this.createManualSSLOptions(sslConfig, extConfig);
+        return this.createManualSSLOptions(sslConfig);
       case 'mutual_tls':
-        return this.createMutualTLSOptions(sslConfig, extConfig);
+        return this.createMutualTLSOptions(sslConfig);
       case 'auto':
       default:
-        return this.createAutoSSLOptions(sslConfig, extConfig);
+        return this.createAutoSSLOptions(sslConfig);
     }
   }
 
   /**
    * 自动SSL配置
    */
-  private createAutoSSLOptions(sslConfig: SSL1Config, extConfig: any): ServerOptions {
-    const keyPath = sslConfig.key || extConfig?.key;
-    const certPath = sslConfig.cert || extConfig?.cert;
+  private createAutoSSLOptions(sslConfig: SSL1Config): ServerOptions {
+    const keyPath = sslConfig.key;
+    const certPath = sslConfig.cert;
     
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for HTTPS');
@@ -127,32 +124,30 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     };
     
     // 在auto模式下也处理扩展配置选项
-    if (extConfig) {
-      // 连接超时设置
-      if (extConfig.handshakeTimeout !== undefined) {
-        options.handshakeTimeout = extConfig.handshakeTimeout;
-      }
-      if (extConfig.sessionTimeout !== undefined) {
-        options.sessionTimeout = extConfig.sessionTimeout;
-      }
-      
-      // SNI支持
-      if (extConfig.SNICallback) {
-        options.SNICallback = extConfig.SNICallback;
-      }
-      
-      // 会话恢复
-      if (extConfig.sessionIdContext) {
-        options.sessionIdContext = extConfig.sessionIdContext;
-      }
-      if (extConfig.ticketKeys) {
-        options.ticketKeys = extConfig.ticketKeys;
-      }
-      
-      // HTTP/2 兼容性
-      if (extConfig.ALPNProtocols) {
-        options.ALPNProtocols = extConfig.ALPNProtocols;
-      }
+    // 连接超时设置
+    if (sslConfig.handshakeTimeout !== undefined && sslConfig.handshakeTimeout !== null) {
+      options.handshakeTimeout = sslConfig.handshakeTimeout;
+    }
+    if (sslConfig.sessionTimeout !== undefined && sslConfig.sessionTimeout !== null) {
+      options.sessionTimeout = sslConfig.sessionTimeout;
+    }
+    
+    // SNI支持
+    if (sslConfig.SNICallback !== undefined && sslConfig.SNICallback !== null) {
+      options.SNICallback = sslConfig.SNICallback;
+    }
+    
+    // 会话恢复
+    if (sslConfig.sessionIdContext !== undefined && sslConfig.sessionIdContext !== null) {
+      options.sessionIdContext = sslConfig.sessionIdContext;
+    }
+    if (sslConfig.ticketKeys !== undefined && sslConfig.ticketKeys !== null) {
+      options.ticketKeys = sslConfig.ticketKeys;
+    }
+    
+    // HTTP/2 兼容性
+    if (sslConfig.ALPNProtocols !== undefined && sslConfig.ALPNProtocols !== null) {
+      options.ALPNProtocols = sslConfig.ALPNProtocols;
     }
     
     return options;
@@ -161,10 +156,10 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   /**
    * 手动SSL配置
    */
-  private createManualSSLOptions(sslConfig: SSL1Config, extConfig: any): ServerOptions {
-    const keyPath = sslConfig.key || extConfig?.key;
-    const certPath = sslConfig.cert || extConfig?.cert;
-    const caPath = sslConfig.ca || extConfig?.ca;
+  private createManualSSLOptions(sslConfig: SSL1Config): ServerOptions {
+    const keyPath = sslConfig.key;
+    const certPath = sslConfig.cert;
+    const caPath = sslConfig.ca;
     
     if (!keyPath || !certPath) {
       throw new Error('SSL key and cert are required for manual SSL mode');
@@ -184,32 +179,30 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     }
     
     // 添加扩展配置选项
-    if (extConfig) {
-      // 连接超时设置
-      if (extConfig.handshakeTimeout !== undefined) {
-        options.handshakeTimeout = extConfig.handshakeTimeout;
-      }
-      if (extConfig.sessionTimeout !== undefined) {
-        options.sessionTimeout = extConfig.sessionTimeout;
-      }
-      
-      // SNI支持
-      if (extConfig.SNICallback) {
-        options.SNICallback = extConfig.SNICallback;
-      }
-      
-      // 会话恢复
-      if (extConfig.sessionIdContext) {
-        options.sessionIdContext = extConfig.sessionIdContext;
-      }
-      if (extConfig.ticketKeys) {
-        options.ticketKeys = extConfig.ticketKeys;
-      }
-      
-      // HTTP/2 兼容性
-      if (extConfig.ALPNProtocols) {
-        options.ALPNProtocols = extConfig.ALPNProtocols;
-      }
+    // 连接超时设置
+    if (sslConfig.handshakeTimeout !== undefined) {
+      options.handshakeTimeout = sslConfig.handshakeTimeout;
+    }
+    if (sslConfig.sessionTimeout !== undefined) {
+      options.sessionTimeout = sslConfig.sessionTimeout;
+    }
+    
+    // SNI支持
+    if (sslConfig.SNICallback) {
+      options.SNICallback = sslConfig.SNICallback;
+    }
+    
+    // 会话恢复
+    if (sslConfig.sessionIdContext) {
+      options.sessionIdContext = sslConfig.sessionIdContext;
+    }
+    if (sslConfig.ticketKeys) {
+      options.ticketKeys = sslConfig.ticketKeys;
+    }
+    
+    // HTTP/2 兼容性
+    if (sslConfig.ALPNProtocols) {
+      options.ALPNProtocols = sslConfig.ALPNProtocols;
     }
     
     return options;
@@ -218,8 +211,8 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   /**
    * 双向TLS配置
    */
-  private createMutualTLSOptions(sslConfig: SSL1Config, extConfig: any): ServerOptions {
-    const manualOptions = this.createManualSSLOptions(sslConfig, extConfig);
+  private createMutualTLSOptions(sslConfig: SSL1Config): ServerOptions {
+    const manualOptions = this.createManualSSLOptions(sslConfig);
     
     return {
       ...manualOptions,
@@ -276,26 +269,13 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
   }
 
   /**
-   * 记录请求
+   * 记录请求 TODO
    */
   private recordRequest(_success: boolean, _responseTime: number): void {
     // 这里可以记录请求统计信息
     // 连接池会自动处理连接级别的统计
   }
 
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000, // 30秒连接超时
-      keepAliveTimeout: options?.keepAliveTimeout,
-      requestTimeout: options?.requestTimeout,
-      headersTimeout: options?.headersTimeout
-    };
-  }
 
   // ============= 实现配置管理抽象方法 =============
 
@@ -357,8 +337,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
         newConfig: httpsConfig.connectionPool
       });
       
-      const newPoolConfig = this.extractConnectionPoolConfig();
-      this.connectionPool.updateConfig(newPoolConfig);
+      this.connectionPool.updateConfig(httpsConfig.connectionPool);
     }
 
     // Runtime configuration changes applied
