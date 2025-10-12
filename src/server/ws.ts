@@ -456,7 +456,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
 
   Start(listenCallback?: () => void): NativeServer {
     const traceId = generateTraceId();
-    this.logger.logServerEvent('starting', { traceId }, {
+    this.logger.info('Server starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
       protocol: this.options.protocol
@@ -466,7 +466,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     this.ensureUpgradeHandlersAreBound();
 
     this.httpServer.listen(this.options.port, this.options.hostname, () => {
-      this.logger.logServerEvent('started', { traceId }, {
+      this.logger.info('Server started', { traceId }, {
         address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
         port: this.options.port,
