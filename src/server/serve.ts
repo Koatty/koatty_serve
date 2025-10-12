@@ -8,7 +8,6 @@
  * @Copyright (c): <richenlin(at)gmail.com>
  */
 
-import fs from "fs";
 import { KoattyApplication, KoattyServer, NativeServer } from "koatty_core";
 import { createLogger, generateTraceId } from "../utils/logger";
 import { validateConfig } from "../utils/validator";
@@ -19,18 +18,7 @@ import { Http3Server } from "./http3";
 import { HttpsServer as KoattyHttpsServer } from "./https";
 import { WsServer } from "./ws";
 import { CreateTerminus } from "../utils/terminus";
-import { KoattyProtocol, ListeningOptions } from "../config/config";
-
-/**
- * Internal interface for single server instance
- */
-interface SingleServerOptions {
-  hostname: string;
-  port: number;
-  protocol: KoattyProtocol; // 单个协议
-  trace?: boolean;
-  ext?: any;
-}
+import { ConfigHelper, ListeningOptions } from "../config/config";
 
 /**
  * Single protocol server
@@ -341,7 +329,7 @@ export class SingleProtocolServer implements KoattyServer {
     const protocolType = this.options.protocol;
     const port = this.options.port;
     
-    const options: SingleServerOptions = {
+    const options: ListeningOptions = {
       hostname: this.options.hostname,
       port,
       protocol: protocolType,
@@ -358,24 +346,17 @@ export class SingleProtocolServer implements KoattyServer {
         port: port 
       });
 
-      // Handle secure protocols with error handling
-      const secureProtocols = new Set(["https", "http2", "http3", "wss"]);
-      if (secureProtocols.has(protocolType)) {
-        this.configureSSLForProtocol(protocolType, options, traceId);
-      }
-
-      if (["https", "http2", "http3"].includes(protocolType) && port === 80) {
-        options.port = 443;
+      // Handle router specific options
+      const routerExt = this.app.config("ext", "router") || {};
+      if (protocolType === "graphql") {
+        options.ext.schemaFile = routerExt.schemaFile || options.ext?.schemaFile;
       }
 
       if (protocolType === "grpc") {
-        options.ext.protoFile = this.app.config("protoFile", "router");
+        options.ext.protoFile = routerExt.protoFile || options.ext?.protoFile; 
       }
-
-      // Handle WebSocket specific options
-      if (["ws", "wss"].includes(protocolType)) {
-        this.configureWebSocketOptions(options, traceId);
-      }
+      // Handle SSL specific options
+      ConfigHelper.configureSSLForProtocol(protocolType, options, traceId);
 
       const server = this.createServerInstance(protocolType, options);
       this.serverInstance = server;
@@ -410,87 +391,10 @@ export class SingleProtocolServer implements KoattyServer {
   }
 
   /**
-   * Configure SSL for secure protocols
-   */
-  private configureSSLForProtocol(protocolType: KoattyProtocol, options: SingleServerOptions, traceId?: string): void {
-    try {
-      const keyFile = this.app.config("key_file") ?? "";
-      const crtFile = this.app.config("crt_file") ?? "";
-      
-      if (!keyFile || !crtFile) {
-        const error = new Error(`SSL certificate files not configured for ${protocolType} protocol`);
-        this.logger.error('SSL configuration missing', { 
-          traceId, 
-          protocol: protocolType 
-        }, error);
-        throw error;
-      }
-      
-      // Check if files exist before reading
-      if (!fs.existsSync(keyFile)) {
-        const error = new Error(`SSL key file not found: ${keyFile}`);
-        this.logger.error('SSL key file not found', { 
-          traceId, 
-          protocol: protocolType 
-        }, error);
-        throw error;
-      }
-      
-      if (!fs.existsSync(crtFile)) {
-        const error = new Error(`SSL certificate file not found: ${crtFile}`);
-        this.logger.error('SSL certificate file not found', { 
-          traceId, 
-          protocol: protocolType 
-        }, error);
-        throw error;
-      }
-      
-      options.ext.key = fs.readFileSync(keyFile, 'utf-8');
-      options.ext.cert = fs.readFileSync(crtFile, 'utf-8');
-      
-      this.logger.info('SSL certificates loaded successfully', { 
-        traceId, 
-        protocol: protocolType 
-      }, { 
-        keyFile, 
-        crtFile 
-      });
-    } catch (error) {
-      this.logger.error('Failed to load SSL certificates', { 
-        traceId, 
-        protocol: protocolType 
-      }, error);
-      throw error; // Re-throw to prevent server startup with invalid SSL config
-    }
-  }
-
-  /**
-   * Configure WebSocket specific options
-   */
-  private configureWebSocketOptions(options: SingleServerOptions, traceId?: string): void {
-    const maxConnections = this.app.config("maxConnections", "websocket") || 1000;
-    const connectionTimeout = this.app.config("connectionTimeout", "websocket") || 30000;
-    
-    options.ext = {
-      ...options.ext,
-      maxConnections,
-      connectionTimeout
-    };
-    
-    this.logger.info('WebSocket server configured', { 
-      traceId, 
-      protocol: options.protocol 
-    }, {
-      maxConnections,
-      connectionTimeout: `${connectionTimeout}ms`
-    });
-  }
-
-  /**
    * Create server instance based on protocol
    */
-  private createServerInstance(protocolType: KoattyProtocol, options: SingleServerOptions): any {
-    const serverMap = {
+  private createServerInstance(protocolType: string, options: ListeningOptions): any {
+    const serverMap: Record<string, any> = {
       grpc: GrpcServer,
       ws: WsServer,
       wss: WsServer,
@@ -498,9 +402,13 @@ export class SingleProtocolServer implements KoattyServer {
       http2: Http2Server,
       http3: Http3Server,
       http: KoattyHttpServer,
+      graphql: KoattyHttpServer,
     };
-
-    const ServerConstructor = serverMap[protocolType] || KoattyHttpServer;
+    let ServerConstructor = serverMap[protocolType] || KoattyHttpServer;
+    if (protocolType === "graphql" && options.ext.ssl.enabled) {
+        ServerConstructor = Http2Server;
+    }
+    
     return new ServerConstructor(this.app, options);
   }
 

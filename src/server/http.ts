@@ -11,7 +11,6 @@ import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { HttpConnectionPoolManager } from "../pools/http";
-import { ConnectionPoolConfig } from "../config/pool";
 import { ConfigHelper, HttpServerOptions, ListeningOptions } from "../config/config";
 
 
@@ -33,8 +32,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
    * 初始化HTTP连接池
    */
   protected initializeConnectionPool(): void {
-    const poolConfig: ConnectionPoolConfig = this.extractConnectionPoolConfig();
-    this.connectionPool = new HttpConnectionPoolManager(poolConfig);
+    this.connectionPool = new HttpConnectionPoolManager(this.options.connectionPool);
     
     // Connection pool initialized with configuration
   }
@@ -83,20 +81,6 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   }
 
   // ============= HTTP特定的私有方法 =============
-
-  /**
-   * 提取连接池配置
-   */
-  private extractConnectionPoolConfig(): ConnectionPoolConfig {
-    const options = this.options.connectionPool;
-    return {
-      maxConnections: options?.maxConnections,
-      connectionTimeout: 30000, // 30秒连接超时
-      keepAliveTimeout: options?.keepAliveTimeout,
-      requestTimeout: options?.requestTimeout,
-      headersTimeout: options?.headersTimeout
-    };
-  }
 
   /**
    * 配置连接池设置
