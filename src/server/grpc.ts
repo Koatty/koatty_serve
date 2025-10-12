@@ -474,6 +474,13 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       // Record start time
       this.startTime = Date.now();
       
+      const protocolUpper = this.options.protocol.toUpperCase();
+      const urlProtocol = this.options.protocol.toLowerCase();
+      const serverUrl = `${urlProtocol}://${this.options.hostname || '127.0.0.1'}:${port}/`;
+      
+      // 输出 Koatty 格式的启动日志
+      this.logger.info(`Server: ${protocolUpper} running at ${serverUrl}`, { traceId });
+      
       this.logger.info('Server started', { traceId }, {
         address: bindAddress,
         actualPort: port,
