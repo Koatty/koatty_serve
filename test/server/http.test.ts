@@ -339,19 +339,14 @@ describe('HttpServer', () => {
         hostname: '127.0.0.1',
         port: 3000,
         protocol: 'http',
-        ext: {
-          customOption: 'value',
-          middleware: true,
-          compression: 'gzip'
-        }
+        trace: true
       });
 
       const options = (serverWithExt as any).options;
-      expect(options.ext).toEqual({
-        customOption: 'value',
-        middleware: true,
-        compression: 'gzip'
-      });
+      expect(options.hostname).toBe('127.0.0.1');
+      expect(options.port).toBe(3000);
+      expect(options.protocol).toBe('http');
+      expect(options.trace).toBe(true);
     });
 
     it('should handle trace mode', () => {

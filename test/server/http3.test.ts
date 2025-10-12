@@ -180,11 +180,13 @@ test-key-data
         const config = ConfigHelper.createHttp3Config({
           hostname: 'localhost',
           port: 9001,
-          ssl: {
-            mode: 'auto',
-            key: keyFile,
-            cert: certFile,
-            alpnProtocols: ['h3'],
+          ext: {
+            ssl: {
+              mode: 'auto',
+              key: keyFile,
+              cert: certFile,
+              alpnProtocols: ['h3'],
+            }
           },
           http3: {
             maxHeaderListSize: 32768,

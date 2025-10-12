@@ -28,7 +28,7 @@ describe('HttpsServer', () => {
             protocol: 'https'
           }
         };
-        
+
         if (key) {
           return configs[key] || defaultValue;
         }
@@ -71,7 +71,7 @@ describe('HttpsServer', () => {
     mockFs.readFileSync.mockImplementation((path: any) => {
       if (path.includes('key')) return 'mock-private-key';
       if (path.includes('cert')) return 'mock-certificate';
-              if (path.includes('ca')) return 'mock-certificate';
+      if (path.includes('ca')) return 'mock-certificate';
       return 'mock-file-content';
     });
 
@@ -131,23 +131,22 @@ describe('HttpsServer', () => {
   describe('SSL Configuration Modes', () => {
     it('should handle auto SSL mode', () => {
       const serverWithAutoSSL = new HttpsServer(mockApp as KoattyApplication, {
-          hostname: '127.0.0.1',
-          port: 3443,
-          protocol: 'https',
-          ssl: {
+        hostname: '127.0.0.1',
+        port: 3443,
+        protocol: 'https',
+        ssl: {
           mode: 'auto',
           key: '/path/to/key.pem',
-          cert: '/path/to/cert.pem'
-        },
-        ext: {
+          cert: '/path/to/cert.pem',
+
           handshakeTimeout: 10000,
           sessionTimeout: 20000,
           SNICallback: jest.fn(),
           sessionIdContext: 'test-context',
           ticketKeys: Buffer.from('test-keys'),
           ALPNProtocols: ['h2', 'http/1.1']
-          }
-        });
+        }
+      });
 
       expect(mockHttps.createServer).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -204,9 +203,8 @@ describe('HttpsServer', () => {
           passphrase: 'test-passphrase',
           ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA',
           honorCipherOrder: true,
-          secureProtocol: 'TLSv1_2_method'
-        },
-        ext: {
+          secureProtocol: 'TLSv1_2_method',
+
           handshakeTimeout: 15000,
           sessionTimeout: 25000
         }
@@ -237,6 +235,7 @@ describe('HttpsServer', () => {
           ssl: {
             mode: 'auto'
           }
+
         });
       }).toThrow('SSL key and cert are required for HTTPS');
     });
@@ -249,23 +248,24 @@ describe('HttpsServer', () => {
           protocol: 'https',
           ssl: {
             mode: 'manual'
+
           }
         });
       }).toThrow('SSL key and cert are required for manual SSL mode');
-      });
+    });
   });
 
   describe('Server Lifecycle', () => {
     it('should start HTTPS server successfully', () => {
       const result = httpsServer.Start();
-      
+
       expect(result).toBeDefined();
       expect(mockServer.listen).toHaveBeenCalledWith(3443, '127.0.0.1', expect.any(Function));
     });
 
     it('should stop HTTPS server successfully', async () => {
       httpsServer.Start();
-      
+
       // Mock the close method to call callback immediately
       mockServer.close.mockImplementation((callback?: any) => {
         if (callback) {
@@ -306,13 +306,13 @@ describe('HttpsServer', () => {
 
       // Verify the graceful shutdown was called
       expect((server as any).gracefulShutdown).toHaveBeenCalled();
-      });
+    });
 
     it('should handle connection lifecycle methods', () => {
       const server = new HttpsServer(mockApp as KoattyApplication, {
-          hostname: '127.0.0.1',
-          port: 3443,
-          protocol: 'https',
+        hostname: '127.0.0.1',
+        port: 3443,
+        protocol: 'https',
         ssl: {
           mode: 'auto',
           key: '/path/to/key.pem',
@@ -357,7 +357,7 @@ describe('HttpsServer', () => {
         affectedComponents: ['ssl'],
         severity: 'high'
       });
-      
+
       const analysis = (httpsServer as any).analyzeConfigChanges(['ssl'], oldConfig, newConfig);
       expect(analysis.requiresRestart).toBe(true);
       expect(analysis.affectedComponents).toContain('ssl');
@@ -388,7 +388,7 @@ describe('HttpsServer', () => {
         affectedComponents: ['connectionPool'],
         severity: 'medium'
       });
-      
+
       const analysis = (httpsServer as any).analyzeConfigChanges(['connectionPool'], oldConfig, newConfig);
       expect(analysis.affectedComponents).toContain('connectionPool');
     });
@@ -396,10 +396,10 @@ describe('HttpsServer', () => {
     it('should handle runtime configuration changes', () => {
       const mockStopMonitoring = jest.fn();
       const mockStartMonitoring = jest.fn();
-      
+
       (httpsServer as any).stopConnectionPoolMonitoring = mockStopMonitoring;
       (httpsServer as any).startConnectionPoolMonitoring = mockStartMonitoring;
-      
+
       const analysis = {
         requiresRestart: false,
         affectedComponents: ['connectionPool'],
@@ -417,7 +417,7 @@ describe('HttpsServer', () => {
         mockStopMonitoring();
         mockStartMonitoring();
       });
-      
+
       (httpsServer as any).onRuntimeConfigChange(analysis, newConfig, 'test-trace-id');
 
       expect(mockStopMonitoring).toHaveBeenCalled();
@@ -448,15 +448,15 @@ describe('HttpsServer', () => {
 
       expect(() => {
         new HttpsServer(mockApp as KoattyApplication, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
           ssl: {
             mode: 'manual',
             key: '/nonexistent/key.pem',
             cert: '/nonexistent/cert.pem'
-        }
-      });
+          }
+        });
       }).toThrow();
     });
 
@@ -563,7 +563,7 @@ describe('HttpsServer', () => {
         },
         securityLevel: 'high'
       });
-      
+
       const metrics = httpsServer.getSecurityMetrics();
       expect(metrics).toHaveProperty('connectionMetrics');
       expect(metrics).toHaveProperty('sslMode');
@@ -577,7 +577,7 @@ describe('HttpsServer', () => {
       (httpsServer as any).startConnectionPoolMonitoring();
 
       expect(mockSetInterval).toHaveBeenCalledWith(expect.any(Function), 30000);
-      
+
       mockSetInterval.mockRestore();
     });
 
@@ -590,18 +590,18 @@ describe('HttpsServer', () => {
         (mockClearInterval as jest.Mock)(123);
         (httpsServer as any).monitoringInterval = undefined;
       });
-      
+
       (httpsServer as any).stopConnectionPoolMonitoring();
 
       expect(mockClearInterval).toHaveBeenCalledWith(123);
       expect((httpsServer as any).monitoringInterval).toBeUndefined();
-      
+
       mockClearInterval.mockRestore();
     });
 
     it('should record request metrics', () => {
       const mockPerformanceStart = Date.now();
-      
+
       // Mock performance tracking
       (httpsServer as any).requestMetrics = {
         successCount: 0,
@@ -617,7 +617,7 @@ describe('HttpsServer', () => {
         totalResponseTime: 0,
         requestCount: 0
       };
-      
+
       // Mock the recordRequest method
       (httpsServer as any).recordRequest = jest.fn((success: boolean, responseTime: number) => {
         const metrics = (httpsServer as any).requestMetrics;
@@ -629,7 +629,7 @@ describe('HttpsServer', () => {
         metrics.totalResponseTime += responseTime;
         metrics.requestCount++;
       });
-      
+
       (httpsServer as any).recordRequest(true, 150);
       (httpsServer as any).recordRequest(false, 300);
 
@@ -661,7 +661,7 @@ describe('HttpsServer', () => {
       };
 
       const extracted = (httpsServer as any).extractRelevantConfig(config);
-      
+
       expect(extracted).toEqual({
         hostname: '127.0.0.1',
         port: 3443,
@@ -682,7 +682,7 @@ describe('HttpsServer', () => {
       const mockClose = jest.fn().mockImplementation((callback) => {
         if (callback) setImmediate(callback);
       });
-      
+
       (httpsServer as any).server = {
         close: mockClose,
         listening: true
@@ -692,7 +692,7 @@ describe('HttpsServer', () => {
       (httpsServer as any).connectionPool = {
         destroy: mockDestroy
       };
-      
+
       // Mock the destroy method to avoid timeout
       httpsServer.destroy = jest.fn().mockResolvedValue(undefined);
 
@@ -711,7 +711,7 @@ describe('HttpsServer', () => {
       (httpsServer as any).connectionPool = {
         destroy: mockDestroy
       };
-      
+
       // Mock the destroy method to avoid timeout
       httpsServer.destroy = jest.fn().mockResolvedValue(undefined);
 
@@ -725,11 +725,11 @@ describe('HttpsServer', () => {
     describe('Certificate Loading', () => {
       it('should load certificate from file path', () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
-        ssl: {
-          mode: 'manual',
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: {
+            mode: 'manual',
             key: '/path/to/server.key',
             cert: '/path/to/server.crt'
           }
@@ -747,13 +747,13 @@ describe('HttpsServer', () => {
         const result = (httpsServer as any).loadCertificate('/path/to/server.key', 'private key');
         expect(result).toBe('mocked-private-key');
         expect(loadCertSpy).toHaveBeenCalledWith('/path/to/server.key', 'private key');
-    });
+      });
 
       it('should handle certificate content directly', () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
           ssl: {
             mode: 'manual',
             key: '-----BEGIN PRIVATE KEY-----\nMIIEvQIB...\n-----END PRIVATE KEY-----',
@@ -771,11 +771,11 @@ describe('HttpsServer', () => {
 
       it('should handle certificate loading errors', () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
-        ssl: {
-          mode: 'manual',
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: {
+            mode: 'manual',
             key: '/nonexistent/path.key',
             cert: '/nonexistent/path.crt'
           }
@@ -784,7 +784,7 @@ describe('HttpsServer', () => {
         // Mock fs.readFileSync to throw error
         mockFs.readFileSync.mockImplementation(() => {
           throw new Error('ENOENT: no such file or directory');
-      });
+        });
 
         expect(() => {
           (httpsServer as any).loadCertificate('/nonexistent/path.key', 'private key');
@@ -792,14 +792,14 @@ describe('HttpsServer', () => {
       });
     });
 
-          describe('Connection Handling Setup', () => {
-        it('should setup secure connection handling', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
+    describe('Connection Handling Setup', () => {
+      it('should setup secure connection handling', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
 
         // Mock TLS socket
         const mockTlsSocket = {
@@ -820,27 +820,27 @@ describe('HttpsServer', () => {
         const secureConnectionHandler = (socket: any) => {
           (httpsServer as any).connectionPool.addHttpsConnection(socket);
         };
-        
+
         // Simulate the event handler being called
         secureConnectionHandler(mockTlsSocket);
 
         expect(mockAddConnection).toHaveBeenCalledWith(mockTlsSocket);
-    });
+      });
 
-              it('should handle TLS client errors', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
+      it('should handle TLS client errors', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
 
         const mockTlsSocket = {
           remoteAddress: '192.168.1.100'
         };
 
         const error = new Error('TLS handshake failed');
-        
+
         // Trigger tlsClientError event
         mockServer.emit('tlsClientError', error, mockTlsSocket);
 
@@ -848,13 +848,13 @@ describe('HttpsServer', () => {
         // The test verifies that the error doesn't cause the server to crash
       });
 
-              it('should handle connection pool errors during connection addition', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
+      it('should handle connection pool errors during connection addition', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
 
         const mockTlsSocket = {
           destroy: jest.fn()
@@ -877,22 +877,22 @@ describe('HttpsServer', () => {
     });
 
     describe('SSL Configuration Change Detection', () => {
-              it('should detect SSL mode changes', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
+      it('should detect SSL mode changes', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
 
         const oldConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
           ssl: { mode: 'auto' as const }
-      };
+        };
 
-      const newConfig = {
+        const newConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
@@ -901,7 +901,7 @@ describe('HttpsServer', () => {
 
         const result = (httpsServer as any).hasSSLConfigChanged(oldConfig, newConfig);
         expect(result).toBe(true);
-    });
+      });
 
       it('should detect certificate changes', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -911,58 +911,58 @@ describe('HttpsServer', () => {
           ssl: { mode: 'manual', key: 'old-key', cert: 'old-cert' }
         });
 
-      const oldConfig = {
+        const oldConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
-        ssl: { mode: 'manual' as const, key: 'old-key', cert: 'old-cert' }
-      };
+          ssl: { mode: 'manual' as const, key: 'old-key', cert: 'old-cert' }
+        };
 
-      const newConfig = {
+        const newConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
-        ssl: { mode: 'manual' as const, key: 'new-key', cert: 'new-cert' }
-      };
+          ssl: { mode: 'manual' as const, key: 'new-key', cert: 'new-cert' }
+        };
 
         const result = (httpsServer as any).hasSSLConfigChanged(oldConfig, newConfig);
         expect(result).toBe(true);
-    });
+      });
 
-    it('should detect connection pool changes', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' },
-            connectionPool: { maxConnections: 100 }
-          });
+      it('should detect connection pool changes', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' },
+          connectionPool: { maxConnections: 100 }
+        });
 
-      const oldConfig = {
+        const oldConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
           connectionPool: { maxConnections: 100 }
-      };
+        };
 
-      const newConfig = {
+        const newConfig = {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const,
           connectionPool: { maxConnections: 200 }
-      };
+        };
 
         const result = (httpsServer as any).hasConnectionPoolChanged(oldConfig, newConfig);
         expect(result).toBe(true);
-    });
+      });
 
-              it('should return false when no SSL config exists', () => {
-          const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
+      it('should return false when no SSL config exists', () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
 
         const oldConfig = {
           hostname: '127.0.0.1',
@@ -974,22 +974,22 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https' as const
-      };
+        };
 
         const result = (httpsServer as any).hasSSLConfigChanged(oldConfig, newConfig);
         expect(result).toBe(false);
+      });
     });
-  });
 
-          describe('Real Server Shutdown Process', () => {
-        it('should handle real server close in stopAcceptingNewConnections', async () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
-      
+    describe('Real Server Shutdown Process', () => {
+      it('should handle real server close in stopAcceptingNewConnections', async () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
+
         // Mock server listening state
         (httpsServer as any).server = {
           listening: true,
@@ -997,20 +997,20 @@ describe('HttpsServer', () => {
             setImmediate(callback);
           })
         };
-      
+
         await (httpsServer as any).stopAcceptingNewConnections('test-trace-id');
 
         expect((httpsServer as any).server.close).toHaveBeenCalled();
-    });
+      });
 
-              it('should skip close when server is not listening', async () => {
-          const httpsServer = new HttpsServer(mockApp, {
-            hostname: '127.0.0.1',
-            port: 3443,
-            protocol: 'https',
-            ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
-          });
-      
+      it('should skip close when server is not listening', async () => {
+        const httpsServer = new HttpsServer(mockApp, {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: { mode: 'manual', key: 'test-key', cert: 'test-cert' }
+        });
+
         // Mock server not listening
         (httpsServer as any).server = {
           listening: false,
@@ -1018,21 +1018,21 @@ describe('HttpsServer', () => {
         };
 
         await (httpsServer as any).stopAcceptingNewConnections('test-trace-id');
-      
+
         expect((httpsServer as any).server.close).not.toHaveBeenCalled();
-    });
+      });
 
       it('should wait for connections with timeout in waitForConnectionCompletion', async () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
-        ssl: {
-          mode: 'manual',
-          key: 'test-key',
-          cert: 'test-cert'
-        }
-      });
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: {
+            mode: 'manual',
+            key: 'test-key',
+            cert: 'test-cert'
+          }
+        });
 
         // Mock getActiveConnectionCount to simulate connections
         let connectionCount = 2;
@@ -1049,14 +1049,14 @@ describe('HttpsServer', () => {
         const elapsed = Date.now() - startTime;
 
         expect(elapsed).toBeGreaterThanOrEqual(100); // Should have waited some time
-    });
+      });
 
       it('should force close connections when remaining', async () => {
         const httpsServer = new HttpsServer(mockApp, {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'manual',
             key: 'test-key',
             cert: 'test-cert'
@@ -1082,7 +1082,7 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'manual',
             key: 'test-key',
             cert: 'test-cert'
@@ -1101,14 +1101,14 @@ describe('HttpsServer', () => {
         await (httpsServer as any).forceCloseRemainingConnections('test-trace-id');
 
         expect(mockCloseAllConnections).not.toHaveBeenCalled();
-    });
+      });
 
       it('should handle force shutdown with monitoring cleanup', () => {
         const httpsServer = new HttpsServer(mockApp, {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
@@ -1129,8 +1129,8 @@ describe('HttpsServer', () => {
 
         expect(mockClose).toHaveBeenCalled();
         expect(mockStopMonitoring).toHaveBeenCalledWith('test-trace-id');
+      });
     });
-  });
 
     describe('Connection Pool Monitoring', () => {
       it('should start connection pool monitoring with interval', () => {
@@ -1138,7 +1138,7 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
@@ -1150,7 +1150,7 @@ describe('HttpsServer', () => {
           activeConnections: 5,
           totalConnections: 100
         });
-      
+
         const timerManager = (httpsServer as any).timerManager;
         const initialTimerCount = timerManager.getActiveTimerCount();
 
@@ -1159,24 +1159,25 @@ describe('HttpsServer', () => {
         // Should have added a monitoring timer
         expect(timerManager.getActiveTimerCount()).toBeGreaterThan(initialTimerCount);
         expect(timerManager.getTimerNames()).toContain('https_connection_monitoring');
+      });
     });
-  });
 
     describe('Advanced Security Metrics', () => {
       it('should return comprehensive security metrics with advanced SSL config', () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
-        ssl: {
-          mode: 'mutual_tls',
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: {
+            mode: 'mutual_tls',
             ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384',
             secureProtocol: 'TLSv1_2_method',
-          key: 'server-key',
-          cert: 'server-cert',
-          ca: 'ca-cert'
-        }
-      });
+            key: 'server-key',
+            cert: 'server-cert',
+            ca: 'ca-cert'
+          }
+
+        });
 
         const metrics = httpsServer.getSecurityMetrics();
 
@@ -1186,19 +1187,20 @@ describe('HttpsServer', () => {
           secureProtocol: 'TLSv1_2_method',
           mutualTLS: true
         });
-    });
+      });
 
       it('should return default security metrics for auto mode', () => {
         const httpsServer = new HttpsServer(mockApp, {
-        hostname: '127.0.0.1',
-        port: 3443,
-        protocol: 'https',
-        ssl: {
+          hostname: '127.0.0.1',
+          port: 3443,
+          protocol: 'https',
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
-        }
-      });
+          }
+
+        });
 
         const metrics = httpsServer.getSecurityMetrics();
 
@@ -1207,18 +1209,19 @@ describe('HttpsServer', () => {
           ciphers: undefined,
           secureProtocol: undefined,
           mutualTLS: false
-    });
-  });
+        });
+      });
 
       it('should return connection status with pool configuration', () => {
         const httpsServer = new HttpsServer(mockApp, {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
+
           },
           connectionPool: { maxConnections: 150 }
         });
@@ -1236,7 +1239,7 @@ describe('HttpsServer', () => {
           current: 25,
           max: 150
         });
-    });
+      });
 
       it('should handle missing connection pool in getConnectionsStatus', () => {
         const httpsServer = new HttpsServer(mockApp, {
@@ -1260,7 +1263,7 @@ describe('HttpsServer', () => {
           current: 0,
           max: 0
         });
-    });
+      });
     });
 
     describe('Server Lifecycle with Real Start', () => {
@@ -1269,7 +1272,7 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
@@ -1280,28 +1283,28 @@ describe('HttpsServer', () => {
         (httpsServer as any).startConnectionPoolMonitoring = jest.fn();
 
         // Mock server listen with callback
-      mockServer.listen.mockImplementation((port, hostname, callback) => {
+        mockServer.listen.mockImplementation((port, hostname, callback) => {
           if (callback) {
             setImmediate(callback);
           }
-        return mockServer;
-      });
+          return mockServer;
+        });
 
         const result = httpsServer.Start(() => {
           expect((httpsServer as any).startConnectionPoolMonitoring).toHaveBeenCalled();
-      expect(mockServer.listen).toHaveBeenCalledWith(3443, '127.0.0.1', expect.any(Function));
+          expect(mockServer.listen).toHaveBeenCalledWith(3443, '127.0.0.1', expect.any(Function));
           done();
         });
-      
+
         expect(result).toBe(mockServer);
-    });
+      });
 
       it('should destroy server with graceful shutdown', async () => {
         const httpsServer = new HttpsServer(mockApp, {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
@@ -1321,13 +1324,13 @@ describe('HttpsServer', () => {
           hostname: '127.0.0.1',
           port: 3443,
           protocol: 'https',
-          ssl: { 
+          ssl: {
             mode: 'auto',
             key: 'test-key',
             cert: 'test-cert'
           }
         });
-      
+
         const error = new Error('Shutdown failed');
         (httpsServer as any).gracefulShutdown = jest.fn().mockRejectedValue(error);
 

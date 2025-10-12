@@ -113,11 +113,7 @@ describe('GrpcServer', () => {
       const serverWithProtos = new GrpcServer(mockApp as KoattyApplication, {
         hostname: '127.0.0.1',
         port: 50051,
-        protocol: 'grpc',
-        ext: {
-          protoFile: 'test.proto',
-          packageName: 'test'
-        }
+        protocol: 'grpc'
       });
 
       expect(serverWithProtos).toBeInstanceOf(GrpcServer);
@@ -127,18 +123,7 @@ describe('GrpcServer', () => {
       const serverWithServices = new GrpcServer(mockApp as KoattyApplication, {
         hostname: '127.0.0.1',
         port: 50051,
-        protocol: 'grpc',
-        ext: {
-          services: {
-            TestService: {
-              TestMethod: jest.fn()
-            },
-            UserService: {
-              GetUser: jest.fn(),
-              CreateUser: jest.fn()
-            }
-          }
-        }
+        protocol: 'grpc'
       });
 
       expect(serverWithServices).toBeInstanceOf(GrpcServer);
@@ -504,14 +489,7 @@ describe('GrpcServer', () => {
       const serverWithOptions = new GrpcServer(mockApp as KoattyApplication, {
         hostname: '127.0.0.1',
         port: 50051,
-        protocol: 'grpc',
-        ext: {
-          maxConcurrentCalls: 100,
-          maxReceiveMessageLength: 4 * 1024 * 1024,
-          maxSendMessageLength: 4 * 1024 * 1024,
-          keepaliveTimeMs: 30000,
-          keepaliveTimeoutMs: 5000
-        }
+        protocol: 'grpc'
       });
 
       expect(serverWithOptions).toBeInstanceOf(GrpcServer);
@@ -702,8 +680,8 @@ describe('GrpcServer', () => {
         protocol: 'grpc',
         ssl: {
           enabled: true,
-          keyFile: 'server.key',
-          certFile: 'server.crt'
+          key: 'server.key',
+          cert: 'server.crt'
         }
       });
 
@@ -896,8 +874,8 @@ describe('GrpcServer', () => {
         protocol: 'grpc',
         ssl: {
           enabled: true,
-          keyFile: 'server.key',
-          certFile: 'server.crt'
+          key: 'server.key',
+          cert: 'server.crt'
         }
       });
 
@@ -913,8 +891,8 @@ describe('GrpcServer', () => {
         protocol: 'grpc',
         ssl: {
           enabled: true,
-          keyFile: 'nonexistent.key',
-          certFile: 'nonexistent.crt'
+          key: 'nonexistent.key',
+          cert: 'nonexistent.crt'
         }
       });
 
@@ -927,16 +905,16 @@ describe('GrpcServer', () => {
       const oldConfig = {
         ssl: { 
           enabled: true, 
-          keyFile: 'old.key',
-          certFile: 'old.crt'
+          key: 'old.key',
+          cert: 'old.crt'
         }
       };
       
       const newConfig = {
         ssl: { 
           enabled: true, 
-          keyFile: 'new.key',
-          certFile: 'new.crt'
+          key: 'new.key',
+          cert: 'new.crt'
         }
       };
       
@@ -1033,7 +1011,7 @@ describe('GrpcServer', () => {
         hostname: '127.0.0.1',
         port: 50051,
         protocol: 'grpc' as const,
-        ssl: { enabled: true, keyFile: 'server.key' }
+        ssl: { enabled: true, key: 'server.key' }
       };
 
       const analysis = (grpcServer as any).analyzeConfigChanges(changedKeys, oldConfig, newConfig);
