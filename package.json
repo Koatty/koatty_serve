@@ -1,6 +1,6 @@
 {
   "name": "koatty_serve",
-  "version": "2.9.0-2",
+  "version": "2.9.0-3",
   "description": "Provide http1/2/3, websocket, gRPC server for Koatty.",
   "scripts": {
     "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
@@ -91,16 +91,16 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.13.3",
+    "@grpc/grpc-js": "^1.14.0",
     "@matrixai/quic": "^2.0.9",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.13.0",
+    "koatty_core": "^1.x.x",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
     "koatty_proto": "^1.x.x",
     "koatty_validation": "^1.x.x",
-    "ws": "^8.18.1"
+    "ws": "^8.18.3"
   },
   "peerDependencies": {
     "koatty_container": "^1.x.x",
