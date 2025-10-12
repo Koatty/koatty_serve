@@ -1,6 +1,6 @@
 {
   "name": "koatty_serve",
-  "version": "2.8.0",
+  "version": "2.6.0-0",
   "description": "Provide http1/2, websocket, gRPC server for Koatty.",
   "scripts": {
     "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
@@ -18,8 +18,6 @@
     "release:minor": "npm run release -- --release-as minor",
     "test": "npm run eslint && jest --passWithNoTests",
     "test:cov": "jest --collectCoverage --detectOpenHandles",
-    "test:perf": "jest --testNamePattern=\"performance|benchmark\" --verbose",
-    "benchmark": "node scripts/benchmark.js",
     "version": "conventional-changelog -p angular -i CHANGELOG.md -s"
   },
   "main": "./dist/index.js",
@@ -58,6 +56,7 @@
   "devDependencies": {
     "@commitlint/cli": "^19.x.x",
     "@commitlint/config-conventional": "^19.x.x",
+    "@grpc/grpc-js": "^1.x.x",
     "@microsoft/api-documenter": "^7.x.x",
     "@microsoft/api-extractor": "^7.x.x",
     "@rollup/plugin-commonjs": "^28.x.x",
@@ -92,15 +91,15 @@
     "typescript": "^5.x.x"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/grpc-js": "^1.13.3",
     "koatty_container": "^1.x.x",
-    "koatty_core": "^1.18.0",
+    "koatty_core": "^1.13.0",
     "koatty_exception": "^1.x.x",
     "koatty_lib": "^1.x.x",
     "koatty_logger": "^2.x.x",
     "koatty_proto": "^1.x.x",
     "koatty_validation": "^1.x.x",
-    "ws": "^8.18.2"
+    "ws": "^8.18.1"
   },
   "peerDependencies": {
     "koatty_container": "^1.x.x",
