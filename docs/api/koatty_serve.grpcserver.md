@@ -34,6 +34,7 @@ export declare class GrpcServer extends BaseServer<GrpcServerOptions>
 |  [collectProtocolMetrics()](./koatty_serve.grpcserver.collectprotocolmetrics.md) | <code>protected</code> |  |
 |  [configureServerOptions()](./koatty_serve.grpcserver.configureserveroptions.md) | <code>protected</code> | 配置gRPC服务器选项 |
 |  [createProtocolServer()](./koatty_serve.grpcserver.createprotocolserver.md) | <code>protected</code> | 创建gRPC服务器实例 |
+|  [destroy()](./koatty_serve.grpcserver.destroy.md) |  | 销毁服务器 |
 |  [extractRelevantConfig(config)](./koatty_serve.grpcserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.grpcserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.grpcserver.forceshutdown.md) | <code>protected</code> |  |
