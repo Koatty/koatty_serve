@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.6.0-0](https://github.com/koatty/koatty_serve/compare/v2.5.0...v2.6.0-0) (2025-10-12)
+
+
+### Features
+
+* enhance connection pool and server monitoring with RingBuffer for latency metrics, improved event listener error handling, and server health tracking ([e4c4860](https://github.com/koatty/koatty_serve/commit/e4c4860cd09a0d7de06c367c4154b7cf74e1329b))
+* refactor MultiProtocolServer for unified protocol management with enhanced status tracking, primary server instance handling, and improved service registration safety ([5d4c376](https://github.com/koatty/koatty_serve/commit/5d4c376bbd68c2b7beb2367d07e4f4b75f414b11))
+* refactor server implementation from MultiProtocolServer to SingleProtocolServer with simplified protocol handling and removed multi-protocol support ([a4d1c0f](https://github.com/koatty/koatty_serve/commit/a4d1c0fea848b669b48586642c0b1e50c6ef54c5))
+* update README to reflect single protocol design and add NewServe examples, bump version to 2.5.0 ([347efee](https://github.com/koatty/koatty_serve/commit/347efee81f3c16550e734f26e1588db08809ac0b))
+
 ## [2.5.0](https://github.com/koatty/koatty_serve/compare/v2.4.0...v2.5.0) (2025-06-06)
 
 
