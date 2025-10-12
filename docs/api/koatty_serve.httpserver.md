@@ -33,6 +33,7 @@ export declare class HttpServer extends BaseServer<HttpServerOptions>
 |  [analyzeConfigChanges(changedKeys, oldConfig, newConfig)](./koatty_serve.httpserver.analyzeconfigchanges.md) | <code>protected</code> |  |
 |  [configureServerOptions()](./koatty_serve.httpserver.configureserveroptions.md) | <code>protected</code> | 配置HTTP服务器选项 |
 |  [createProtocolServer()](./koatty_serve.httpserver.createprotocolserver.md) | <code>protected</code> | 创建HTTP服务器实例 |
+|  [destroy()](./koatty_serve.httpserver.destroy.md) |  | 销毁服务器 |
 |  [extractRelevantConfig(config)](./koatty_serve.httpserver.extractrelevantconfig.md) | <code>protected</code> |  |
 |  [forceCloseRemainingConnections(traceId)](./koatty_serve.httpserver.forcecloseremainingconnections.md) | <code>protected</code> |  |
 |  [forceShutdown(traceId)](./koatty_serve.httpserver.forceshutdown.md) | <code>protected</code> |  |
