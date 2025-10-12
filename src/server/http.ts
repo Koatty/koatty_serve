@@ -334,7 +334,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
 
   Start(listenCallback?: () => void): Server {
     const traceId = generateTraceId();
-    this.logger.logServerEvent('starting', { traceId }, {
+    this.logger.info('Server starting', { traceId }, {
       hostname: this.options.hostname,
       port: this.options.port,
       protocol: this.options.protocol
@@ -346,7 +346,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       // Record start time
       this.startTime = Date.now();
       
-      this.logger.logServerEvent('started', { traceId }, {
+      this.logger.info('Server started', { traceId }, {
         address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
         port: this.options.port,

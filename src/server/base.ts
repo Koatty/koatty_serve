@@ -499,11 +499,11 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
    */
   Stop(callback?: (err?: Error) => void): void {
     const traceId = generateTraceId();
-    this.logger.logServerEvent('stopping', { traceId });
+    this.logger.info('Server stopping', { traceId });
 
     this.gracefulShutdown()
       .then(() => {
-        this.logger.logServerEvent('stopped', { traceId }, {
+        this.logger.info('Server stopped', { traceId }, {
           gracefulShutdown: true,
           finalConnectionCount: this.getActiveConnectionCount()
         });
@@ -513,7 +513,7 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
         this.logger.error('Graceful shutdown failed', { traceId }, err);
         this.forceShutdown(traceId);
 
-        this.logger.logServerEvent('stopped', { traceId }, {
+        this.logger.info('Server stopped', { traceId }, {
           forcedShutdown: true,
           finalConnectionCount: this.getActiveConnectionCount()
         });
