@@ -1,12 +1,13 @@
 # koatty_serve
 
-高性能多协议服务器框架，为Koatty提供统一的HTTP、HTTPS、HTTP/2、WebSocket、gRPC服务支持。采用现代化架构设计，具备企业级的配置管理、连接池、优雅关闭、健康检查和性能监控功能。
+高性能单协议服务器框架，为Koatty提供统一的HTTP、HTTPS、HTTP/2、WebSocket、gRPC服务支持。采用现代化架构设计，具备企业级的配置管理、连接池、优雅关闭、健康检查和性能监控功能。
 
 ## 🚀 核心特性
 
 ### 🏗️ 统一架构设计
 - ✅ **模板方法模式**: 基于`BaseServer`的统一服务器架构
-- ✅ **多协议支持**: HTTP、HTTPS、HTTP/2、WebSocket、WSS、gRPC
+- ✅ **单协议设计**: 每个服务器实例专注于单一协议，职责清晰
+- ✅ **多种协议支持**: HTTP、HTTPS、HTTP/2、WebSocket、WSS、gRPC
 - ✅ **配置统一管理**: `ConfigHelper`提供一致的配置接口
 - ✅ **连接池系统**: 高性能的协议专用连接池管理
 
@@ -40,7 +41,63 @@ pnpm add koatty_serve
 
 ## 🎯 快速开始
 
-### 基础HTTP服务器
+### 使用 NewServe 创建服务器（推荐）
+
+```typescript
+import { NewServe } from "koatty_serve";
+import { KoattyApplication } from "koatty_core";
+
+const app = new KoattyApplication();
+
+// 创建单协议 HTTP 服务器
+const server = NewServe(app, {
+  hostname: '127.0.0.1',
+  port: 3000,
+  protocol: 'http'  // 单个协议
+});
+
+server.Start(() => {
+  console.log('HTTP服务器已启动: http://127.0.0.1:3000');
+});
+```
+
+### 运行多个协议服务
+
+如果需要同时运行多个协议，创建多个服务器实例：
+
+```typescript
+import { NewServe } from "koatty_serve";
+
+const app = new KoattyApplication();
+
+// HTTP 服务器
+const httpServer = NewServe(app, {
+  hostname: '127.0.0.1',
+  port: 3000,
+  protocol: 'http'
+});
+
+// gRPC 服务器
+const grpcServer = NewServe(app, {
+  hostname: '127.0.0.1',
+  port: 50051,
+  protocol: 'grpc'
+});
+
+// WebSocket 服务器
+const wsServer = NewServe(app, {
+  hostname: '127.0.0.1',
+  port: 8080,
+  protocol: 'ws'
+});
+
+// 启动所有服务器
+httpServer.Start(() => console.log('HTTP 服务器已启动'));
+grpcServer.Start(() => console.log('gRPC 服务器已启动'));
+wsServer.Start(() => console.log('WebSocket 服务器已启动'));
+```
+
+### 使用协议专用服务器类（高级用法）
 
 ```typescript
 import { HttpServer } from "koatty_serve";
@@ -58,7 +115,7 @@ const config = ConfigHelper.createHttpConfig({
   }
 });
 
-// 创建HTTP服务器
+// 直接创建HTTP服务器
 const server = new HttpServer(app, config);
 
 server.Start(() => {
