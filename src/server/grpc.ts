@@ -471,6 +471,9 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
         return;
       }
       
+      // Record start time
+      this.startTime = Date.now();
+      
       this.logger.logServerEvent('started', { traceId }, {
         address: bindAddress,
         actualPort: port,
