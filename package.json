@@ -1,7 +1,7 @@
 {
   "name": "koatty_serve",
-  "version": "2.6.0-0",
-  "description": "Provide http1/2, websocket, gRPC server for Koatty.",
+  "version": "2.9.0-0",
+  "description": "Provide http1/2/3, websocket, gRPC server for Koatty.",
   "scripts": {
     "build": "npm run build:js && npm run build:dts && npm run build:doc && npm run build:cp",
     "build:cp": "node scripts/postBuild && npx copyfiles package.json LICENSE README.md dist/",
@@ -92,6 +92,7 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.13.3",
+    "@matrixai/quic": "^2.0.9",
     "koatty_container": "^1.x.x",
     "koatty_core": "^1.13.0",
     "koatty_exception": "^1.x.x",

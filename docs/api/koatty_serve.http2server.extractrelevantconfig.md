@@ -24,9 +24,7 @@ protected extractRelevantConfig(config: Http2ServerOptions): {
             maxConcurrentStreams?: number;
             initialWindowSize?: number;
             maxFrameSize?: number;
-            maxHeaderListSize?: number; /**
-             * 创建SSL选项
-             */
+            maxHeaderListSize?: number;
         };
     };
 ```
@@ -39,5 +37,5 @@ protected extractRelevantConfig(config: Http2ServerOptions): {
 
 **Returns:**
 
-{ hostname: string; port: number; protocol: import("../config/config").[KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->; sslMode: "auto" \| "manual" \| "mutual\_tls"; allowHTTP1: boolean; connectionPool: { maxConnections: number; maxSessionMemory: number; maxHeaderListSize: number; }; http2Settings: { headerTableSize?: number; enablePush?: boolean; maxConcurrentStreams?: number; initialWindowSize?: number; maxFrameSize?: number; maxHeaderListSize?: number; /\*\* \* 创建SSL选项 \*/ }; }
+{ hostname: string; port: number; protocol: import("../config/config").[KoattyProtocol](./koatty_serve.koattyprotocol.md)<!-- -->; sslMode: "auto" \| "manual" \| "mutual\_tls"; allowHTTP1: boolean; connectionPool: { maxConnections: number; maxSessionMemory: number; maxHeaderListSize: number; }; http2Settings: { headerTableSize?: number; enablePush?: boolean; maxConcurrentStreams?: number; initialWindowSize?: number; maxFrameSize?: number; maxHeaderListSize?: number; }; }
 

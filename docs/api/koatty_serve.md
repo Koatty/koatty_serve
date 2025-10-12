@@ -10,6 +10,7 @@
 |  --- | --- |
 |  [GrpcServer](./koatty_serve.grpcserver.md) |  |
 |  [Http2Server](./koatty_serve.http2server.md) | HTTP/2 Server implementation using template method pattern 继承BaseServer，只实现HTTP/2特定的逻辑 |
+|  [Http3Server](./koatty_serve.http3server.md) | HTTP/3 Server implementation using template method pattern 继承BaseServer，只实现HTTP/3特定的逻辑 |
 |  [HttpServer](./koatty_serve.httpserver.md) | HTTP Server implementation using template method pattern 继承BaseServer，只实现HTTP特定的逻辑 |
 |  [HttpsServer](./koatty_serve.httpsserver.md) | HTTPS Server implementation using template method pattern 继承BaseServer，只实现HTTPS特定的逻辑 |
 |  [SingleProtocolServer](./koatty_serve.singleprotocolserver.md) | Single protocol server |
@@ -20,16 +21,13 @@
 |  Function | Description |
 |  --- | --- |
 |  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
-|  [CreateTerminus(app, server, options)](./koatty_serve.createterminus.md) | <p>Create terminus event</p> |
 |  [NewServe(app, opt)](./koatty_serve.newserve.md) | <p>Create Server</p> |
-|  [onSignal(event, app, server, forceTimeout)](./koatty_serve.onsignal.md) | cleanup function, returning a promise (used to be onSigterm) |
 
 ## Interfaces
 
 |  Interface | Description |
 |  --- | --- |
 |  [ListeningOptions](./koatty_serve.listeningoptions.md) | <p>listening options</p><p> ListeningOptions</p> |
-|  [TerminusOptions](./koatty_serve.terminusoptions.md) |  |
 
 ## Type Aliases
 
