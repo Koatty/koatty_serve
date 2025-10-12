@@ -48,6 +48,9 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
   readonly protocol: string;
   status: number;
   listenCallback?: () => void;
+  
+  // Server start time for uptime calculation
+  protected startTime: number = 0;
 
   // 公共状态管理
   protected configVersion = 0;

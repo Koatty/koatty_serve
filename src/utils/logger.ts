@@ -9,6 +9,9 @@
 import { DefaultLogger as Logger } from "koatty_logger";
 import { performance } from "perf_hooks";
 
+// Re-export ID generators from helper for backward compatibility
+export { generateTraceId, generateConnectionId, generateRequestId } from "./helper";
+
 /**
  * Log context interface
  */
@@ -38,17 +41,16 @@ export interface PerformanceMetrics {
 
 /**
  * Structured logger class based on koatty_logger
+ * koatty_logger 2.4.0+ 已内置批量日志处理、采样、级别过滤等优化功能
  */
 export class StructuredLogger {
   private static instance: StructuredLogger;
   private globalContext: LogContext = {};
-  private performanceTrackers = new Map<string, PerformanceMetrics>();
 
-  private constructor() {}
+  private constructor() {
+    // koatty_logger 2.4.0+ 已内置优化，无需额外包装
+  }
 
-  /**
-   * Get singleton instance
-   */
   static getInstance(): StructuredLogger {
     if (!StructuredLogger.instance) {
       StructuredLogger.instance = new StructuredLogger();
@@ -58,9 +60,17 @@ export class StructuredLogger {
 
   /**
    * Set global context for all logs
+   * @param context Global context to merge with all log entries
    */
   setGlobalContext(context: LogContext): void {
     this.globalContext = { ...this.globalContext, ...context };
+  }
+
+  /**
+   * Get current global context
+   */
+  getGlobalContext(): LogContext {
+    return { ...this.globalContext };
   }
 
   /**
@@ -72,55 +82,56 @@ export class StructuredLogger {
 
   /**
    * Format log message with context
+   * @param message Log message
+   * @param context Additional context
+   * @param data Additional data to log
+   * @returns Formatted message string
    */
   private formatMessage(message: string, context?: LogContext, data?: any): string {
-    const mergedContext = { ...this.globalContext, ...context };
+    const mergedContext = context ? { ...this.globalContext, ...context } : this.globalContext;
     const parts: string[] = [];
-
-    // Add module prefix if available
+    
     if (mergedContext.module) {
       parts.push(`[${mergedContext.module.toUpperCase()}]`);
     }
-
-    // Add protocol if available
+    
     if (mergedContext.protocol) {
       parts.push(`[${mergedContext.protocol.toUpperCase()}]`);
     }
-
-    // Add server/connection identifiers
-    if (mergedContext.serverId) {
-      parts.push(`[Server:${mergedContext.serverId}]`);
-    }
-
+    
     if (mergedContext.connectionId) {
-      parts.push(`[Conn:${mergedContext.connectionId}]`);
+      parts.push(`[conn:${mergedContext.connectionId}]`);
     }
-
-    // Add action if available
-    if (mergedContext.action) {
-      parts.push(`[${mergedContext.action}]`);
+    
+    if (mergedContext.requestId) {
+      parts.push(`[req:${mergedContext.requestId}]`);
     }
-
-    // Build final message
-    const prefix = parts.length > 0 ? `${parts.join(' ')} ` : '';
-    let finalMessage = `${prefix}${message}`;
-
-    // Add structured data if provided
-    if (data) {
-      const dataStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
-      finalMessage += ` | Data: ${dataStr}`;
-    }
-
-    // Add trace ID for correlation
+    
     if (mergedContext.traceId) {
-      finalMessage += ` | TraceId: ${mergedContext.traceId}`;
+      parts.push(`[trace:${mergedContext.traceId}]`);
     }
-
+    
+    let finalMessage = parts.length > 0 ? `${parts.join(' ')} ${message}` : message;
+    
+    if (data) {
+      const contextKeys = Object.keys(mergedContext);
+      const additionalData = Object.entries(data)
+        .filter(([key]) => !contextKeys.includes(key))
+        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+      
+      if (Object.keys(additionalData).length > 0) {
+        finalMessage += ` | Data: ${JSON.stringify(additionalData)}`;
+      }
+    }
+    
     return finalMessage;
   }
 
   /**
-   * Debug level logging
+   * Log debug message
+   * @param message Log message
+   * @param context Additional context
+   * @param data Additional data
    */
   debug(message: string, context?: LogContext, data?: any): void {
     const formattedMessage = this.formatMessage(message, context, data);
@@ -128,7 +139,10 @@ export class StructuredLogger {
   }
 
   /**
-   * Info level logging
+   * Log info message
+   * @param message Log message
+   * @param context Additional context
+   * @param data Additional data
    */
   info(message: string, context?: LogContext, data?: any): void {
     const formattedMessage = this.formatMessage(message, context, data);
@@ -136,7 +150,10 @@ export class StructuredLogger {
   }
 
   /**
-   * Warning level logging
+   * Log warning message
+   * @param message Log message
+   * @param context Additional context
+   * @param data Additional data
    */
   warn(message: string, context?: LogContext, data?: any): void {
     const formattedMessage = this.formatMessage(message, context, data);
@@ -144,211 +161,172 @@ export class StructuredLogger {
   }
 
   /**
-   * Error level logging
+   * Log error message
+   * @param message Log message
+   * @param context Additional context
+   * @param error Error object or additional data
    */
   error(message: string, context?: LogContext, error?: Error | any): void {
-    const errorData = error instanceof Error ? {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    } : error;
-
+    let errorData: any = error;
+    if (error instanceof Error) {
+      errorData = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      };
+    }
+    
     const formattedMessage = this.formatMessage(message, context, errorData);
     Logger.Error(formattedMessage);
   }
 
   /**
-   * Start performance tracking
+   * Create a child logger with merged context
+   * @param context Context to merge
+   * @returns New logger instance with merged context
    */
-  startPerformanceTracking(trackingId: string, context?: LogContext): void {
-    const metrics: PerformanceMetrics = {
-      startTime: performance.now(),
-      memoryUsage: process.memoryUsage()
-    };
-
-    this.performanceTrackers.set(trackingId, metrics);
-    
-    this.debug(`Performance tracking started`, 
-      { ...context, action: 'perf_start' }, 
-      { trackingId }
-    );
+  child(context: LogContext): StructuredLogger {
+    const childLogger = new StructuredLogger();
+    childLogger.setGlobalContext({ ...this.globalContext, ...context });
+    return childLogger;
   }
 
   /**
-   * End performance tracking and log results
+   * Start performance measurement
+   * @param label Performance measurement label
+   * @returns Performance metrics object
    */
-  endPerformanceTracking(trackingId: string, context?: LogContext): PerformanceMetrics | null {
-    const metrics = this.performanceTrackers.get(trackingId);
-    if (!metrics) {
-      this.warn(`Performance tracking not found`, context, { trackingId });
-      return null;
-    }
-
-    metrics.endTime = performance.now();
-    metrics.duration = metrics.endTime - metrics.startTime;
+  startPerformanceMeasurement(label: string): PerformanceMetrics {
+    const startTime = performance.now();
+    const memoryUsage = process.memoryUsage();
     
-    const currentMemory = process.memoryUsage();
-    const memoryDiff = {
-      heapUsed: currentMemory.heapUsed - metrics.memoryUsage!.heapUsed,
-      heapTotal: currentMemory.heapTotal - metrics.memoryUsage!.heapTotal,
-      external: currentMemory.external - metrics.memoryUsage!.external
+    return {
+      startTime,
+      memoryUsage,
+      label
     };
+  }
 
-    this.info(`Performance tracking completed`, 
-      { ...context, action: 'perf_end' }, 
-      { 
-        trackingId,
-        duration: `${metrics.duration.toFixed(2)}ms`,
-        memoryDiff 
+  /**
+   * End performance measurement and log result
+   * @param metrics Performance metrics from startPerformanceMeasurement
+   * @param context Additional context
+   */
+  endPerformanceMeasurement(metrics: PerformanceMetrics, context?: LogContext): void {
+    const endTime = performance.now();
+    const duration = endTime - metrics.startTime;
+    const endMemoryUsage = process.memoryUsage();
+    
+    const memoryDelta = {
+      rss: endMemoryUsage.rss - (metrics.memoryUsage?.rss || 0),
+      heapTotal: endMemoryUsage.heapTotal - (metrics.memoryUsage?.heapTotal || 0),
+      heapUsed: endMemoryUsage.heapUsed - (metrics.memoryUsage?.heapUsed || 0),
+      external: endMemoryUsage.external - (metrics.memoryUsage?.external || 0)
+    };
+    
+    this.debug(
+      `Performance: ${metrics.label || 'Operation'} completed`,
+      context,
+      {
+        duration: `${duration.toFixed(2)}ms`,
+        memoryDelta: {
+          rss: `${(memoryDelta.rss / 1024 / 1024).toFixed(2)}MB`,
+          heapUsed: `${(memoryDelta.heapUsed / 1024 / 1024).toFixed(2)}MB`
+        }
       }
     );
-
-    this.performanceTrackers.delete(trackingId);
-    return metrics;
   }
 
   /**
-   * Log server lifecycle events
+   * Measure and log performance of async operation
+   * @param label Performance measurement label
+   * @param operation Async operation to measure
+   * @param context Additional context
+   * @returns Result of the operation
    */
-  logServerEvent(event: 'starting' | 'started' | 'stopping' | 'stopped' | 'error', 
-                 context: LogContext, 
-                 data?: any): void {
-    const eventContext = { ...context, action: `server_${event}` };
-    
-    switch (event) {
-      case 'starting':
-        this.info(`Server starting`, eventContext, data);
-        break;
-      case 'started':
-        this.info(`Server started successfully`, eventContext, data);
-        break;
-      case 'stopping':
-        this.info(`Server stopping`, eventContext, data);
-        break;
-      case 'stopped':
-        this.info(`Server stopped successfully`, eventContext, data);
-        break;
-      case 'error':
-        this.error(`Server error occurred`, eventContext, data);
-        break;
+  async measureAsync<T>(
+    label: string,
+    operation: () => Promise<T>,
+    context?: LogContext
+  ): Promise<T> {
+    const metrics = this.startPerformanceMeasurement(label);
+    try {
+      const result = await operation();
+      this.endPerformanceMeasurement(metrics, context);
+      return result;
+    } catch (error) {
+      this.endPerformanceMeasurement(metrics, context);
+      throw error;
     }
   }
 
   /**
-   * Log connection events
+   * Measure and log performance of sync operation
+   * @param label Performance measurement label
+   * @param operation Sync operation to measure
+   * @param context Additional context
+   * @returns Result of the operation
    */
-  logConnectionEvent(event: 'connected' | 'disconnected' | 'error' | 'timeout',
-                     context: LogContext,
-                     data?: any): void {
-    const eventContext = { ...context, action: `connection_${event}` };
-    
-    switch (event) {
-      case 'connected':
-        this.info(`Connection established`, eventContext, data);
-        break;
-      case 'disconnected':
-        this.info(`Connection closed`, eventContext, data);
-        break;
-      case 'error':
-        this.error(`Connection error`, eventContext, data);
-        break;
-      case 'timeout':
-        this.warn(`Connection timeout`, eventContext, data);
-        break;
+  measureSync<T>(
+    label: string,
+    operation: () => T,
+    context?: LogContext
+  ): T {
+    const metrics = this.startPerformanceMeasurement(label);
+    try {
+      const result = operation();
+      this.endPerformanceMeasurement(metrics, context);
+      return result;
+    } catch (error) {
+      this.endPerformanceMeasurement(metrics, context);
+      throw error;
     }
-  }
-
-  /**
-   * Log security events
-   */
-  logSecurityEvent(event: 'auth_success' | 'auth_failure' | 'rate_limit' | 'blocked',
-                   context: LogContext,
-                   data?: any): void {
-    const eventContext = { ...context, action: `security_${event}` };
-    
-    switch (event) {
-      case 'auth_success':
-        this.info(`Authentication successful`, eventContext, data);
-        break;
-      case 'auth_failure':
-        this.warn(`Authentication failed`, eventContext, data);
-        break;
-      case 'rate_limit':
-        this.warn(`Rate limit exceeded`, eventContext, data);
-        break;
-      case 'blocked':
-        this.warn(`Request blocked`, eventContext, data);
-        break;
-    }
-  }
-
-  /**
-   * Create a child logger with preset context
-   */
-  createChildLogger(childContext: LogContext): ChildLogger {
-    return new ChildLogger(this, { ...this.globalContext, ...childContext });
   }
 }
 
 /**
- * Child logger with preset context
+ * Create a new structured logger instance
+ * @param context Initial context
+ * @returns New logger instance
  */
-export class ChildLogger {
-  constructor(
-    private parent: StructuredLogger,
-    private childContext: LogContext
-  ) {}
-
-  debug(message: string, additionalContext?: LogContext, data?: any): void {
-    this.parent.debug(message, { ...this.childContext, ...additionalContext }, data);
+export function createLogger(context?: LogContext): StructuredLogger {
+  const logger = StructuredLogger.getInstance();
+  if (context) {
+    return logger.child(context);
   }
-
-  info(message: string, additionalContext?: LogContext, data?: any): void {
-    this.parent.info(message, { ...this.childContext, ...additionalContext }, data);
-  }
-
-  warn(message: string, additionalContext?: LogContext, data?: any): void {
-    this.parent.warn(message, { ...this.childContext, ...additionalContext }, data);
-  }
-
-  error(message: string, additionalContext?: LogContext, error?: Error | any): void {
-    this.parent.error(message, { ...this.childContext, ...additionalContext }, error);
-  }
-
-  logServerEvent(event: 'starting' | 'started' | 'stopping' | 'stopped' | 'error', 
-                 additionalContext?: LogContext, 
-                 data?: any): void {
-    this.parent.logServerEvent(event, { ...this.childContext, ...additionalContext }, data);
-  }
-
-  logConnectionEvent(event: 'connected' | 'disconnected' | 'error' | 'timeout',
-                     additionalContext?: LogContext,
-                     data?: any): void {
-    this.parent.logConnectionEvent(event, { ...this.childContext, ...additionalContext }, data);
-  }
-
-  logSecurityEvent(event: 'auth_success' | 'auth_failure' | 'rate_limit' | 'blocked',
-                   additionalContext?: LogContext,
-                   data?: any): void {
-    this.parent.logSecurityEvent(event, { ...this.childContext, ...additionalContext }, data);
-  }
-
-  startPerformanceTracking(trackingId: string, additionalContext?: LogContext): void {
-    this.parent.startPerformanceTracking(trackingId, { ...this.childContext, ...additionalContext });
-  }
-
-  endPerformanceTracking(trackingId: string, additionalContext?: LogContext): PerformanceMetrics | null {
-    return this.parent.endPerformanceTracking(trackingId, { ...this.childContext, ...additionalContext });
-  }
+  return logger;
 }
 
 // Export singleton instance
 export const structuredLogger = StructuredLogger.getInstance();
 
 // Export convenience functions
-export const createLogger = (context: LogContext) => structuredLogger.createChildLogger(context);
+export const debug = (message: string, context?: LogContext, data?: any) => 
+  structuredLogger.debug(message, context, data);
 
-// Generate unique IDs for tracking
-export const generateTraceId = () => `trace_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-export const generateConnectionId = () => `conn_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-export const generateRequestId = () => `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`; 
+export const info = (message: string, context?: LogContext, data?: any) => 
+  structuredLogger.info(message, context, data);
+
+export const warn = (message: string, context?: LogContext, data?: any) => 
+  structuredLogger.warn(message, context, data);
+
+export const error = (message: string, context?: LogContext, error?: Error | any) => 
+  structuredLogger.error(message, context, error);
+
+export const setGlobalContext = (context: LogContext) => 
+  structuredLogger.setGlobalContext(context);
+
+export const clearGlobalContext = () => 
+  structuredLogger.clearGlobalContext();
+
+export const measureAsync = <T>(
+  label: string,
+  operation: () => Promise<T>,
+  context?: LogContext
+) => structuredLogger.measureAsync(label, operation, context);
+
+export const measureSync = <T>(
+  label: string,
+  operation: () => T,
+  context?: LogContext
+) => structuredLogger.measureSync(label, operation, context);

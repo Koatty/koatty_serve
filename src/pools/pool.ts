@@ -8,6 +8,7 @@
 
 import { createLogger, generateTraceId } from "../utils/logger";
 import { ConnectionPoolConfig } from "../config/pool";
+import { RingBuffer } from "../utils/ring_buffer";
 
 /**
  * 连接统计信息接口
@@ -106,6 +107,7 @@ export abstract class ConnectionPoolManager<T = any> {
   protected readonly protocol: string;
   protected readonly startTime = Date.now();
   protected eventListeners = new Map<ConnectionPoolEvent, Set<Function>>();
+  private eventListenerErrors = new Map<ConnectionPoolEvent, number>();
   
   // 连接池核心数据
   protected connections = new Map<string, T>();           // 活跃连接
@@ -121,8 +123,8 @@ export abstract class ConnectionPoolManager<T = any> {
   protected metrics: ConnectionPoolMetrics;
   protected currentHealth: ConnectionPoolHealth;
   
-  // 性能监控
-  private latencyBuffer: number[] = [];
+  // 性能监控 - 使用环形缓冲区提高性能
+  private latencyBuffer: RingBuffer<number>;
   private lastMetricsUpdate = Date.now();
 
   constructor(protocol: string, config: ConnectionPoolConfig = {}) {
@@ -133,6 +135,9 @@ export abstract class ConnectionPoolManager<T = any> {
       module: 'connection_pool', 
       protocol: this.protocol 
     });
+
+    // 初始化延迟环形缓冲区 (默认存储1000个样本)
+    this.latencyBuffer = new RingBuffer<number>(1000);
 
     // 初始化指标
     this.metrics = this.initializeMetrics();
@@ -656,21 +661,16 @@ export abstract class ConnectionPoolManager<T = any> {
       this.metrics.performance.throughput = this.metrics.totalConnections / timeDiff;
     }
 
-    // 计算延迟百分位数
+    // 计算延迟百分位数 - 使用环形缓冲区的高效方法
     if (this.latencyBuffer.length > 0) {
-      const sorted = this.latencyBuffer.sort((a, b) => a - b);
-      const len = sorted.length;
+      // 使用环形缓冲区的内置方法计算百分位数
+      this.metrics.performance.latency.p50 = this.latencyBuffer.getPercentile(0.5) || 0;
+      this.metrics.performance.latency.p95 = this.latencyBuffer.getPercentile(0.95) || 0;
+      this.metrics.performance.latency.p99 = this.latencyBuffer.getPercentile(0.99) || 0;
       
-      this.metrics.performance.latency.p50 = sorted[Math.floor(len * 0.5)];
-      this.metrics.performance.latency.p95 = sorted[Math.floor(len * 0.95)];
-      this.metrics.performance.latency.p99 = sorted[Math.floor(len * 0.99)];
+      this.metrics.averageLatency = this.latencyBuffer.getAverage() || 0;
       
-      this.metrics.averageLatency = sorted.reduce((a, b) => a + b) / len;
-      
-      // 清空缓冲区，避免内存泄漏
-      if (this.latencyBuffer.length > 1000) {
-        this.latencyBuffer = this.latencyBuffer.slice(-500);
-      }
+      // 环形缓冲区自动管理大小，无需手动清理
     }
 
     this.lastMetricsUpdate = now;
@@ -717,19 +717,51 @@ export abstract class ConnectionPoolManager<T = any> {
   }
 
   /**
-   * Trigger event
+   * Trigger event with enhanced error handling
    */
   protected emitEvent(event: ConnectionPoolEvent, data: any): void {
     const listeners = this.eventListeners.get(event);
-    if (listeners) {
-      listeners.forEach(listener => {
-        try {
-          listener(data);
-        } catch (error) {
-          this.logger.error('Error in connection pool event listener', {}, error);
-        }
-      });
+    if (!listeners || listeners.size === 0) {
+      return;
     }
+
+    const listenersToRemove: Function[] = [];
+
+    listeners.forEach(listener => {
+      try {
+        listener(data);
+        // Reset error count on success
+        if (this.eventListenerErrors.has(event)) {
+          this.eventListenerErrors.set(event, 0);
+        }
+      } catch (error) {
+        // Record error count
+        const errorCount = (this.eventListenerErrors.get(event) || 0) + 1;
+        this.eventListenerErrors.set(event, errorCount);
+        
+        this.logger.error('Error in connection pool event listener', {}, {
+          event: event,
+          errorCount,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          protocol: this.protocol
+        });
+        
+        // If listener fails repeatedly, mark for removal
+        if (errorCount > 10) {
+          this.logger.warn('Removing faulty event listener due to repeated failures', {}, {
+            event: event,
+            totalErrors: errorCount,
+            protocol: this.protocol
+          });
+          listenersToRemove.push(listener);
+          this.eventListenerErrors.delete(event);
+        }
+      }
+    });
+
+    // Remove faulty listeners
+    listenersToRemove.forEach(listener => listeners.delete(listener));
   }
 
   /**
