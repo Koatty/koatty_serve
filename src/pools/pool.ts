@@ -619,7 +619,7 @@ export abstract class ConnectionPoolManager<T = any> {
   /**
    * 辅助方法
    */
-  private generateConnectionId(): string {
+  protected generateConnectionId(): string {
     return `${this.protocol}_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
   }
 

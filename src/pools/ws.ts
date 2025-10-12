@@ -40,8 +40,8 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   constructor(config: ConnectionPoolConfig = {}) {
     super('websocket', config);
     
-    // 注册WebSocket特定的心跳监控任务到统一监控器
-    this.registerWebSocketMonitoringTasks();
+    // 启动心跳监控
+    this.startHeartbeat();
   }
 
   /**
@@ -274,32 +274,21 @@ export class WebSocketConnectionPoolManager extends ConnectionPoolManager<WS.Web
   }
 
   /**
-   * 注册WebSocket特定的监控任务到统一监控器
+   * 启动心跳监控
    */
-  private registerWebSocketMonitoringTasks(): void {
+  private startHeartbeat(): void {
     const pingInterval = this.config.protocolSpecific?.pingInterval || 30000;
     const heartbeatInterval = this.config.protocolSpecific?.heartbeatInterval || 60000;
 
-    // 注册WebSocket ping任务
-    const wsPingTask = {
-      name: 'websocket_ping',
-      interval: pingInterval,
-      priority: 2,
-      execute: () => this.pingAllConnections(),
-      description: 'WebSocket ping monitoring'
-    };
+    // Ping interval
+    this.pingInterval = setInterval(() => {
+      this.pingAllConnections();
+    }, pingInterval);
 
-    // 注册WebSocket心跳检查任务
-    const wsHeartbeatTask = {
-      name: 'websocket_heartbeat',
-      interval: heartbeatInterval,
-      priority: 3,
-      execute: () => this.cleanupDeadConnections(),
-      description: 'WebSocket heartbeat check'
-    };
-
-    this.unifiedMonitor.registerTask(wsPingTask);
-    this.unifiedMonitor.registerTask(wsHeartbeatTask);
+    // Heartbeat check interval
+    this.heartbeatInterval = setInterval(() => {
+      this.cleanupDeadConnections();
+    }, heartbeatInterval);
   }
 
   /**
