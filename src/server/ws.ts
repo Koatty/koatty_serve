@@ -311,7 +311,19 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     this.logger.debug('WebSocket runtime configuration changes applied', { traceId });
   }
 
-  protected extractRelevantConfig(config: WebSocketServerOptions) {
+  protected extractRelevantConfig(config: WebSocketServerOptions): {
+    hostname: string;
+    port: number;
+    protocol: string;
+    isSecure: boolean;
+    connectionPool: {
+      maxConnections: number | undefined;
+      pingInterval: number | undefined;
+      pongTimeout: number | undefined;
+      heartbeatInterval: number | undefined;
+    } | null;
+    wsOptions: WS.ServerOptions | undefined;
+  } {
     return {
       hostname: config.hostname,
       port: config.port,
