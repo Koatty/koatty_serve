@@ -466,6 +466,13 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     this.ensureUpgradeHandlersAreBound();
 
     this.httpServer.listen(this.options.port, this.options.hostname, () => {
+      const protocolUpper = this.options.protocol.toUpperCase();
+      const urlProtocol = this.options.protocol.toLowerCase();
+      const serverUrl = `${urlProtocol}://${this.options.hostname || '127.0.0.1'}:${this.options.port}/`;
+      
+      // 输出 Koatty 格式的启动日志
+      this.logger.info(`Server: ${protocolUpper} running at ${serverUrl}`, { traceId });
+      
       this.logger.info('Server started', { traceId }, {
         address: `${this.options.hostname}:${this.options.port}`,
         hostname: this.options.hostname,
