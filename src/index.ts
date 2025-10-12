@@ -26,6 +26,3 @@ export {
   type KoattyProtocol,
   type ListeningOptions
 } from "./config/config";
-
-// Export utilities
-export { BindProcessEvent } from "./utils/terminus";

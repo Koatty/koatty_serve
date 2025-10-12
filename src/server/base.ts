@@ -18,10 +18,23 @@ import {
   ConnectionPoolEvent
 } from "../pools/pool";
 import { BaseServerOptions, ListeningOptions } from "../config/config";
-import {
-  GracefulShutdownManager, ShutdownStepFactory,
-  GracefulShutdownOptions, ShutdownResult
-} from "../utils/graceful-shutdown";
+// 优雅关闭相关类型定义
+export interface GracefulShutdownOptions {
+  timeout?: number;        // 总超时时间
+  drainDelay?: number;     // 排空延迟
+  stepTimeout?: number;    // 单步超时
+}
+
+export interface ShutdownResult {
+  status: 'completed' | 'failed' | 'forced';
+  totalTime: number;
+  completedSteps: string[];
+  failedSteps: Array<{
+    step: string;
+    error: string;
+    timestamp: number;
+  }>;
+}
 
 /**
  * Configuration change detection result
@@ -56,7 +69,7 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
   protected drainDelay = 5000;
   protected connectionPool?: ConnectionPoolManager<any>;
   protected timerManager: TimerManager;
-  protected shutdownManager: GracefulShutdownManager;
+  private isShuttingDown = false;
 
   constructor(protected app: KoattyApplication, options: T) {
     this.options = { ...options };
@@ -66,7 +79,6 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
 
     // 初始化定时器管理器
     this.timerManager = new TimerManager();
-    this.shutdownManager = new GracefulShutdownManager(this.protocol);
 
     // 设置日志上下文
     this.logger = createLogger({
@@ -169,45 +181,155 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
 
   /**
    * 模板方法：优雅关闭流程
-   * 现在使用统一的 GracefulShutdownManager 来处理关闭流程
+   * 简化实现，直接执行关闭步骤
    */
   async gracefulShutdown(options: GracefulShutdownOptions = {}): Promise<ShutdownResult> {
-    if (this.shutdownManager.isInShutdown()) {
+    if (this.isShuttingDown) {
       this.logger.warn('Graceful shutdown already in progress');
       throw new Error('Graceful shutdown already in progress');
     }
 
-    // 构建关闭步骤
-    const steps = [
-      ShutdownStepFactory.createStopAcceptingStep(
-        (traceId) => this.stopAcceptingNewConnections(traceId),
-        options.stepTimeout || 5000
-      ),
-      ShutdownStepFactory.createWaitConnectionsStep(
-        (timeout, traceId) => this.waitForConnectionCompletion(timeout, traceId),
-        options.stepTimeout || 15000
-      ),
-      ShutdownStepFactory.createForceCloseStep(
-        (traceId) => this.forceCloseRemainingConnections(traceId),
-        options.stepTimeout || 5000
-      ),
-      ShutdownStepFactory.createStopMonitoringStep(
-        (traceId) => this.stopMonitoringAndCleanup(traceId),
-        3000
-      )
-    ];
+    this.isShuttingDown = true;
+    const traceId = generateTraceId();
+    const startTime = Date.now();
+    const completedSteps: string[] = [];
+    const failedSteps: Array<{ step: string; error: string; timestamp: number }> = [];
 
-    // 执行优雅关闭
-    const result = await this.shutdownManager.performGracefulShutdown(steps, options);
+    this.logger.info('Starting graceful shutdown', { traceId });
 
-    if (result.status === 'failed') {
-      this.logger.error('Graceful shutdown failed', {}, {
-        failedSteps: result.failedSteps.map(f => f.step),
-        totalTime: result.totalTime
+    try {
+      // 步骤 1: 停止接受新连接
+      try {
+        await this.executeWithTimeout(
+          () => this.stopAcceptingNewConnections(traceId),
+          options.stepTimeout || 5000,
+          'stop_accepting_connections'
+        );
+        completedSteps.push('stop_accepting_connections');
+        this.logger.debug('Stopped accepting new connections', { traceId });
+      } catch (error) {
+        failedSteps.push({
+          step: 'stop_accepting_connections',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        });
+        this.logger.error('Failed to stop accepting connections', { traceId }, error);
+      }
+
+      // 步骤 2: 等待现有连接完成
+      try {
+        const waitTimeout = options.stepTimeout || 15000;
+        await this.executeWithTimeout(
+          () => this.waitForConnectionCompletion(waitTimeout, traceId),
+          waitTimeout + 1000,
+          'wait_connections_completion'
+        );
+        completedSteps.push('wait_connections_completion');
+        this.logger.debug('Waited for connections completion', { traceId });
+      } catch (error) {
+        failedSteps.push({
+          step: 'wait_connections_completion',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        });
+        this.logger.error('Failed to wait for connections', { traceId }, error);
+      }
+
+      // 步骤 3: 强制关闭剩余连接
+      try {
+        await this.executeWithTimeout(
+          () => this.forceCloseRemainingConnections(traceId),
+          options.stepTimeout || 5000,
+          'force_close_connections'
+        );
+        completedSteps.push('force_close_connections');
+        this.logger.debug('Force closed remaining connections', { traceId });
+      } catch (error) {
+        failedSteps.push({
+          step: 'force_close_connections',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        });
+        this.logger.error('Failed to force close connections', { traceId }, error);
+      }
+
+      // 步骤 4: 停止监控和清理
+      try {
+        await this.executeWithTimeout(
+          async () => { this.stopMonitoringAndCleanup(traceId); },
+          3000,
+          'stop_monitoring_cleanup'
+        );
+        completedSteps.push('stop_monitoring_cleanup');
+        this.logger.debug('Stopped monitoring and cleanup', { traceId });
+      } catch (error) {
+        failedSteps.push({
+          step: 'stop_monitoring_cleanup',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        });
+        this.logger.error('Failed to stop monitoring', { traceId }, error);
+      }
+
+      const totalTime = Date.now() - startTime;
+      const status = failedSteps.length > 0 ? 'failed' : 'completed';
+
+      this.logger.info('Graceful shutdown completed', { traceId }, {
+        status,
+        totalTime,
+        completedSteps: completedSteps.length,
+        failedSteps: failedSteps.length
       });
-    }
 
-    return result;
+      return {
+        status: status as 'completed' | 'failed',
+        totalTime,
+        completedSteps,
+        failedSteps
+      };
+
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+      this.logger.error('Graceful shutdown error', { traceId }, error);
+      
+      return {
+        status: 'failed',
+        totalTime,
+        completedSteps,
+        failedSteps: [...failedSteps, {
+          step: 'global',
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: Date.now()
+        }]
+      };
+    } finally {
+      this.isShuttingDown = false;
+    }
+  }
+
+  /**
+   * 执行带超时的异步操作
+   */
+  private async executeWithTimeout<T>(
+    fn: () => Promise<T>,
+    timeout: number,
+    stepName: string
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Step '${stepName}' timed out after ${timeout}ms`));
+      }, timeout);
+
+      fn()
+        .then(result => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch(error => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 
   /**
@@ -469,13 +591,19 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
   abstract getNativeServer(): NativeServer;
 
   /**
+   * 销毁服务器（抽象方法，各协议实现）
+   * 内部应该调用 gracefulShutdown 进行优雅关闭
+   */
+  abstract destroy(): Promise<void>;
+
+  /**
    * 停止服务器（向后兼容）
    */
   Stop(callback?: (err?: Error) => void): void {
     const traceId = generateTraceId();
     this.logger.info('Server stopping', { traceId });
 
-    this.gracefulShutdown()
+    this.destroy()
       .then(() => {
         this.logger.info('Server stopped', { traceId }, {
           gracefulShutdown: true,
@@ -484,7 +612,7 @@ export abstract class BaseServer<T extends BaseServerOptions = BaseServerOptions
         if (callback) callback();
       })
       .catch((err: Error) => {
-        this.logger.error('Graceful shutdown failed', { traceId }, err);
+        this.logger.error('Server stop failed', { traceId }, err);
         this.forceShutdown(traceId);
 
         this.logger.info('Server stopped', { traceId }, {

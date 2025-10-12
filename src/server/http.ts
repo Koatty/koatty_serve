@@ -375,4 +375,20 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
   getHttpConnectionStats() {
     return this.connectionPool ? this.connectionPool.getConnectionStats() : null;
   }
+
+  /**
+   * 销毁服务器
+   */
+  async destroy(): Promise<void> {
+    const traceId = generateTraceId();
+    this.logger.info('Destroying HTTP server', { traceId });
+
+    try {
+      await this.gracefulShutdown();
+      this.logger.info('HTTP server destroyed successfully', { traceId });
+    } catch (error) {
+      this.logger.error('Error destroying HTTP server', { traceId }, error);
+      throw error;
+    }
+  }
 }
