@@ -20,7 +20,6 @@
 
 |  Function | Description |
 |  --- | --- |
-|  [BindProcessEvent(event, originEventName, targetEventName)](./koatty_serve.bindprocessevent.md) | Bind event to the process |
 |  [NewServe(app, opt)](./koatty_serve.newserve.md) | <p>Create Server</p> |
 
 ## Interfaces

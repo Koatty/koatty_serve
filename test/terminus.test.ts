@@ -1,6 +1,6 @@
 /**
  * Terminus 优雅关闭测试
- * 验证 appStop 事件触发时 gracefulShutdown 被正确调用
+ * 验证 appStop 事件触发时 destroy 方法被正确调用
  */
 
 import { EventEmitter } from 'events';
@@ -10,12 +10,12 @@ import { onSignal } from '../src/utils/terminus';
 describe('Terminus Graceful Shutdown', () => {
   let mockApp: KoattyApplication;
   let mockServer: any;
-  let gracefulShutdownCalled: boolean;
+  let destroyCalled: boolean;
   let stopCalled: boolean;
   let appStopCalled: boolean;
 
   beforeEach(() => {
-    gracefulShutdownCalled = false;
+    destroyCalled = false;
     stopCalled = false;
     appStopCalled = false;
 
@@ -28,8 +28,8 @@ describe('Terminus Graceful Shutdown', () => {
     // 创建模拟的 server
     mockServer = {
       status: 200,
-      gracefulShutdown: jest.fn().mockImplementation(async (options: any) => {
-        gracefulShutdownCalled = true;
+      destroy: jest.fn().mockImplementation(async () => {
+        destroyCalled = true;
         return {
           status: 'completed',
           totalTime: 100,
@@ -48,7 +48,7 @@ describe('Terminus Graceful Shutdown', () => {
     jest.clearAllMocks();
   });
 
-  test('appStop 事件触发后应该调用 gracefulShutdown', async () => {
+  test('appStop 事件触发后应该调用 destroy', async () => {
     const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
     });
@@ -64,16 +64,16 @@ describe('Terminus Graceful Shutdown', () => {
     }
 
     expect(appStopCalled).toBe(true);
-    expect(gracefulShutdownCalled).toBe(true);
-    expect(mockServer.gracefulShutdown).toHaveBeenCalledWith({ timeout: 5000 });
+    expect(destroyCalled).toBe(true);
+    expect(mockServer.destroy).toHaveBeenCalled();
     expect(mockExit).toHaveBeenCalledWith(0);
 
     mockExit.mockRestore();
   });
 
-  test('当 gracefulShutdown 不存在时应该降级到 Stop 方法', async () => {
-    // 移除 gracefulShutdown 方法
-    delete mockServer.gracefulShutdown;
+  test('当 destroy 不存在时应该降级到 Stop 方法', async () => {
+    // 移除 destroy 方法
+    delete mockServer.destroy;
 
     const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
@@ -97,8 +97,8 @@ describe('Terminus Graceful Shutdown', () => {
     mockExit.mockRestore();
   });
 
-  test('gracefulShutdown 失败时应该正确处理错误', async () => {
-    mockServer.gracefulShutdown = jest.fn().mockRejectedValue(new Error('Shutdown failed'));
+  test('destroy 失败时应该正确处理错误', async () => {
+    mockServer.destroy = jest.fn().mockRejectedValue(new Error('Destroy failed'));
 
     const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
@@ -115,44 +115,49 @@ describe('Terminus Graceful Shutdown', () => {
     }
 
     expect(appStopCalled).toBe(true);
-    expect(mockServer.gracefulShutdown).toHaveBeenCalled();
+    expect(mockServer.destroy).toHaveBeenCalled();
     expect(mockExit).toHaveBeenCalledWith(1); // 失败时退出码为 1
 
     mockExit.mockRestore();
   });
 
   test('超时时应该强制关闭', async () => {
-    jest.useFakeTimers();
-
-    mockServer.gracefulShutdown = jest.fn().mockImplementation(() => {
-      return new Promise(() => {
-        // 永远不 resolve，模拟超时
+    // 使用实际定时器以避免复杂的fake timer问题
+    jest.useRealTimers();
+    
+    mockServer.destroy = jest.fn().mockImplementation(() => {
+      return new Promise((resolve) => {
+        // 延迟2秒才resolve，确保超过100ms的timeout
+        setTimeout(resolve, 2000);
       });
     });
 
-    const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called');
+    let exitCalled = false;
+    let exitCode: number | undefined;
+    
+    const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: any) => {
+      exitCalled = true;
+      exitCode = code as number;
+      // 不抛出错误，只记录调用
+      return undefined as never;
     });
 
-    const shutdownPromise = onSignal('SIGTERM', mockApp, mockServer as KoattyServer, 1000);
+    // 调用onSignal，不等待完成（因为process.exit会中断）
+    const promise = onSignal('SIGTERM', mockApp, mockServer as KoattyServer, 100); // 100ms超时
+    
+    // 等待足够长的时间让超时触发
+    await new Promise(resolve => setTimeout(resolve, 200));
 
-    // 快进到超时
-    jest.advanceTimersByTime(1000);
-
-    try {
-      await shutdownPromise;
-    } catch (error: any) {
-      if (error.message === 'process.exit called') {
-        // 预期的强制退出
-      } else {
-        throw error;
-      }
-    }
-
-    expect(mockExit).toHaveBeenCalledWith(1); // 超时强制退出码为 1
+    expect(exitCalled).toBe(true);
+    expect(exitCode).toBe(1); // 超时强制退出码为 1
 
     mockExit.mockRestore();
-    jest.useRealTimers();
-  });
+    
+    // 恢复 fake timers
+    jest.useFakeTimers({
+      advanceTimers: true,
+      doNotFake: ['nextTick', 'setImmediate', 'clearImmediate']
+    });
+  }, 10000); // 给测试本身足够的时间
 });
 
