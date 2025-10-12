@@ -28,6 +28,12 @@ export interface ConnectionPoolConfig {
     maxSessionMemory?: number;
     maxHeaderListSize?: number;
 
+    // HTTP/3 (QUIC) 特定
+    maxIdleTimeout?: number;
+    maxUdpPayloadSize?: number;
+    initialMaxStreamsBidi?: number;
+    initialMaxStreamsUni?: number;
+
     // gRPC 特定
     maxReceiveMessageLength?: number;
     maxSendMessageLength?: number;

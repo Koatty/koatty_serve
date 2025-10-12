@@ -15,6 +15,7 @@ import { validateConfig } from "../utils/validator";
 import { GrpcServer } from "./grpc";
 import { HttpServer as KoattyHttpServer } from "./http";
 import { Http2Server } from "./http2";
+import { Http3Server } from "./http3";
 import { HttpsServer as KoattyHttpsServer } from "./https";
 import { WsServer } from "./ws";
 import { CreateTerminus } from "../utils/terminus";
@@ -358,12 +359,12 @@ export class SingleProtocolServer implements KoattyServer {
       });
 
       // Handle secure protocols with error handling
-      const secureProtocols = new Set(["https", "http2", "wss"]);
+      const secureProtocols = new Set(["https", "http2", "http3", "wss"]);
       if (secureProtocols.has(protocolType)) {
         this.configureSSLForProtocol(protocolType, options, traceId);
       }
 
-      if (["https", "http2"].includes(protocolType) && port === 80) {
+      if (["https", "http2", "http3"].includes(protocolType) && port === 80) {
         options.port = 443;
       }
 
@@ -495,6 +496,7 @@ export class SingleProtocolServer implements KoattyServer {
       wss: WsServer,
       https: KoattyHttpsServer,
       http2: Http2Server,
+      http3: Http3Server,
       http: KoattyHttpServer,
     };
 

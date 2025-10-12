@@ -8,10 +8,9 @@
 import * as WS from 'ws';
 import { ChannelOptions } from "@grpc/grpc-js";
 import { ConnectionPoolConfig } from "./pool";
-import { KoattyApplication } from 'koatty_core';
 
 // KoattyProtocol
-export type KoattyProtocol = 'http' | "https" | 'http2' | 'grpc' | 'ws' | 'wss';
+export type KoattyProtocol = 'http' | "https" | 'http2' | 'http3' | 'grpc' | 'ws' | 'wss';
 
 /**
  * 基础SSL配置
@@ -51,6 +50,20 @@ export interface SSL1Config extends BaseSSLConfig {
  */
 export interface SSL2Config extends SSL1Config {
   allowHTTP1?: boolean;                     // Allow HTTP/1.1 fallback
+}
+
+/**
+ * HTTP/3使用的SSL配置（基于QUIC，必须使用TLS 1.3）
+ */
+export interface SSL3Config extends BaseSSLConfig {
+  mode: 'auto' | 'manual' | 'mutual_tls';  // SSL mode
+  requestCert?: boolean;                    // Request client certificate
+  rejectUnauthorized?: boolean;             // Reject unauthorized connections
+  // QUIC特定配置
+  alpnProtocols?: string[];                 // ALPN protocols (default: ['h3'])
+  maxIdleTimeout?: number;                  // Max idle timeout in milliseconds
+  initialMaxStreamsBidi?: number;           // Initial max bidirectional streams
+  initialMaxStreamsUni?: number;            // Initial max unidirectional streams
 }
 
 /**
@@ -130,6 +143,44 @@ export interface Http2ServerOptions extends BaseServerOptions {
 }
 
 /**
+ * HTTP/3 Server Options (QUIC-based)
+ */
+export interface Http3ServerOptions extends BaseServerOptions {
+  ssl?: SSL3Config;  // HTTP/3应该使用TLS（可选以支持配置灵活性）
+  http3?: {
+    maxHeaderListSize?: number;
+    maxFieldSectionSize?: number;
+    qpackMaxTableCapacity?: number;
+    qpackBlockedStreams?: number;
+    settings?: {
+      maxHeaderListSize?: number;
+      qpackMaxTableCapacity?: number;
+      qpackBlockedStreams?: number;
+    };
+  };
+  quic?: {
+    maxIdleTimeout?: number;
+    maxUdpPayloadSize?: number;
+    initialMaxData?: number;
+    initialMaxStreamDataBidiLocal?: number;
+    initialMaxStreamDataBidiRemote?: number;
+    initialMaxStreamDataUni?: number;
+    initialMaxStreamsBidi?: number;
+    initialMaxStreamsUni?: number;
+    ackDelayExponent?: number;
+    maxAckDelay?: number;
+    disableActiveMigration?: boolean;
+  };
+  connectionPool?: ConnectionPoolConfig;
+  ext?: {
+    key?: string;
+    cert?: string;
+    ca?: string;
+    [key: string]: any;
+  };
+}
+
+/**
  * WebSocket Server Options extending base options
  */
 export interface WebSocketServerOptions extends BaseServerOptions {
@@ -158,7 +209,7 @@ export interface GrpcServerOptions extends BaseServerOptions {
 }
 
 export class ConfigHelper {
-  static createHttpConfig(app: KoattyApplication, options: {
+  static createHttpConfig(options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -184,7 +235,7 @@ export class ConfigHelper {
     }
   }
 
-  static createHttpsConfig(app: KoattyApplication, options: {
+  static createHttpsConfig(options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -217,12 +268,13 @@ export class ConfigHelper {
     }
   }
 
-  static createHttp2Config(app: KoattyApplication, options: {
+  static createHttp2Config(options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
     trace?: boolean;
     ssl?: SSL2Config;
+    http2?: Http2ServerOptions['http2'];
     ext?: Record<string, any>;
     connectionPool?: ConnectionPoolConfig;
   } = {}): Http2ServerOptions {
@@ -250,7 +302,7 @@ export class ConfigHelper {
     }
   }
 
-  static createGrpcConfig(app: KoattyApplication, options: {
+  static createGrpcConfig(options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
@@ -275,9 +327,6 @@ export class ConfigHelper {
     if (!options.ext) {
       options.ext = {};
     }
-    if (!options.ext.protoFile) {
-      options.ext.protoFile = app.config("protoFile", "router");
-    }
 
     return {
       ...options,
@@ -290,7 +339,74 @@ export class ConfigHelper {
     }
   }
 
-  static createWebSocketConfig(app: KoattyApplication, options: {
+  static createHttp3Config(options: {
+    hostname?: string;
+    port?: number;
+    protocol?: KoattyProtocol;
+    trace?: boolean;
+    ssl?: SSL3Config;
+    http3?: Http3ServerOptions['http3'];
+    quic?: Http3ServerOptions['quic'];
+    ext?: Record<string, any>;
+    connectionPool?: ConnectionPoolConfig;
+  } = {}): Http3ServerOptions {
+    return {
+      ...options,
+      connectionPool: {
+        ...options.connectionPool,
+        maxConnections: options.connectionPool?.maxConnections || 1000,
+        connectionTimeout: options.connectionPool?.connectionTimeout || 30000,
+        keepAliveTimeout: options.connectionPool?.keepAliveTimeout || 5000,
+        requestTimeout: options.connectionPool?.requestTimeout || 30000,
+        headersTimeout: options.connectionPool?.headersTimeout || 10000,
+        protocolSpecific: {
+          ...options.connectionPool?.protocolSpecific,
+          // HTTP/3特定的配置
+          maxIdleTimeout: (options.connectionPool?.protocolSpecific as any)?.maxIdleTimeout || 30000,
+          maxUdpPayloadSize: (options.connectionPool?.protocolSpecific as any)?.maxUdpPayloadSize || 65527,
+        }
+      },
+      ssl: {
+        mode: options.ssl?.mode || 'auto',
+        key: options.ssl?.key || options.ext?.key || '',
+        cert: options.ssl?.cert || options.ext?.cert || '',
+        ca: options.ssl?.ca || options.ext?.ca || '',
+        alpnProtocols: options.ssl?.alpnProtocols || ['h3'],
+        maxIdleTimeout: options.ssl?.maxIdleTimeout || 30000,
+        initialMaxStreamsBidi: options.ssl?.initialMaxStreamsBidi || 100,
+        initialMaxStreamsUni: options.ssl?.initialMaxStreamsUni || 100,
+        ...options.ssl
+      },
+      http3: {
+        maxHeaderListSize: options.http3?.maxHeaderListSize || 16384,
+        maxFieldSectionSize: options.http3?.maxFieldSectionSize || 16384,
+        qpackMaxTableCapacity: options.http3?.qpackMaxTableCapacity || 4096,
+        qpackBlockedStreams: options.http3?.qpackBlockedStreams || 100,
+        ...options.http3
+      },
+      quic: {
+        maxIdleTimeout: options.quic?.maxIdleTimeout || 30000,
+        maxUdpPayloadSize: options.quic?.maxUdpPayloadSize || 65527,
+        initialMaxData: options.quic?.initialMaxData || 10485760, // 10MB
+        initialMaxStreamDataBidiLocal: options.quic?.initialMaxStreamDataBidiLocal || 1048576, // 1MB
+        initialMaxStreamDataBidiRemote: options.quic?.initialMaxStreamDataBidiRemote || 1048576,
+        initialMaxStreamDataUni: options.quic?.initialMaxStreamDataUni || 1048576,
+        initialMaxStreamsBidi: options.quic?.initialMaxStreamsBidi || 100,
+        initialMaxStreamsUni: options.quic?.initialMaxStreamsUni || 100,
+        ackDelayExponent: options.quic?.ackDelayExponent || 3,
+        maxAckDelay: options.quic?.maxAckDelay || 25,
+        disableActiveMigration: options.quic?.disableActiveMigration || false,
+        ...options.quic
+      },
+      hostname: options.hostname || 'localhost',
+      port: options.port || 443,
+      protocol: options.protocol || 'http3',
+      trace: options.trace || false,
+      ext: options.ext || {}
+    }
+  }
+
+  static createWebSocketConfig(options: {
     hostname?: string;
     port?: number;
     protocol?: KoattyProtocol;
