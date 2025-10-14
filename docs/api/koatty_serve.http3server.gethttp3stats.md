@@ -24,7 +24,10 @@ getHttp3Stats(): {
         packetLossRate: number;
         protocol: string;
         poolConfig: import("../config/pool").ConnectionPoolConfig;
-        health: import("../pools/pool").ConnectionPoolHealth;
+        health: import("../pools/pool").ConnectionPoolHealth; /**
+         * HTTP/3 Server implementation using template method pattern
+         * 继承BaseServer，只实现HTTP/3特定的逻辑
+         */
         performance: {
             throughput: number;
             latency: {
@@ -45,5 +48,5 @@ getHttp3Stats(): {
 ```
 **Returns:**
 
-{ availableSessions: number; closingSessions: number; totalActiveStreams: number; totalStreams: number; totalStreamErrors: number; totalBytesSent: number; totalBytesReceived: number; totalPacketsLost: number; averageRtt: number; averageStreamsPerSession: number; utilizationRatio: number; packetLossRate: number; protocol: string; poolConfig: import("../config/pool").ConnectionPoolConfig; health: import("../pools/pool").ConnectionPoolHealth; performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
+{ availableSessions: number; closingSessions: number; totalActiveStreams: number; totalStreams: number; totalStreamErrors: number; totalBytesSent: number; totalBytesReceived: number; totalPacketsLost: number; averageRtt: number; averageStreamsPerSession: number; utilizationRatio: number; packetLossRate: number; protocol: string; poolConfig: import("../config/pool").ConnectionPoolConfig; health: import("../pools/pool").ConnectionPoolHealth; /\*\* \* HTTP/3 Server implementation using template method pattern \* 继承BaseServer，只实现HTTP/3特定的逻辑 \*/ performance: { throughput: number; latency: { p50: number; p95: number; p99: number; }; memoryUsage: number; cpuUsage: number; }; uptime: number; activeConnections: number; totalConnections: number; connectionsPerSecond: number; averageLatency: number; errorRate: number; }
 
