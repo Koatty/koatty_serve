@@ -3,7 +3,7 @@
  * @Usage: 
  * @Author: richen
  * @Date: 2023-12-09 12:02:29
- * @LastEditTime: 2024-11-07 11:08:26
+ * @LastEditTime: 2025-01-14
  * @License: BSD (3-Clause)
  * @Copyright (c): <richenlin(at)gmail.com>
  */
@@ -12,14 +12,7 @@ import EventEmitter from "events";
 import { KoattyApplication, KoattyServer } from "koatty_core";
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
-
-/** @type {*} */
-const terminusOptions = {
-  signals: ["SIGINT", "SIGTERM", 'SIGQUIT'],
-  // cleanup options
-  timeout: 60000,                   // [optional = 1000] number of milliseconds before forceful exiting
-  onSignal,                        // [optional] cleanup function, returning a promise (used to be onSigterm)
-};
+import { TerminusManager } from "./terminus-manager";
 
 export interface TerminusOptions {
   timeout: number;
@@ -35,28 +28,21 @@ process.setMaxListeners(0); // 0 表示无限制
 
 /**
  * Create terminus event
+ * 
+ * Now uses TerminusManager singleton to prevent duplicate signal handler registration
+ * when multiple server instances are created.
  *
  * @export
  * @param {KoattyApplication} app
  * @param {(Server | Http2SecureServer)} server
  * @param {TerminusOptions} [options]
  */
-export function CreateTerminus(app: KoattyApplication, server: KoattyServer, options?: TerminusOptions): void {
-  const opt = { ...terminusOptions, ...options };
+export function CreateTerminus(app: KoattyApplication, server: KoattyServer, _options?: TerminusOptions): void {
+  // Generate unique server ID
+  const serverId = (server as any).serverId || `server_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   
-  opt.signals.forEach(event => {
-    const handler = () => {
-      opt.onSignal(event, app, server, opt.timeout).catch(err => Logger.Error(err));
-    };
-    
-    process.on(event, handler);
-    
-    // 存储处理器以便清理
-    if (!signalHandlers.has(event)) {
-      signalHandlers.set(event, []);
-    }
-    signalHandlers.get(event)!.push(handler);
-  });
+  // Register server with TerminusManager singleton
+  TerminusManager.getInstance().registerServer(app, server, serverId);
 }
 // processEvent
 type processEvent = "beforeExit" | "exit" | NodeJS.Signals;
@@ -153,3 +139,6 @@ export async function onSignal(event: string, app: KoattyApplication, server: Ko
     process.exit(1);
   }
 }
+
+// 导出 TerminusManager 供测试使用
+export { TerminusManager } from "./terminus-manager";

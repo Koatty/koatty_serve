@@ -12,6 +12,7 @@ import * as WS from 'ws';
 import { CreateTerminus } from "../utils/terminus";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
+import { loadCertificate } from "../utils/cert-loader";
 import { WebSocketConnectionPoolManager } from "../pools/ws";
 import { ConfigHelper, ListeningOptions, WebSocketServerOptions } from "../config/config";
 
@@ -93,10 +94,23 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    */
   private createHttpServer(): HttpServer | HttpsServer {
     if (this.options.protocol === "wss") {
+      const keyPath = this.options.ssl?.key;
+      const certPath = this.options.ssl?.cert;
+      
+      if (!keyPath || !certPath) {
+        throw new Error('SSL key and cert are required for WSS protocol');
+      }
+      
       const opt: httpsServerOptions = {
-        key: this.options.ssl?.key,
-        cert: this.options.ssl?.cert,
+        key: loadCertificate(keyPath, 'private key'),
+        cert: loadCertificate(certPath, 'certificate'),
       };
+      
+      // Load CA certificate if provided
+      if (this.options.ssl?.ca) {
+        opt.ca = loadCertificate(this.options.ssl.ca, 'CA certificate');
+      }
+      
       // HTTPS server created for WSS
       return httpsCreateServer(opt);
     } else {

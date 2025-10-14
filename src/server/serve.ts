@@ -346,15 +346,39 @@ export class SingleProtocolServer implements KoattyServer {
         port: port 
       });
 
+      // 确保 ext 配置存在
+      if (!options.ext) {
+        options.ext = {};
+      }
+
       // Handle router specific options
+      // 优先从 app.config("ext", "router") 读取,回退到 ListeningOptions.ext
       const routerExt = this.app.config("ext", "router") || {};
+      
       if (protocolType === "graphql") {
-        options.ext.schemaFile = routerExt.schemaFile || options.ext?.schemaFile;
+        const schemaFile = routerExt.schemaFile || options.ext.schemaFile;
+        if (schemaFile) {
+          options.ext.schemaFile = schemaFile;
+          this.logger.debug('GraphQL schema file configured', { 
+            traceId, 
+            schemaFile,
+            source: routerExt.schemaFile ? 'router config' : 'listening options'
+          });
+        }
       }
 
       if (protocolType === "grpc") {
-        options.ext.protoFile = routerExt.protoFile || options.ext?.protoFile; 
+        const protoFile = routerExt.protoFile || options.ext.protoFile;
+        if (protoFile) {
+          options.ext.protoFile = protoFile;
+          this.logger.debug('gRPC proto file configured', { 
+            traceId, 
+            protoFile,
+            source: routerExt.protoFile ? 'router config' : 'listening options'
+          });
+        }
       }
+      
       // Handle SSL specific options
       ConfigHelper.configureSSLForProtocol(protocolType, options, traceId);
 
@@ -405,7 +429,7 @@ export class SingleProtocolServer implements KoattyServer {
       graphql: KoattyHttpServer,
     };
     let ServerConstructor = serverMap[protocolType] || KoattyHttpServer;
-    if (protocolType === "graphql" && options.ext.ssl.enabled) {
+    if (protocolType === "graphql" && options.ssl?.enabled) {
         ServerConstructor = Http2Server;
     }
     

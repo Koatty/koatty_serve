@@ -6,12 +6,12 @@
  * @LastEditTime: 2024-11-27 23:30:00
  */
 import { createServer, Server, ServerOptions } from "https";
-import { readFileSync } from "fs";
 import { TLSSocket } from "tls";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { loadCertificate } from "../utils/cert-loader";
 import { HttpsConnectionPoolManager } from "../pools/https";
 import { ConfigHelper, HttpsServerOptions, ListeningOptions, SSL1Config } from "../config/config";
 
@@ -119,8 +119,8 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     }
     
     const options: ServerOptions = {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate')
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate')
     };
     
     // 在auto模式下也处理扩展配置选项
@@ -166,8 +166,8 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     }
     
     const options: ServerOptions = {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate'),
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate'),
       passphrase: sslConfig.passphrase,
       ciphers: sslConfig.ciphers,
       honorCipherOrder: sslConfig.honorCipherOrder,
@@ -175,7 +175,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     };
     
     if (caPath) {
-      options.ca = this.loadCertificate(caPath, 'CA certificate');
+      options.ca = loadCertificate(caPath, 'CA certificate');
     }
     
     // 添加扩展配置选项
@@ -219,25 +219,6 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
       requestCert: sslConfig.requestCert !== false,
       rejectUnauthorized: sslConfig.rejectUnauthorized !== false
     };
-  }
-
-  /**
-   * 加载证书文件
-   */
-  private loadCertificate(keyOrPath: string, type: string): string {
-    try {
-      // 如果是文件路径，读取文件内容
-      if (keyOrPath.includes('\n') || keyOrPath.includes('-----')) {
-        // 直接是证书内容
-        return keyOrPath;
-      } else {
-        // 是文件路径
-        return readFileSync(keyOrPath, 'utf8');
-      }
-    } catch (error) {
-      this.logger.error(`Failed to load ${type}`, {}, { path: keyOrPath, error });
-      throw new Error(`Failed to load ${type}: ${(error as Error).message}`);
-    }
   }
 
   /**
