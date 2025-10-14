@@ -34,11 +34,11 @@
  * - QUIC Protocol: https://datatracker.ietf.org/doc/html/rfc9000
  */
 
-import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { loadCertificate, isCertificateContent } from "../utils/cert-loader";
 import { Http3ConnectionPoolManager, Http3Session } from "../pools/http3";
 import { ConfigHelper, Http3ServerOptions, ListeningOptions, SSL3Config } from "../config/config";
 import { Http3ServerAdapter, Http3ServerConfig, getHttp3Version, hasNativeHttp3Support } from "../adapters/http3-matrixai";
@@ -184,15 +184,16 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
 
   /**
    * 解析文件路径
+   * HTTP/3 adapter 需要文件路径,如果是证书内容则需要写入临时文件
    */
   private resolveFilePath(path: string): string {
     if (!path) {
       throw new Error('Certificate file path is required');
     }
     
-    // 如果已经是证书内容，写入临时文件
-    if (path.includes('-----BEGIN')) {
-      // 这是证书内容，直接返回
+    // 使用统一的证书内容检测
+    if (isCertificateContent(path)) {
+      // 这是证书内容,直接返回(adapter会处理)
       return path;
     }
     
@@ -225,50 +226,6 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
   }
 
   /**
-   * 创建QUIC选项
-   */
-  private createQUICOptions(): any {
-    const sslConfig = this.options.ssl;
-    const quicConfig = this.options.quic;
-    const http3Config = this.options.http3;
-
-    // 加载SSL证书
-    const sslOptions = this.createSSLOptions(sslConfig, {});
-
-    // QUIC 传输参数
-    const transportParams = {
-      maxIdleTimeout: quicConfig?.maxIdleTimeout || 30000,
-      maxUdpPayloadSize: quicConfig?.maxUdpPayloadSize || 65527,
-      initialMaxData: quicConfig?.initialMaxData || 10485760,
-      initialMaxStreamDataBidiLocal: quicConfig?.initialMaxStreamDataBidiLocal || 1048576,
-      initialMaxStreamDataBidiRemote: quicConfig?.initialMaxStreamDataBidiRemote || 1048576,
-      initialMaxStreamDataUni: quicConfig?.initialMaxStreamDataUni || 1048576,
-      initialMaxStreamsBidi: quicConfig?.initialMaxStreamsBidi || 100,
-      initialMaxStreamsUni: quicConfig?.initialMaxStreamsUni || 100,
-      ackDelayExponent: quicConfig?.ackDelayExponent || 3,
-      maxAckDelay: quicConfig?.maxAckDelay || 25,
-      disableActiveMigration: quicConfig?.disableActiveMigration || false,
-    };
-
-    // HTTP/3 设置
-    const http3Settings = {
-      maxHeaderListSize: http3Config?.maxHeaderListSize || 16384,
-      maxFieldSectionSize: http3Config?.maxFieldSectionSize || 16384,
-      qpackMaxTableCapacity: http3Config?.qpackMaxTableCapacity || 4096,
-      qpackBlockedStreams: http3Config?.qpackBlockedStreams || 100,
-    };
-
-    return {
-      ...sslOptions,
-      transportParams,
-      http3Settings,
-      alpnProtocols: sslConfig.alpnProtocols || ['h3'],
-      hostname: this.options.hostname,
-      port: this.options.port,
-    };
-  }
-
-  /**
    * 创建SSL选项
    */
   private createSSLOptions(sslConfig: SSL3Config, extConfig: any): any {
@@ -295,8 +252,8 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     }
     
     return {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate')
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate')
     };
   }
 
@@ -313,8 +270,8 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     }
     
     const options: any = {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate'),
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate'),
       passphrase: sslConfig.passphrase,
       ciphers: sslConfig.ciphers,
       honorCipherOrder: sslConfig.honorCipherOrder,
@@ -322,7 +279,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     };
     
     if (caPath) {
-      options.ca = this.loadCertificate(caPath, 'CA certificate');
+      options.ca = loadCertificate(caPath, 'CA certificate');
     }
     
     return options;
@@ -341,24 +298,6 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     };
   }
 
-  /**
-   * 加载证书文件
-   */
-  private loadCertificate(keyOrPath: string, type: string): string {
-    try {
-      // 如果是文件路径，读取文件内容
-      if (keyOrPath.includes('\n') || keyOrPath.includes('-----')) {
-        // 直接是证书内容
-        return keyOrPath;
-      } else {
-        // 是文件路径
-        return readFileSync(keyOrPath, 'utf8');
-      }
-    } catch (error) {
-      this.logger.error(`Failed to load ${type}`, {}, { path: keyOrPath, error });
-      throw new Error(`Failed to load ${type}: ${(error as Error).message}`);
-    }
-  }
 
   /**
    * 设置会话处理

@@ -82,9 +82,8 @@ export interface ListeningOptions {
   port: number;
   protocol: string;
   trace?: boolean; // Full stack debug & trace, default: false
-  ext?: {
-    ssl?: { [key: string]: any; } & BaseSSLConfig;
-    
+  ssl?: { [key: string]: any; } & BaseSSLConfig;  // SSL配置 (推荐)
+  ext?: {    
     protoFile?: string;
     schemaFile?: string;
     [key: string]: any;
@@ -201,15 +200,19 @@ export class ConfigHelper {
       return;
     }
     try {
-      const keyPath = options.ext?.ssl.key || "";
-      const crtPath = options.ext?.ssl.cert || "";
+      // 确保 ssl 配置存在
+      if (!options.ssl) {
+        options.ssl = {};
+      }
+      
+      const keyPath = options.ssl.key || "";
+      const crtPath = options.ssl.cert || "";
 
-      options.ext.ssl = {
-        ...options.ext.ssl,
-        enabled: false,
-      };
+      // 初始化为禁用
+      options.ssl.enabled = false;
+      
       if (!keyPath || !crtPath || (!fs.existsSync(keyPath) || !fs.existsSync(crtPath))) {
-        options.ext.ssl.enabled = false;
+        options.ssl.enabled = false;
         if (protocolType !== "graphql") {
           const error = new Error(`SSL certificate files not configured for ${protocolType} protocol`);
           this.logger.error('SSL configuration missing', {
@@ -219,7 +222,7 @@ export class ConfigHelper {
           throw error;
         }
       } else {
-        options.ext.ssl.enabled = true;
+        options.ssl.enabled = true;
       }
       
       this.logger.info('SSL certificates loaded successfully', {
@@ -272,12 +275,27 @@ export class ConfigHelper {
       options.ext = {};
     }
     
+    // 向后兼容: 自动迁移 ext.ssl 到 ssl
+    if (options.ext.ssl && !options.ssl) {
+      this.logger.warn('options.ext.ssl is deprecated, please use options.ssl instead', {
+        migration: 'Automatically migrated to options.ssl'
+      });
+      options.ssl = options.ext.ssl;
+    }
+    
+    // 如果两者都存在, 优先使用 options.ssl
+    if (options.ext.ssl && options.ssl) {
+      this.logger.warn('Both options.ssl and options.ext.ssl are set, using options.ssl', {
+        note: 'options.ext.ssl is ignored'
+      });
+    }
+    
     // 使用 PoolConfigHelper 创建默认连接池配置
     const defaultPoolConfig = PoolConfigHelper.createHttpsConfig();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
     
-    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
-    const sslConfig = options.ssl || options.ext.ssl || {};
+    // 只使用 options.ssl
+    const sslConfig = options.ssl || {};
     
     const config = {
       connectionPool: poolConfig,
@@ -305,12 +323,27 @@ export class ConfigHelper {
       options.ext = {};
     }
 
+    // 向后兼容: 自动迁移 ext.ssl 到 ssl
+    if (options.ext.ssl && !options.ssl) {
+      this.logger.warn('options.ext.ssl is deprecated, please use options.ssl instead', {
+        migration: 'Automatically migrated to options.ssl'
+      });
+      options.ssl = options.ext.ssl;
+    }
+    
+    // 如果两者都存在, 优先使用 options.ssl
+    if (options.ext.ssl && options.ssl) {
+      this.logger.warn('Both options.ssl and options.ext.ssl are set, using options.ssl', {
+        note: 'options.ext.ssl is ignored'
+      });
+    }
+
     // 使用 PoolConfigHelper 创建默认连接池配置
     const defaultPoolConfig = PoolConfigHelper.createHttp2Config();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
 
-    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
-    const sslConfig = options.ssl || options.ext.ssl || {};
+    // 只使用 options.ssl
+    const sslConfig = options.ssl || {};
 
     const config =  {
       connectionPool: poolConfig,
@@ -339,12 +372,27 @@ export class ConfigHelper {
       options.ext = {};
     }
 
+    // 向后兼容: 自动迁移 ext.ssl 到 ssl
+    if (options.ext.ssl && !options.ssl) {
+      this.logger.warn('options.ext.ssl is deprecated, please use options.ssl instead', {
+        migration: 'Automatically migrated to options.ssl'
+      });
+      options.ssl = options.ext.ssl;
+    }
+    
+    // 如果两者都存在, 优先使用 options.ssl
+    if (options.ext.ssl && options.ssl) {
+      this.logger.warn('Both options.ssl and options.ext.ssl are set, using options.ssl', {
+        note: 'options.ext.ssl is ignored'
+      });
+    }
+
     // 使用 PoolConfigHelper 创建默认连接池配置
     const defaultPoolConfig = PoolConfigHelper.createGrpcConfig();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
 
-    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
-    const sslConfig = options.ssl || options.ext.ssl || {};
+    // 只使用 options.ssl
+    const sslConfig = options.ssl || {};
 
     return {
       channelOptions: options.connectionPool || {},
@@ -369,12 +417,27 @@ export class ConfigHelper {
       options.ext = {};
     }
     
+    // 向后兼容: 自动迁移 ext.ssl 到 ssl
+    if (options.ext.ssl && !options.ssl) {
+      this.logger.warn('options.ext.ssl is deprecated, please use options.ssl instead', {
+        migration: 'Automatically migrated to options.ssl'
+      });
+      options.ssl = options.ext.ssl;
+    }
+    
+    // 如果两者都存在, 优先使用 options.ssl
+    if (options.ext.ssl && options.ssl) {
+      this.logger.warn('Both options.ssl and options.ext.ssl are set, using options.ssl', {
+        note: 'options.ext.ssl is ignored'
+      });
+    }
+    
     // 使用 PoolConfigHelper 创建默认连接池配置
     const defaultPoolConfig = PoolConfigHelper.createHttp3Config();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
     
-    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
-    const sslConfig = options.ssl || options.ext.ssl || {};
+    // 只使用 options.ssl
+    const sslConfig = options.ssl || {};
     
     const config =  {
       connectionPool: poolConfig,
@@ -404,12 +467,27 @@ export class ConfigHelper {
       options.ext = {};
     }
     
+    // 向后兼容: 自动迁移 ext.ssl 到 ssl
+    if (options.ext.ssl && !options.ssl) {
+      this.logger.warn('options.ext.ssl is deprecated, please use options.ssl instead', {
+        migration: 'Automatically migrated to options.ssl'
+      });
+      options.ssl = options.ext.ssl;
+    }
+    
+    // 如果两者都存在, 优先使用 options.ssl
+    if (options.ext.ssl && options.ssl) {
+      this.logger.warn('Both options.ssl and options.ext.ssl are set, using options.ssl', {
+        note: 'options.ext.ssl is ignored'
+      });
+    }
+    
     // 使用 PoolConfigHelper 创建默认连接池配置
     const defaultPoolConfig = PoolConfigHelper.createWebSocketConfig();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
     
-    // 支持从 options.ssl 或 options.ext.ssl 读取配置 (向后兼容)
-    const sslConfig = options.ssl || options.ext.ssl || {};
+    // 只使用 options.ssl
+    const sslConfig = options.ssl || {};
     
     return {
       wsOptions: options.wsOptions || options.ext.wsOptions || {},

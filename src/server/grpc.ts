@@ -1,19 +1,26 @@
 /*
- * @Description: 
+ * @Description: gRPC Server implementation using template method pattern
  * @Usage: 
  * @Author: richen
  * @Date: 2021-11-09 17:03:50
- * @LastEditTime: 2024-11-27 21:15:00
+ * @LastEditTime: 2025-01-14
+ * 
+ * Note: gRPC's graceful shutdown uses tryShutdown() which:
+ * 1. Stops accepting new connections immediately
+ * 2. Waits for all active RPCs to complete
+ * 3. Cannot be interrupted once started
+ * 
+ * This means the graceful shutdown process is mostly handled by gRPC itself.
  */
 import {
   ChannelOptions, Server, ServerCredentials,
   ServiceDefinition, UntypedHandleCall
 } from "@grpc/grpc-js";
-import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ConfigChangeAnalysis, ConnectionStats } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { loadCertificate } from "../utils/cert-loader";
 import { HealthStatus } from "./base";
 import { ConfigHelper, GrpcServerOptions, ListeningOptions } from "../config/config";
 import { GrpcConnectionPoolManager } from "../pools/factory";
@@ -187,19 +194,33 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
   }
 
   protected async stopAcceptingNewConnections(traceId: string): Promise<void> {
-    this.logger.info('Step 1: Stopping acceptance of new connections', { traceId });
+    this.logger.info('Step 1: Initiating gRPC graceful shutdown', { traceId });
     
-    // gRPC server doesn't have a direct way to stop accepting new connections
-    // without shutting down, so we'll use a flag to reject new service calls
-    (this.server as any)._acceptingNewConnections = false;
+    // gRPC 使用 tryShutdown 实现优雅关闭
+    // tryShutdown 会:
+    // 1. 停止接受新连接
+    // 2. 等待现有 RPC 调用完成
+    // 注意: 这会在这一步就等待所有连接完成,所以后续步骤会很快
+    await new Promise<void>((resolve, reject) => {
+      this.server.tryShutdown((err) => {
+        if (err) {
+          this.logger.error('gRPC tryShutdown failed', { traceId }, err);
+          reject(err);
+        } else {
+          this.logger.info('gRPC tryShutdown completed', { traceId });
+          resolve();
+        }
+      });
+    });
     
-    this.logger.debug('New connection acceptance stopped', { traceId });
+    this.logger.debug('gRPC server graceful shutdown initiated', { traceId });
   }
 
   protected async waitForConnectionCompletion(timeout: number, traceId: string): Promise<void> {
-    this.logger.info('Step 3: Waiting for existing connections to complete', { traceId }, {
+    this.logger.info('Step 3: Checking for remaining connections', { traceId }, {
       activeConnections: this.connectionPool.getActiveConnectionCount(),
-      timeout: timeout
+      timeout: timeout,
+      note: 'tryShutdown should have already waited for connections'
     });
 
     const startTime = Date.now();
@@ -208,7 +229,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       const elapsed = Date.now() - startTime;
       
       if (elapsed >= timeout) {
-        this.logger.warn('Connection completion timeout reached', { traceId }, {
+        this.logger.warn('Connection completion timeout reached (unexpected)', { traceId }, {
           remainingConnections: this.connectionPool.getActiveConnectionCount(),
           elapsed: elapsed
         });
@@ -393,32 +414,42 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     const traceId = generateTraceId();
     const opts = this.options as GrpcServerOptions;
     
-    if (!opts.ssl?.enabled) {
-      this.logger.warn('SSL disabled, using insecure credentials', { traceId });
+    // 如果 SSL 被显式禁用,使用不安全凭证
+    if (opts.ssl?.enabled === false) {
+      this.logger.warn('SSL explicitly disabled, using insecure credentials', { traceId });
       return ServerCredentials.createInsecure();
     }
 
+    // 如果 SSL 配置存在但未显式禁用,尝试加载证书
     try {
       let rootCerts: Buffer | null = null;
       const keyCertPairs: Array<{ private_key: Buffer; cert_chain: Buffer }> = [];
 
       // Load CA certificate if provided
-      if (opts.ssl.ca) {
-        const caPath = opts.ssl.ca || "";
-        rootCerts = readFileSync(caPath!);
-        this.logger.info('CA certificate loaded successfully', { traceId }, { caFile: caPath });
+      if (opts.ssl?.ca) {
+        const caContent = loadCertificate(opts.ssl.ca, 'CA certificate', traceId);
+        rootCerts = Buffer.from(caContent, 'utf8');
+        this.logger.info('CA certificate loaded successfully', { traceId });
       }
 
       // Load server key and certificate
-      const keyPath = opts.ssl.key ;
-      const certPath = opts.ssl.cert ;
+      const keyPath = opts.ssl?.key;
+      const certPath = opts.ssl?.cert;
 
       if (!keyPath || !certPath) {
-        throw new Error('SSL enabled but key or cert file not provided');
+        const error = new Error('SSL enabled but key or cert file path not provided');
+        this.logger.error('SSL configuration incomplete', { traceId }, {
+          hasKey: !!keyPath,
+          hasCert: !!certPath
+        });
+        throw error;
       }
 
-      const privateKey = readFileSync(keyPath);
-      const certChain = readFileSync(certPath);
+      const keyContent = loadCertificate(keyPath, 'private key', traceId);
+      const certContent = loadCertificate(certPath, 'certificate', traceId);
+
+      const privateKey = Buffer.from(keyContent, 'utf8');
+      const certChain = Buffer.from(certContent, 'utf8');
 
       keyCertPairs.push({
         private_key: privateKey,
@@ -426,8 +457,6 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       });
 
       this.logger.info('SSL certificates loaded successfully', { traceId }, {
-        keyFile: keyPath,
-        certFile: certPath,
         clientCertRequired: opts.ssl.clientCertRequired || false
       });
 
@@ -440,8 +469,12 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       );
 
     } catch (error) {
-      this.logger.error('Failed to create SSL credentials, falling back to insecure', { traceId }, error);
-      return ServerCredentials.createInsecure();
+      // 不再降级到不安全模式,直接抛出错误
+      this.logger.error('Failed to create SSL credentials', { traceId }, error);
+      throw new Error(
+        `SSL credentials creation failed: ${(error as Error).message}. ` +
+        `To use insecure mode, explicitly set ssl.enabled = false`
+      );
     }
   }
 

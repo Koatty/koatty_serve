@@ -6,11 +6,11 @@
  * @LastEditTime: 2024-11-27 23:30:00
  */
 import { createSecureServer, Http2SecureServer, SecureServerOptions } from "http2";
-import { readFileSync } from "fs";
 import { KoattyApplication, NativeServer } from "koatty_core";
 import { BaseServer, ConfigChangeAnalysis } from "./base";
 import { generateTraceId } from "../utils/logger";
 import { CreateTerminus } from "../utils/terminus";
+import { loadCertificate } from "../utils/cert-loader";
 import { Http2ConnectionPoolManager } from "../pools/http2";
 import { ConfigHelper, Http2ServerOptions, ListeningOptions, SSL2Config } from "../config/config";
 
@@ -128,8 +128,8 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     }
     
     return {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate')
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate')
     };
   }
 
@@ -146,8 +146,8 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     }
     
     const options: SecureServerOptions = {
-      key: this.loadCertificate(keyPath, 'private key'),
-      cert: this.loadCertificate(certPath, 'certificate'),
+      key: loadCertificate(keyPath, 'private key'),
+      cert: loadCertificate(certPath, 'certificate'),
       passphrase: sslConfig.passphrase,
       ciphers: sslConfig.ciphers,
       honorCipherOrder: sslConfig.honorCipherOrder,
@@ -155,7 +155,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     };
     
     if (caPath) {
-      options.ca = this.loadCertificate(caPath, 'CA certificate');
+      options.ca = loadCertificate(caPath, 'CA certificate');
     }
     
     return options;
@@ -172,25 +172,6 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       requestCert: sslConfig.requestCert !== false,
       rejectUnauthorized: sslConfig.rejectUnauthorized !== false
     };
-  }
-
-  /**
-   * 加载证书文件
-   */
-  private loadCertificate(keyOrPath: string, type: string): string {
-    try {
-      // 如果是文件路径，读取文件内容
-      if (keyOrPath.includes('\n') || keyOrPath.includes('-----')) {
-        // 直接是证书内容
-        return keyOrPath;
-      } else {
-        // 是文件路径
-        return readFileSync(keyOrPath, 'utf8');
-      }
-    } catch (error) {
-      this.logger.error(`Failed to load ${type}`, {}, { path: keyOrPath, error });
-      throw new Error(`Failed to load ${type}: ${(error as Error).message}`);
-    }
   }
 
   /**
