@@ -8,9 +8,6 @@
 
 ```typescript
 ext?: {
-        ssl?: {
-            [key: string]: any;
-        } & BaseSSLConfig;
         protoFile?: string;
         schemaFile?: string;
         [key: string]: any;

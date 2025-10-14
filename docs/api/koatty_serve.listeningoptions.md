@@ -19,9 +19,10 @@ export interface ListeningOptions
 |  Property | Modifiers | Type | Description |
 |  --- | --- | --- | --- |
 |  [connectionPool?](./koatty_serve.listeningoptions.connectionpool.md) |  | ConnectionPoolConfig | _(Optional)_ |
-|  [ext?](./koatty_serve.listeningoptions.ext.md) |  | { ssl?: { \[key: string\]: any; } &amp; BaseSSLConfig; protoFile?: string; schemaFile?: string; \[key: string\]: any; } | _(Optional)_ |
+|  [ext?](./koatty_serve.listeningoptions.ext.md) |  | { protoFile?: string; schemaFile?: string; \[key: string\]: any; } | _(Optional)_ |
 |  [hostname](./koatty_serve.listeningoptions.hostname.md) |  | string |  |
 |  [port](./koatty_serve.listeningoptions.port.md) |  | number |  |
 |  [protocol](./koatty_serve.listeningoptions.protocol.md) |  | string |  |
+|  [ssl?](./koatty_serve.listeningoptions.ssl.md) |  | { \[key: string\]: any; } &amp; BaseSSLConfig | _(Optional)_ |
 |  [trace?](./koatty_serve.listeningoptions.trace.md) |  | boolean | _(Optional)_ |
 
