@@ -414,9 +414,15 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     const traceId = generateTraceId();
     const opts = this.options as GrpcServerOptions;
     
-    // 如果 SSL 被显式禁用,使用不安全凭证
-    if (opts.ssl?.enabled === false) {
-      this.logger.warn('SSL explicitly disabled, using insecure credentials', { traceId });
+    // 如果没有SSL配置、SSL被显式禁用、或SSL配置为空对象,使用不安全凭证
+    const hasSSLConfig = opts.ssl && (opts.ssl.key || opts.ssl.cert || opts.ssl.ca || opts.ssl.enabled === true);
+    
+    if (!hasSSLConfig) {
+      if (!opts.ssl || Object.keys(opts.ssl).length === 0) {
+        this.logger.info('No SSL configuration provided, using insecure credentials', { traceId });
+      } else {
+        this.logger.warn('SSL explicitly disabled, using insecure credentials', { traceId });
+      }
       return ServerCredentials.createInsecure();
     }
 

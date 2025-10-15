@@ -340,11 +340,19 @@ export class SingleProtocolServer implements KoattyServer {
     };
 
     try {
-      this.logger.info('Creating server', { 
+      // Prepare logging info with actual protocol details
+      const logInfo: any = { 
         traceId, 
         protocol: protocolType, 
         port: port 
-      });
+      };
+      
+      // Add underlying protocol info for GraphQL
+      if (protocolType === "graphql") {
+        logInfo.underlyingProtocol = options.ssl?.enabled ? "http2" : "http";
+      }
+      
+      this.logger.info('Creating server', logInfo);
 
       // 确保 ext 配置存在
       if (!options.ext) {
@@ -393,11 +401,21 @@ export class SingleProtocolServer implements KoattyServer {
             this.server = (server as any).getNativeServer();
           }
           
-          this.logger.info('Server started successfully', { 
+          // Prepare success logging with actual protocol info
+          const successLogInfo: any = { 
             traceId, 
             protocol: protocolType, 
             port: options.port 
-          });
+          };
+          
+          // Add underlying protocol info for GraphQL
+          if (protocolType === "graphql") {
+            const actualProto = (options as any)._actualProtocol || (options.ssl?.enabled ? "http2" : "http");
+            successLogInfo.underlyingProtocol = actualProto;
+            successLogInfo.message = `GraphQL server running on ${actualProto.toUpperCase()}`;
+          }
+          
+          this.logger.info('Server started successfully', successLogInfo);
         } catch (error) {
           this.logger.error('Error in server start callback', { traceId }, error);
           this.status = 500;
@@ -429,9 +447,18 @@ export class SingleProtocolServer implements KoattyServer {
       graphql: KoattyHttpServer,
     };
     let ServerConstructor = serverMap[protocolType] || KoattyHttpServer;
+    let actualProtocol = protocolType;
+    
+    // GraphQL automatically uses HTTP/2 when SSL is enabled
     if (protocolType === "graphql" && options.ssl?.enabled) {
         ServerConstructor = Http2Server;
+        actualProtocol = "http2";
+    } else if (protocolType === "graphql") {
+        actualProtocol = "http";
     }
+    
+    // Store the actual protocol for logging purposes
+    (options as any)._actualProtocol = actualProtocol;
     
     return new ServerConstructor(this.app, options);
   }
