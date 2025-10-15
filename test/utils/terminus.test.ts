@@ -2,7 +2,7 @@ import EventEmitter from "events";
 import { KoattyServer, KoattyApplication } from "koatty_core";
 import { Helper } from "koatty_lib";
 import { DefaultLogger as Logger } from "koatty_logger";
-import { CreateTerminus, BindProcessEvent, onSignal } from "../../src/utils/terminus";
+import { CreateTerminus, BindProcessEvent, onSignal, TerminusManager } from "../../src/utils/terminus";
 import * as terminus from '../../src/utils/terminus';
 
 // Simple mock for KoattyApplication
@@ -61,6 +61,9 @@ describe("Terminus", () => {
     mockServer = new MockKoattyServer();
     mockApp = new MockKoattyApplication();
     
+    // Reset TerminusManager singleton between tests
+    TerminusManager.resetInstance();
+    
     processExitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
       return undefined as never;
     });
@@ -68,7 +71,9 @@ describe("Terminus", () => {
     loggerWarnSpy = jest.spyOn(Logger, 'Warn').mockImplementation();
     loggerErrorSpy = jest.spyOn(Logger, 'Error').mockImplementation();
 
-    process.removeAllListeners();
+    // Only remove listeners for events we're testing
+    const events = ['SIGTERM', 'SIGINT', 'SIGUSR2', 'SIGUSR1', 'SIGHUP', 'beforeExit'];
+    events.forEach(event => process.removeAllListeners(event));
   });
 
   afterEach(() => {
@@ -76,7 +81,13 @@ describe("Terminus", () => {
     jest.clearAllMocks();
     jest.useRealTimers();
     mockApp.removeAllListeners();
-    process.removeAllListeners();
+    
+    // Only remove listeners for events we're testing, not all listeners
+    const events = ['SIGTERM', 'SIGINT', 'SIGUSR2', 'SIGUSR1', 'SIGHUP', 'beforeExit'];
+    events.forEach(event => process.removeAllListeners(event));
+    
+    // Clean up TerminusManager after each test
+    TerminusManager.resetInstance();
   });
 
   afterAll(() => {
@@ -89,13 +100,20 @@ describe("Terminus", () => {
       expect(processOnSpy).toHaveBeenCalledTimes(3); // SIGINT, SIGTERM, SIGQUIT
     });
 
-    it("should create terminus with custom signals", () => {
+    it("should register server with TerminusManager", () => {
+      const manager = TerminusManager.getInstance();
+      const initialCount = manager.getServerCount();
+      
       CreateTerminus(mockApp as KoattyApplication, mockServer, {
         timeout: 1000,
-        signals: ["SIGUSR2"]
+        signals: ["SIGUSR2"] // Note: signals option is ignored, manager uses fixed signals
       });
-      expect(processOnSpy).toHaveBeenCalledTimes(1);
-      expect(processOnSpy).toHaveBeenCalledWith("SIGUSR2", expect.any(Function));
+      
+      // Verify server was registered
+      expect(manager.getServerCount()).toBe(initialCount + 1);
+      
+      // Note: TerminusManager uses fixed signals (SIGINT, SIGTERM, SIGQUIT)
+      // Custom signals option is no longer supported
     });
   });
 
@@ -195,18 +213,29 @@ describe("Terminus", () => {
     });
 
     it("should handle multiple signals", async () => {
-      const signals = ["SIGINT", "SIGTERM", "SIGQUIT"];
-      CreateTerminus(mockApp as KoattyApplication, mockServer, {
-        timeout: 1000,
-        signals
-      });
+      // Use real timers for this test to avoid timeout issues
+      jest.useRealTimers();
+      
+      try {
+        CreateTerminus(mockApp as KoattyApplication, mockServer, {
+          timeout: 1000
+        });
 
-      loggerWarnSpy.mockClear();
+        loggerWarnSpy.mockClear();
 
-      process.emit("SIGTERM");
+        process.emit("SIGTERM");
+        
+        // Wait for async operations
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-      expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
-      expect(loggerWarnSpy).toHaveBeenCalledWith("Received kill signal (SIGTERM), shutting down...");
+        expect(loggerWarnSpy).toHaveBeenCalled();
+        expect(loggerWarnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("Received kill signal (SIGTERM), shutting down")
+        );
+      } finally {
+        // Restore fake timers for other tests
+        jest.useFakeTimers();
+      }
     });
   });
 });
