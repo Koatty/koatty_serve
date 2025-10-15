@@ -247,7 +247,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -257,7 +257,7 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'SSL certificate configuration changed',
         canApplyRuntime: false
       };
@@ -267,14 +267,14 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys: changedKeys as (keyof ListeningOptions)[],
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }

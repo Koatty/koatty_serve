@@ -271,7 +271,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -281,7 +281,7 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'SSL/TLS configuration changed',
         canApplyRuntime: false
       };
@@ -291,14 +291,14 @@ export class HttpsServer extends BaseServer<HttpsServerOptions> {
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys: changedKeys as (keyof ListeningOptions)[],
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }

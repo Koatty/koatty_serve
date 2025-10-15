@@ -355,7 +355,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -365,7 +365,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'SSL/TLS configuration changed',
         canApplyRuntime: false
       };
@@ -375,7 +375,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     if (this.hasQUICConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'QUIC protocol configuration changed',
         canApplyRuntime: false
       };
@@ -385,7 +385,7 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     if (this.hasHTTP3ConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'HTTP/3 protocol configuration changed',
         canApplyRuntime: false
       };
@@ -395,14 +395,14 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys: changedKeys as (keyof ListeningOptions)[],
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }

@@ -120,7 +120,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key))) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -130,7 +130,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as string[],
         restartReason: 'SSL/TLS configuration changed',
         canApplyRuntime: false
       };
@@ -140,7 +140,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     if (this.hasChannelOptionsChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys,
+        changedKeys: changedKeys as string[],
         restartReason: 'Connection pool configuration changed',
         canApplyRuntime: false
       };
@@ -148,7 +148,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
     return {
       requiresRestart: false,
-      changedKeys,
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }

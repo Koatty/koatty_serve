@@ -329,7 +329,9 @@ export class SingleProtocolServer implements KoattyServer {
     const protocolType = this.options.protocol;
     const port = this.options.port;
     
+    // Preserve all original options including connectionPool and any custom fields
     const options: ListeningOptions = {
+      ...this.options,
       hostname: this.options.hostname,
       port,
       protocol: protocolType,
@@ -389,6 +391,16 @@ export class SingleProtocolServer implements KoattyServer {
       
       // Handle SSL specific options
       ConfigHelper.configureSSLForProtocol(protocolType, options, traceId);
+
+      // For GraphQL, set the underlying protocol BEFORE creating server instance
+      if (protocolType === "graphql") {
+        const actualProtocol = options.ssl?.enabled ? "http2" : "http";
+        if (!options.ext) {
+          options.ext = {};
+        }
+        options.ext._underlyingProtocol = actualProtocol;
+        options.ext._actualProtocol = actualProtocol;
+      }
 
       const server = this.createServerInstance(protocolType, options);
       this.serverInstance = server;
@@ -453,12 +465,21 @@ export class SingleProtocolServer implements KoattyServer {
     if (protocolType === "graphql" && options.ssl?.enabled) {
         ServerConstructor = Http2Server;
         actualProtocol = "http2";
+        // Set underlying protocol BEFORE creating server
+        if (!options.ext) {
+          options.ext = {};
+        }
+        options.ext._underlyingProtocol = actualProtocol;
+        options.ext._actualProtocol = actualProtocol;
     } else if (protocolType === "graphql") {
         actualProtocol = "http";
+        // Set underlying protocol BEFORE creating server
+        if (!options.ext) {
+          options.ext = {};
+        }
+        options.ext._underlyingProtocol = actualProtocol;
+        options.ext._actualProtocol = actualProtocol;
     }
-    
-    // Store the actual protocol for logging purposes
-    (options as any)._actualProtocol = actualProtocol;
     
     return new ServerConstructor(this.app, options);
   }

@@ -209,7 +209,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -219,7 +219,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     if (this.hasSSLConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'SSL/TLS configuration changed',
         canApplyRuntime: false
       };
@@ -229,7 +229,7 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     if (this.hasHTTP2ConfigChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'HTTP/2 protocol configuration changed',
         canApplyRuntime: false
       };
@@ -239,14 +239,14 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: false,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         canApplyRuntime: true
       };
     }
 
     return {
       requiresRestart: false,
-      changedKeys: changedKeys as (keyof ListeningOptions)[],
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }
@@ -449,7 +449,9 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       this.startTime = Date.now();
       
       const protocolUpper = this.options.protocol.toUpperCase();
-      const urlProtocol = this.options.protocol.toLowerCase();
+      const underlyingProtocol = this.options.ext?._underlyingProtocol;
+      // For URL, always use the underlying protocol (http2/https), not graphql
+      const urlProtocol = underlyingProtocol ? underlyingProtocol.toLowerCase() : this.options.protocol.toLowerCase();
       const serverUrl = `${urlProtocol}://${this.options.hostname || '127.0.0.1'}:${this.options.port}/`;
       
       // 输出 Koatty 格式的启动日志

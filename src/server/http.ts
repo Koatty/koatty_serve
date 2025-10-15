@@ -143,7 +143,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     if (changedKeys.some(key => criticalKeys.includes(key as keyof ListeningOptions))) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Critical network configuration changed',
         canApplyRuntime: false
       };
@@ -153,7 +153,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
     if (this.hasConnectionPoolChanged(oldConfig, newConfig)) {
       return {
         requiresRestart: true,
-        changedKeys: changedKeys as (keyof ListeningOptions)[],
+        changedKeys: changedKeys as string[],
         restartReason: 'Connection pool configuration changed',
         canApplyRuntime: false
       };
@@ -161,7 +161,7 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
 
     return {
       requiresRestart: false,
-      changedKeys: changedKeys as (keyof ListeningOptions)[],
+      changedKeys: changedKeys as string[],
       canApplyRuntime: true
     };
   }
@@ -307,7 +307,10 @@ export class HttpServer extends BaseServer<HttpServerOptions> {
       this.startTime = Date.now();
       
       const protocolUpper = this.options.protocol.toUpperCase();
-      const urlProtocol = this.options.protocol.toLowerCase();
+      const underlyingProtocol = this.options.ext?._underlyingProtocol;
+      // For URL, always use the underlying protocol (http/https), not graphql
+      const urlProtocol = underlyingProtocol ? underlyingProtocol.toLowerCase() : this.options.protocol.toLowerCase();
+      
       const serverUrl = `${urlProtocol}://${this.options.hostname || '127.0.0.1'}:${this.options.port}/`;
       
       // 输出 Koatty 格式的启动日志
