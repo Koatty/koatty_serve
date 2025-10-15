@@ -72,7 +72,11 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions>
   private isShuttingDown = false;
 
   constructor(protected app: KoattyApplication, options: T) {
-    this.options = { ...options };
+    // 深拷贝 options，确保 ext 对象也被正确复制
+    this.options = { 
+      ...options,
+      ext: options.ext ? { ...options.ext } : undefined
+    };
     this.protocol = options.protocol;
     this.status = 0;
     this.serverId = generateServerId(options.protocol);
