@@ -3,15 +3,18 @@ import { KoattyApplication } from 'koatty_core';
 import * as ws from 'ws';
 import * as http from 'http';
 import * as https from 'https';
+import * as fs from 'fs';
 
 // Mock dependencies
 jest.mock('ws');
 jest.mock('http');
 jest.mock('https');
+jest.mock('fs');
 
 const mockWs = ws as jest.Mocked<typeof ws>;
 const mockHttp = http as jest.Mocked<typeof http>;
 const mockHttps = https as jest.Mocked<typeof https>;
+const mockFs = fs as jest.Mocked<typeof fs>;
 
 describe('WsServer', () => {
   let mockApp: any;
@@ -21,6 +24,19 @@ describe('WsServer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Mock file system operations with valid PEM format
+    mockFs.readFileSync.mockImplementation((path: any) => {
+      if (path.includes('key')) return '-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----';
+      if (path.includes('cert')) return '-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----';
+      if (path.includes('ca')) return '-----BEGIN CERTIFICATE-----\nMOCK CA\n-----END CERTIFICATE-----';
+      return 'mock-file-content';
+    });
+    
+    // Mock existsSync to return true for certificate files
+    mockFs.existsSync.mockImplementation((path: any) => {
+      return typeof path === 'string' && (path.includes('key') || path.includes('cert') || path.includes('ca') || path.includes('.pem'));
+    });
 
     // Mock KoattyApplication
     mockApp = {

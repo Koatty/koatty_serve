@@ -65,12 +65,17 @@ describe('Http2Server', () => {
       setTimeout: jest.fn()
     };
 
-    // Mock file system operations
+    // Mock file system operations with valid PEM format
     mockFs.readFileSync.mockImplementation((path: any) => {
-      if (path.includes('key')) return 'mock-private-key';
-      if (path.includes('cert')) return 'mock-certificate';
-      if (path.includes('ca')) return 'mock-ca-certificate';
+      if (path.includes('key')) return '-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----';
+      if (path.includes('cert')) return '-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----';
+      if (path.includes('ca')) return '-----BEGIN CERTIFICATE-----\nMOCK CA\n-----END CERTIFICATE-----';
       return 'mock-file-content';
+    });
+    
+    // Mock existsSync to return true for certificate files
+    mockFs.existsSync.mockImplementation((path: any) => {
+      return typeof path === 'string' && (path.includes('key') || path.includes('cert') || path.includes('ca'));
     });
 
     mockHttp2.createSecureServer.mockReturnValue(mockServer);
@@ -344,8 +349,8 @@ describe('Http2Server', () => {
       // It's handled by the HTTP/2 implementation internally
       expect(mockHttp2.createSecureServer).toHaveBeenCalledWith(
         expect.objectContaining({
-          key: 'mock-private-key',
-          cert: 'mock-certificate',
+          key: expect.stringContaining('-----BEGIN PRIVATE KEY-----'),
+          cert: expect.stringContaining('-----BEGIN CERTIFICATE-----'),
           allowHTTP1: true
         }),
         expect.any(Function)
@@ -372,9 +377,9 @@ describe('Http2Server', () => {
           allowHTTP1: true,
           requestCert: true,
           rejectUnauthorized: true,
-          ca: 'mock-certificate',
-          key: 'mock-private-key',
-          cert: 'mock-certificate'
+          ca: expect.stringContaining('-----BEGIN CERTIFICATE-----'),
+          key: expect.stringContaining('-----BEGIN PRIVATE KEY-----'),
+          cert: expect.stringContaining('-----BEGIN CERTIFICATE-----')
         }),
         expect.any(Function)
       );

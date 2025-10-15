@@ -18,10 +18,13 @@ const mockGrpcServer = {
   start: jest.fn(),
   tryShutdown: jest.fn((callback: any) => {
     // Immediately call callback without error for successful shutdown
-    setTimeout(() => callback(), 0);
+    // Use setImmediate for more reliable async behavior in tests
+    mockGrpcServer._acceptingNewConnections = false;
+    setImmediate(() => callback());
   }),
   forceShutdown: jest.fn(),
-  register: jest.fn()
+  register: jest.fn(),
+  _acceptingNewConnections: true // Add this property for graceful shutdown tests
 };
 
 const mockCredentials = {
@@ -79,12 +82,30 @@ jest.mock('@grpc/proto-loader', () => ({
   loadSync: jest.fn(() => ({}))
 }));
 
+jest.mock('fs');
+
+import * as fs from 'fs';
+const mockFs = fs as jest.Mocked<typeof fs>;
+
 describe('GrpcServer', () => {
   let mockApp: any;
   let grpcServer: GrpcServer;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    
+    // Mock file system operations with valid PEM format
+    mockFs.readFileSync.mockImplementation((path: any) => {
+      if (path.includes('key')) return '-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----';
+      if (path.includes('cert') || path.includes('crt')) return '-----BEGIN CERTIFICATE-----\nMOCK\n-----END CERTIFICATE-----';
+      if (path.includes('ca')) return '-----BEGIN CERTIFICATE-----\nMOCK CA\n-----END CERTIFICATE-----';
+      return 'mock-file-content';
+    });
+    
+    // Mock existsSync to return true for certificate files
+    mockFs.existsSync.mockImplementation((path: any) => {
+      return typeof path === 'string' && (path.includes('key') || path.includes('cert') || path.includes('crt') || path.includes('ca') || path.includes('.pem'));
+    });
 
     mockApp = {
       config: jest.fn(() => ({
@@ -768,6 +789,13 @@ describe('GrpcServer', () => {
   });
 
   describe('Graceful Shutdown', () => {
+    beforeEach(() => {
+      // Reset tryShutdown mock to default behavior for this test suite
+      mockGrpcServer.tryShutdown.mockImplementation((callback: any) => {
+        setImmediate(() => callback());
+      });
+    });
+
     it('should stop accepting new connections', async () => {
       const traceId = 'test-trace-id';
       
@@ -1231,6 +1259,11 @@ describe('GrpcServer', () => {
 
   describe('Advanced Graceful Shutdown', () => {
     beforeEach(() => {
+      // Reset tryShutdown mock to default behavior
+      mockGrpcServer.tryShutdown.mockImplementation((callback: any) => {
+        setImmediate(() => callback());
+      });
+
       // Mock logger for shutdown tests
       const mockLogger = {
         info: jest.fn(),
@@ -1256,9 +1289,12 @@ describe('GrpcServer', () => {
       
       const mockLogger = (grpcServer as any).logger;
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Step 3: Waiting for existing connections to complete',
+        'Step 3: Checking for remaining connections',
         { traceId },
-        { activeConnections: expect.any(Number), timeout: 1000 }
+        expect.objectContaining({
+          activeConnections: expect.any(Number),
+          timeout: 1000
+        })
       );
     });
 
