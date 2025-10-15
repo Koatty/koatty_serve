@@ -81,8 +81,10 @@ export abstract class BaseServer<T extends ListeningOptions = ListeningOptions>
     this.timerManager = new TimerManager();
 
     // 设置日志上下文
+    // 对于 GraphQL，使用底层协议作为 module，保持 protocol 为 graphql
+    const actualModule = options.ext?._underlyingProtocol || options.protocol;
     this.logger = createLogger({
-      module: options.protocol,
+      module: actualModule,
       protocol: options.protocol,
       serverId: this.serverId
     });

@@ -86,7 +86,7 @@ export interface ListeningOptions {
   ext?: {    
     protoFile?: string;
     schemaFile?: string;
-    [key: string]: any;
+    [key: string]: any;  // 扩展配置字段（包括内部使用的 _underlyingProtocol、_actualProtocol 等）
   };
   connectionPool?: ConnectionPoolConfig;
 }
@@ -103,6 +103,9 @@ export interface BaseServerOptions {
   protocol: string;
   trace?: boolean; // Full stack debug & trace, default: false
   connectionPool?: ConnectionPoolConfig;
+  ext?: {
+    [key: string]: any;  // 扩展配置字段（包括内部使用的 _underlyingProtocol、_actualProtocol 等）
+  };
 }
 
 /**
@@ -254,13 +257,15 @@ export class ConfigHelper {
     const defaultPoolConfig = PoolConfigHelper.createHttpConfig();
     const poolConfig = PoolConfigHelper.mergeConfigs(defaultPoolConfig, options.connectionPool || {});
     
+    // Preserve all original options including custom fields like _underlyingProtocol
     return {
+      ...options,  // Preserve all incoming fields
       connectionPool: poolConfig,
       hostname: options.hostname || 'localhost',
       port: options.port || 3000,
       protocol: options.protocol || 'http',
       trace: options.trace || false
-    }
+    } as HttpServerOptions;
   }
 
   static createHttpsConfig(options: any = {
@@ -297,7 +302,9 @@ export class ConfigHelper {
     // 只使用 options.ssl
     const sslConfig = options.ssl || {};
     
+    // Preserve all original options including custom fields
     const config = {
+      ...options,  // Preserve all incoming fields
       connectionPool: poolConfig,
       ssl: sslConfig,
       hostname: options.hostname || 'localhost',
@@ -345,7 +352,9 @@ export class ConfigHelper {
     // 只使用 options.ssl
     const sslConfig = options.ssl || {};
 
+    // Preserve all original options including custom fields like _underlyingProtocol
     const config =  {
+      ...options,  // Preserve all incoming fields
       connectionPool: poolConfig,
       ssl: sslConfig,
       http2: options.http2 || options.ext.http2 || {},
@@ -394,7 +403,9 @@ export class ConfigHelper {
     // 只使用 options.ssl
     const sslConfig = options.ssl || {};
 
+    // Preserve all original options including custom fields
     return {
+      ...options,  // Preserve all incoming fields
       channelOptions: options.connectionPool || {},
       ssl: sslConfig,
       connectionPool: poolConfig,
@@ -402,7 +413,7 @@ export class ConfigHelper {
       port: options.port || 50051,
       protocol: options.protocol || 'grpc',
       trace: options.trace || false,
-    }
+    } as GrpcServerOptions;
   }
 
   static createHttp3Config(options: any = {
@@ -439,7 +450,9 @@ export class ConfigHelper {
     // 只使用 options.ssl
     const sslConfig = options.ssl || {};
     
+    // Preserve all original options including custom fields
     const config =  {
+      ...options,  // Preserve all incoming fields
       connectionPool: poolConfig,
       ssl: sslConfig,
       http3: options.http3 || options.ext.http3 || {},
@@ -489,7 +502,9 @@ export class ConfigHelper {
     // 只使用 options.ssl
     const sslConfig = options.ssl || {};
     
+    // Preserve all original options including custom fields
     return {
+      ...options,  // Preserve all incoming fields
       wsOptions: options.wsOptions || options.ext.wsOptions || {},
       ssl: sslConfig,
       connectionPool: poolConfig,
@@ -497,6 +512,6 @@ export class ConfigHelper {
       port: options.port || 8080,
       protocol: options.protocol || 'ws',
       trace: options.trace || false
-    }
+    } as WebSocketServerOptions;
   }
 }
