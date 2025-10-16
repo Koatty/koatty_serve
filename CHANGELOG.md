@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0-10](https://github.com/koatty/koatty_serve/compare/v2.9.0-9...v2.9.0-10) (2025-10-16)
+
+## [2.9.0-10] (2025-10-16)
+
+### Features
+
+* **grpc**: enhance gRPC callback handling with timeout detection, duplicate call protection, and comprehensive logging ([#xxx](https://github.com/koatty/koatty_serve/issues/xxx))
+  - Add 30-second timeout mechanism to detect callbacks not being called
+  - Prevent callback from being called multiple times
+  - Add detailed request lifecycle logging (start, success, error, timeout)
+  - Standardize gRPC error format with proper status codes
+  - Add response data validation and structure logging
+  - Improve error handling with proper exception catching
+  - Add comprehensive documentation in Chinese and English
+
+### Documentation
+
+* add `docs/GRPC_RESPONSE_FIX_CN.md` - Comprehensive Chinese guide for gRPC response handling
+* add `docs/GRPC_RESPONSE_FIX_EN.md` - English summary of gRPC enhancements
+
+### Bug Fixes
+
+* **grpc**: fix EOF errors caused by callbacks not being called
+* **grpc**: fix "status: 0" and "action: undefined" issues in responses
+
 ## [2.9.0-9](https://github.com/koatty/koatty_serve/compare/v2.9.0-8...v2.9.0-9) (2025-10-15)
 
 ## [2.9.0-8](https://github.com/koatty/koatty_serve/compare/v2.9.0-7...v2.9.0-8) (2025-10-15)
