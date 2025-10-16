@@ -565,8 +565,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       wrappedImplementation[methodName] = (call: any, callback: any) => {
         const connectionId = `grpc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const methodTraceId = generateTraceId();
-        
-        // gRPC method call initiated
+        const startTime = Date.now();
 
         // Add connection to manager using the new API
         const peer = call.getPeer ? call.getPeer() : 'unknown';
@@ -581,30 +580,142 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           this.logger.error('Failed to add gRPC connection to pool', {}, error);
         });
 
-        // Wrap callback for monitoring
+        // Log method call start
+        this.logger.info('gRPC method call started', { traceId: methodTraceId, connectionId }, {
+          serviceName: impl.service.serviceName,
+          methodName,
+          peer
+        });
+
+        // Wrap callback for monitoring with duplicate call protection
+        let callbackCalled = false;
+        let timeoutId: NodeJS.Timeout | null = null;
+
         const wrappedCallback = (err: any, response: any) => {
+          if (callbackCalled) {
+            this.logger.warn('Callback called multiple times (ignored)', { 
+              traceId: methodTraceId, 
+              connectionId 
+            }, {
+              serviceName: impl.service.serviceName,
+              methodName
+            });
+            return;
+          }
+          callbackCalled = true;
+
+          // Clear timeout if exists
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          const duration = Date.now() - startTime;
+
           if (err) {
             this.logger.error('gRPC method error', { traceId: methodTraceId, connectionId }, {
               serviceName: impl.service.serviceName,
               methodName,
+              duration,
+              errorCode: err.code,
+              errorMessage: err.message || String(err),
               error: err
             });
+            
+            // Ensure error follows gRPC format
+            const grpcError = typeof err === 'object' && err !== null && 'code' in err 
+              ? err 
+              : {
+                  code: 13, // INTERNAL
+                  message: err instanceof Error ? err.message : String(err),
+                  details: err
+                };
+            
+            if (callback) callback(grpcError, null);
+          } else {
+            // Validate response
+            const hasResponse = response !== undefined && response !== null;
+            const responseInfo: any = {
+              serviceName: impl.service.serviceName,
+              methodName,
+              duration,
+              hasResponse,
+              responseType: typeof response
+            };
+
+            if (hasResponse && typeof response === 'object') {
+              responseInfo.responseKeys = Object.keys(response);
+            }
+
+            this.logger.info('gRPC method success', { traceId: methodTraceId, connectionId }, responseInfo);
+            
+            // Note: Connection cleanup is handled automatically by the pool
+            
+            if (callback) callback(null, response);
           }
-          
-          // Note: Connection cleanup is handled automatically by the pool
-          
-          if (callback) callback(err, response);
         };
+
+        // Set timeout to detect callback not being called
+        const timeoutMs = 30000; // 30 seconds
+        timeoutId = setTimeout(() => {
+          if (!callbackCalled) {
+            callbackCalled = true;
+            const duration = Date.now() - startTime;
+            
+            this.logger.error('gRPC method timeout - callback not called', {
+              traceId: methodTraceId,
+              connectionId
+            }, {
+              serviceName: impl.service.serviceName,
+              methodName,
+              duration,
+              timeout: timeoutMs
+            });
+            
+            // Return timeout error
+            if (callback) {
+              callback({
+                code: 4, // DEADLINE_EXCEEDED
+                message: `Method execution timeout after ${timeoutMs}ms`
+              }, null);
+            }
+          }
+        }, timeoutMs);
 
         // Call original handler
         try {
           handler(call, wrappedCallback);
         } catch (error) {
-          this.logger.error('gRPC method handler error', { traceId: methodTraceId, connectionId }, error);
+          // Clear timeout on immediate error
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+
+          const duration = Date.now() - startTime;
+          
+          this.logger.error('gRPC method handler error (exception)', { 
+            traceId: methodTraceId, 
+            connectionId 
+          }, {
+            serviceName: impl.service.serviceName,
+            methodName,
+            duration,
+            error
+          });
           
           // Note: Connection error handling is managed by the pool
           
-          if (callback) callback(error, null);
+          // Ensure callback is called with proper gRPC error format
+          if (!callbackCalled) {
+            callbackCalled = true;
+            const grpcError = {
+              code: 13, // INTERNAL
+              message: error instanceof Error ? error.message : 'Internal server error',
+              details: error
+            };
+            if (callback) callback(grpcError, null);
+          }
         }
       };
     }
