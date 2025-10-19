@@ -97,7 +97,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    * gRPC特定的额外初始化
    */
   protected performProtocolSpecificInitialization(): void {
-    this.logger.info('gRPC server initialization completed', {}, {
+    this.logger.debug('gRPC server initialization completed', {}, {
       hostname: this.options.hostname,
       port: this.options.port,
       protocol: this.options.protocol,
@@ -553,7 +553,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
    */
   RegisterService(impl: ServiceImplementation) {
     const traceId = generateTraceId();
-    this.logger.info('Registering gRPC service', { traceId }, {
+    this.logger.debug('Registering gRPC service', { traceId }, {
       serviceName: impl.service.serviceName || 'Unknown',
       methods: Object.keys(impl.implementation)
     });
@@ -561,8 +561,24 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     // Wrap implementation methods for monitoring
     const wrappedImplementation: Implementation = {};
     
+    this.logger.debug('[GRPC_SERVER] Building wrapped implementation', { traceId }, {
+      methodCount: Object.keys(impl.implementation).length,
+      methods: Object.keys(impl.implementation)
+    });
+    
     for (const [methodName, handler] of Object.entries(impl.implementation)) {
-      wrappedImplementation[methodName] = (call: any, callback: any) => {
+      this.logger.debug('[GRPC_SERVER] Wrapping method', { traceId }, {
+        methodName,
+        hasHandler: !!handler,
+        handlerType: typeof handler
+      });
+      
+      wrappedImplementation[methodName] = async (call: any, callback: any) => {
+        this.logger.debug('[GRPC_SERVER] ⚡ Wrapped method called!', {}, {
+          methodName,
+          hasPeer: !!(call && call.getPeer)
+        });
+        
         const connectionId = `grpc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const methodTraceId = generateTraceId();
         const startTime = Date.now();
@@ -581,7 +597,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
         });
 
         // Log method call start
-        this.logger.info('gRPC method call started', { traceId: methodTraceId, connectionId }, {
+        this.logger.debug('gRPC method call started', { traceId: methodTraceId, connectionId }, {
           serviceName: impl.service.serviceName,
           methodName,
           peer
@@ -647,7 +663,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
               responseInfo.responseKeys = Object.keys(response);
             }
 
-            this.logger.info('gRPC method success', { traceId: methodTraceId, connectionId }, responseInfo);
+            this.logger.debug('gRPC method success', { traceId: methodTraceId, connectionId }, responseInfo);
             
             // Note: Connection cleanup is handled automatically by the pool
             
@@ -657,6 +673,10 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
 
         // Set timeout to detect callback not being called
         const timeoutMs = 30000; // 30 seconds
+        this.logger.debug('[GRPC_SERVER] Setting up timeout', { traceId: methodTraceId, connectionId }, {
+          timeoutMs
+        });
+        
         timeoutId = setTimeout(() => {
           if (!callbackCalled) {
             callbackCalled = true;
@@ -682,9 +702,30 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
           }
         }, timeoutMs);
 
-        // Call original handler
+        this.logger.debug('[GRPC_SERVER] About to call app.callback("grpc")', { traceId: methodTraceId, connectionId });
+        
+        // Get the grpc middleware handler from app.callback
+        // This creates context and executes middleware chain (including gRPC router middleware)
+        // app.callback returns a function: (req, res) => {...}
+        // For gRPC: req = call, res = wrappedCallback
+        const grpcMiddlewareHandler = this.app.callback("grpc");
+        
+        // Execute the middleware handler
         try {
-          handler(call, wrappedCallback);
+          this.logger.debug('[GRPC_SERVER] Calling app.callback("grpc") middleware handler', { traceId: methodTraceId, connectionId }, {
+            methodName
+          });
+          
+          // Execute middleware chain
+          // The gRPC router middleware will:
+          // 1. Check ctx.protocol === 'grpc'
+          // 2. Find matching controller based on ctx.rpc (call object)
+          // 3. Execute controller method
+          // 4. Set result to ctx.body
+          // 5. wrappedCallback will be called automatically with ctx.body
+          await grpcMiddlewareHandler(call, wrappedCallback);
+          
+          this.logger.debug('[GRPC_SERVER] app.callback middleware handler completed', { traceId: methodTraceId, connectionId });
         } catch (error) {
           // Clear timeout on immediate error
           if (timeoutId) {
@@ -720,9 +761,17 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       };
     }
     
+    this.logger.debug('[GRPC_SERVER] About to call server.addService', { traceId }, {
+      serviceName: impl.service.serviceName,
+      wrappedMethodCount: Object.keys(wrappedImplementation).length,
+      wrappedMethods: Object.keys(wrappedImplementation),
+      serviceType: typeof impl.service,
+      hasServiceDefinition: !!impl.service
+    });
+    
     this.server.addService(impl.service, wrappedImplementation);
     
-    this.logger.info('gRPC service registered successfully', { traceId }, {
+    this.logger.debug('gRPC service registered successfully', { traceId }, {
       serviceName: impl.service.serviceName || 'Unknown'
     });
   }
