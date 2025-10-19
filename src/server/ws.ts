@@ -212,7 +212,81 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
    * 设置WebSocket事件处理器
    */
   private setupWebSocketEventHandlers(ws: WS.WebSocket, connectionId: string): void {
-    // 注意：消息处理逻辑应由应用层实现
+    // 处理消息 - 通过app.callback()调用middleware链
+    ws.on('message', async (data: Buffer | string) => {
+      try {
+        this.logger.debug('WebSocket message received', {}, {
+          connectionId,
+          dataType: typeof data,
+          dataSize: Buffer.isBuffer(data) ? data.length : data.length
+        });
+
+        // 创建伪造的request和response对象用于middleware
+        // WebSocket没有标准的HTTP req/res,但我们可以创建兼容的对象
+        const pseudoReq: any = {
+          method: 'MESSAGE',
+          url: '/',  // 可以由router根据实际路由修改
+          headers: {},
+          socket: ws,
+          connection: { remoteAddress: (ws as any)._socket?.remoteAddress },
+          // 将WebSocket和消息数据附加到request对象
+          websocket: ws,
+          wsData: data,
+          wsConnectionId: connectionId
+        };
+
+        const pseudoRes: any = {
+          // WebSocket的response通过ws.send()发送
+          // 这里提供一个兼容接口
+          writeHead: () => {},
+          setHeader: () => {},
+          end: (responseData?: any) => {
+            if (responseData !== undefined && responseData !== null) {
+              try {
+                const sendData = typeof responseData === 'string' 
+                  ? responseData 
+                  : JSON.stringify(responseData);
+                ws.send(sendData);
+              } catch (error) {
+                this.logger.error('Error sending WebSocket response', {}, {
+                  connectionId,
+                  error: (error as Error).message
+                });
+              }
+            }
+          },
+          // 保存WebSocket引用以便在middleware中使用
+          websocket: ws,
+          finished: false
+        };
+
+        // 调用app.callback()执行middleware链
+        // 这样WebSocket就和其他协议保持一致的架构了
+        const wsMiddlewareHandler = this.app.callback('ws');
+        await wsMiddlewareHandler(pseudoReq, pseudoRes);
+
+        this.logger.debug('WebSocket message handled successfully', {}, { connectionId });
+
+      } catch (error) {
+        this.logger.error('Error handling WebSocket message', {}, {
+          connectionId,
+          error: (error as Error).message
+        });
+        
+        // 发送错误消息给客户端
+        try {
+          ws.send(JSON.stringify({
+            error: 'Internal server error',
+            message: (error as Error).message
+          }));
+        } catch (sendError) {
+          this.logger.error('Error sending error message', {}, {
+            connectionId,
+            error: (sendError as Error).message
+          });
+        }
+      }
+    });
 
     // 处理错误
     ws.on('error', (error: Error) => {
