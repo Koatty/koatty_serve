@@ -502,8 +502,18 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     
     this.server.bindAsync(bindAddress, credentials, (err, port) => {
       if (err) {
-        this.logger.error('Server error', { traceId }, err);
-        return;
+        this.logger.error('Server startup error', { traceId }, err);
+        // 抛出错误以便上层捕获，而不是静默返回
+        throw err;
+      }
+      
+      // 添加运行时错误监听器（gRPC服务器启动成功后）
+      // gRPC Server 内部继承自 EventEmitter，使用类型断言
+      if (typeof (this.server as any).on === 'function') {
+        (this.server as any).on('error', (error: Error) => {
+          this.logger.error('Server runtime error', { traceId }, error);
+          // 不抛出，避免进程崩溃
+        });
       }
       
       // Record start time

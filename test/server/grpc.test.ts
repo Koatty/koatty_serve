@@ -470,13 +470,12 @@ describe('GrpcServer', () => {
         callback(new Error('Address already in use'));
       });
 
-      // Test that the server handles binding errors gracefully
+      // Test that the server throws binding errors (after error handling improvements)
       expect(() => {
-        grpcServer.Start((err?: Error) => {
-          expect(err).toBeDefined();
-          expect(err?.message).toContain('Address already in use');
+        grpcServer.Start(() => {
+          // This callback should not be called on error
         });
-      }).not.toThrow();
+      }).toThrow('Address already in use');
     });
 
     it('should handle service implementation errors', () => {
