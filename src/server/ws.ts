@@ -541,7 +541,28 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     // 确保升级处理器已绑定（可能在构造函数中已经绑定了）
     this.ensureUpgradeHandlersAreBound();
 
+    // 添加错误事件监听器，确保启动错误能够向上抛出
+    // 检查httpServer是否支持once方法（避免测试中的mock对象问题）
+    if (typeof this.httpServer.once === 'function') {
+      this.httpServer.once('error', (error: Error) => {
+        this.logger.error('Server startup error', { traceId }, error);
+        // 抛出错误以便上层捕获
+        throw error;
+      });
+    }
+
     this.httpServer.listen(this.options.port, this.options.hostname, () => {
+      // 监听成功后，移除错误监听器并添加运行时错误监听器
+      if (typeof this.httpServer.removeAllListeners === 'function') {
+        (<any>this.httpServer).removeAllListeners('error');
+      }
+      if (typeof this.httpServer.on === 'function') {
+        this.httpServer.on('error', (error: Error) => {
+          this.logger.error('Server runtime error', { traceId }, error);
+          // 不抛出，避免进程崩溃
+        });
+      }
+      
       const protocolUpper = this.options.protocol.toUpperCase();
       const urlProtocol = this.options.protocol.toLowerCase();
       const serverUrl = `${urlProtocol}://${this.options.hostname || '127.0.0.1'}:${this.options.port}/`;

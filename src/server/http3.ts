@@ -609,6 +609,14 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     });
 
     const startCallback = () => {
+      // 添加运行时错误监听器（HTTP/3服务器启动成功后）
+      if (typeof this.server.on === 'function') {
+        this.server.on('error', (error: Error) => {
+          this.logger.error('Server runtime error', { traceId }, error);
+          // 不抛出，避免进程崩溃
+        });
+      }
+      
       // Record start time
       this.startTime = Date.now();
       

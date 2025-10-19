@@ -444,7 +444,28 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       protocol: this.options.protocol
     });
 
+    // 添加错误事件监听器，确保启动错误能够向上抛出
+    // 检查server是否支持once方法（避免测试中的mock对象问题）
+    if (typeof this.server.once === 'function') {
+      this.server.once('error', (error: Error) => {
+        this.logger.error('Server startup error', { traceId }, error);
+        // 抛出错误以便上层捕获
+        throw error;
+      });
+    }
+
     this.server.listen(this.options.port, this.options.hostname, () => {
+      // 监听成功后，移除错误监听器并添加运行时错误监听器
+      if (typeof this.server.removeAllListeners === 'function') {
+        this.server.removeAllListeners('error');
+      }
+      if (typeof this.server.on === 'function') {
+        this.server.on('error', (error: Error) => {
+          this.logger.error('Server runtime error', { traceId }, error);
+          // 不抛出，避免进程崩溃
+        });
+      }
+      
       // Record start time
       this.startTime = Date.now();
       
