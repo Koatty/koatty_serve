@@ -52,6 +52,104 @@ export class SingleProtocolServer implements KoattyServer {
     });
 
     CreateTerminus(app, this);
+    
+    // Create server instance immediately to enable RegisterService calls
+    // Note: This creates the server wrapper but doesn't start listening yet
+    this.logger.info('[SINGLEPROTOCOL] About to call initializeServerInstance', {}, {
+      protocol: this.options.protocol
+    });
+    
+    try {
+      this.initializeServerInstance();
+      this.logger.info('[SINGLEPROTOCOL] initializeServerInstance completed successfully', {}, {
+        protocol: this.options.protocol,
+        hasServerInstance: !!this.serverInstance
+      });
+    } catch (error) {
+      this.logger.error('[SINGLEPROTOCOL] initializeServerInstance failed', {}, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Initialize server instance without starting it
+   * This allows RegisterService to be called before Start()
+   */
+  private initializeServerInstance(): void {
+    const traceId = generateTraceId();
+    const protocolType = this.options.protocol;
+    const port = this.options.port;
+    
+    // Preserve all original options including connectionPool and any custom fields
+    const options: ListeningOptions = {
+      ...this.options,
+      hostname: this.options.hostname,
+      port,
+      protocol: protocolType,
+      trace: this.options.trace,
+      ext: {
+        ...this.options.ext
+      }
+    };
+
+    try {
+      this.logger.info('[SINGLEPROTOCOL] Initializing server instance', { traceId }, {
+        protocol: protocolType,
+        port: port
+      });
+
+      // 确保 ext 配置存在
+      if (!options.ext) {
+        options.ext = {};
+      }
+
+      // Handle router specific options
+      const routerExt = this.app.config("ext", "router") || {};
+      
+      if (protocolType === "graphql") {
+        const schemaFile = routerExt.schemaFile || options.ext.schemaFile;
+        if (schemaFile) {
+          options.ext.schemaFile = schemaFile;
+        }
+      }
+
+      if (protocolType === "grpc") {
+        const protoFile = routerExt.protoFile || options.ext.protoFile;
+        if (protoFile) {
+          options.ext.protoFile = protoFile;
+        }
+      }
+      
+      // Handle SSL specific options
+      ConfigHelper.configureSSLForProtocol(protocolType, options, traceId);
+
+      // For GraphQL, set the underlying protocol
+      if (protocolType === "graphql") {
+        const actualProtocol = options.ssl?.enabled ? "http2" : "http";
+        if (!options.ext) {
+          options.ext = {};
+        }
+        options.ext._underlyingProtocol = actualProtocol;
+        options.ext._actualProtocol = actualProtocol;
+      }
+
+      // Create server instance but don't start it yet
+      const server = this.createServerInstance(protocolType, options);
+      this.serverInstance = server;
+      
+      this.logger.info('[SINGLEPROTOCOL] Server instance initialized', { traceId }, {
+        protocol: protocolType,
+        hasRegisterService: typeof (server as any).RegisterService === 'function'
+      });
+
+    } catch (error) {
+      this.logger.error('[SINGLEPROTOCOL] Failed to initialize server instance', { 
+        traceId, 
+        protocol: protocolType, 
+        port: port 
+      }, error);
+      throw error;
+    }
   }
 
   /**
@@ -68,20 +166,34 @@ export class SingleProtocolServer implements KoattyServer {
         port: this.options.port
       });
 
-      // Create and start server
-      this.createServer(traceId);
-      
-      // Update status to indicate server is running
-      this.status = this.serverInstance ? 200 : 500;
-      
-      this.logger.info('Server started', { traceId }, {
-        protocol: this.options.protocol,
-        port: this.options.port
-      });
-
-      if (this.listenCallback) {
-        this.listenCallback();
+      if (!this.serverInstance) {
+        throw new Error('Server instance not initialized');
       }
+      
+      // Start the already-created server instance
+      this.serverInstance.Start(() => {
+        try {
+          // Set the native server instance
+          if (typeof (this.serverInstance as any).getNativeServer === 'function') {
+            this.server = (this.serverInstance as any).getNativeServer();
+          }
+          
+          // Update status to indicate server is running
+          this.status = 200;
+          
+          this.logger.info('Server started', { traceId }, {
+            protocol: this.options.protocol,
+            port: this.options.port
+          });
+
+          if (this.listenCallback) {
+            this.listenCallback();
+          }
+        } catch (error) {
+          this.logger.error('Error in server start callback', { traceId }, error);
+          this.status = 500;
+        }
+      });
       
       return this;
     } catch (error) {
@@ -322,127 +434,6 @@ export class SingleProtocolServer implements KoattyServer {
     };
   }
 
-  /**
-   * Create server based on configuration
-   */
-  private createServer(traceId?: string): void {
-    const protocolType = this.options.protocol;
-    const port = this.options.port;
-    
-    // Preserve all original options including connectionPool and any custom fields
-    const options: ListeningOptions = {
-      ...this.options,
-      hostname: this.options.hostname,
-      port,
-      protocol: protocolType,
-      trace: this.options.trace,
-      ext: {
-        ...this.options.ext
-      }
-    };
-
-    try {
-      // Prepare logging info with actual protocol details
-      const logInfo: any = { 
-        traceId, 
-        protocol: protocolType, 
-        port: port 
-      };
-      
-      // Add underlying protocol info for GraphQL
-      if (protocolType === "graphql") {
-        logInfo.underlyingProtocol = options.ssl?.enabled ? "http2" : "http";
-      }
-      
-      this.logger.info('Creating server', logInfo);
-
-      // 确保 ext 配置存在
-      if (!options.ext) {
-        options.ext = {};
-      }
-
-      // Handle router specific options
-      // 优先从 app.config("ext", "router") 读取,回退到 ListeningOptions.ext
-      const routerExt = this.app.config("ext", "router") || {};
-      
-      if (protocolType === "graphql") {
-        const schemaFile = routerExt.schemaFile || options.ext.schemaFile;
-        if (schemaFile) {
-          options.ext.schemaFile = schemaFile;
-          this.logger.debug('GraphQL schema file configured', { 
-            traceId, 
-            schemaFile,
-            source: routerExt.schemaFile ? 'router config' : 'listening options'
-          });
-        }
-      }
-
-      if (protocolType === "grpc") {
-        const protoFile = routerExt.protoFile || options.ext.protoFile;
-        if (protoFile) {
-          options.ext.protoFile = protoFile;
-          this.logger.debug('gRPC proto file configured', { 
-            traceId, 
-            protoFile,
-            source: routerExt.protoFile ? 'router config' : 'listening options'
-          });
-        }
-      }
-      
-      // Handle SSL specific options
-      ConfigHelper.configureSSLForProtocol(protocolType, options, traceId);
-
-      // For GraphQL, set the underlying protocol BEFORE creating server instance
-      if (protocolType === "graphql") {
-        const actualProtocol = options.ssl?.enabled ? "http2" : "http";
-        if (!options.ext) {
-          options.ext = {};
-        }
-        options.ext._underlyingProtocol = actualProtocol;
-        options.ext._actualProtocol = actualProtocol;
-      }
-
-      const server = this.createServerInstance(protocolType, options);
-      this.serverInstance = server;
-
-      // Start the server
-      server.Start(() => {
-        try {
-          // Set the native server instance
-          if (typeof (server as any).getNativeServer === 'function') {
-            this.server = (server as any).getNativeServer();
-          }
-          
-          // Prepare success logging with actual protocol info
-          const successLogInfo: any = { 
-            traceId, 
-            protocol: protocolType, 
-            port: options.port 
-          };
-          
-          // Add underlying protocol info for GraphQL
-          if (protocolType === "graphql") {
-            const actualProto = (options as any)._actualProtocol || (options.ssl?.enabled ? "http2" : "http");
-            successLogInfo.underlyingProtocol = actualProto;
-            successLogInfo.message = `GraphQL server running on ${actualProto.toUpperCase()}`;
-          }
-          
-          this.logger.info('Server started successfully', successLogInfo);
-        } catch (error) {
-          this.logger.error('Error in server start callback', { traceId }, error);
-          this.status = 500;
-        }
-      });
-
-    } catch (error) {
-      this.logger.error('Failed to create server', { 
-        traceId, 
-        protocol: protocolType, 
-        port: port 
-      }, error);
-      throw error;
-    }
-  }
 
   /**
    * Create server instance based on protocol
