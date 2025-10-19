@@ -208,6 +208,16 @@ export class ConfigHelper {
         options.ssl = {};
       }
       
+      // 从 ext 配置中读取证书路径(如果存在)
+      if (options.ext) {
+        if (!options.ssl.key && (options.ext as any).keyFile) {
+          options.ssl.key = (options.ext as any).keyFile;
+        }
+        if (!options.ssl.cert && (options.ext as any).crtFile) {
+          options.ssl.cert = (options.ext as any).crtFile;
+        }
+      }
+      
       const keyPath = options.ssl.key || "";
       const crtPath = options.ssl.cert || "";
 
