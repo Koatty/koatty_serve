@@ -18,7 +18,7 @@ class MockKoattyApplication {
 // Mock the individual server classes
 jest.mock("../../src/server/http", () => ({
   HttpServer: jest.fn().mockImplementation(() => ({
-    Start: jest.fn(),
+    Start: jest.fn((callback) => callback && callback()),
     Stop: jest.fn(callback => callback && callback()),
     getStatus: jest.fn(() => 200),
     getNativeServer: jest.fn(() => ({}))
@@ -27,7 +27,7 @@ jest.mock("../../src/server/http", () => ({
 
 jest.mock("../../src/server/https", () => ({
   HttpsServer: jest.fn().mockImplementation(() => ({
-    Start: jest.fn(),
+    Start: jest.fn((callback) => callback && callback()),
     Stop: jest.fn(callback => callback && callback()),
     getStatus: jest.fn(() => 200),
     getNativeServer: jest.fn(() => ({}))
@@ -36,7 +36,7 @@ jest.mock("../../src/server/https", () => ({
 
 jest.mock("../../src/server/http2", () => ({
   Http2Server: jest.fn().mockImplementation(() => ({
-    Start: jest.fn(),
+    Start: jest.fn((callback) => callback && callback()),
     Stop: jest.fn(callback => callback && callback()),
     getStatus: jest.fn(() => 200),
     getNativeServer: jest.fn(() => ({}))
@@ -45,7 +45,7 @@ jest.mock("../../src/server/http2", () => ({
 
 jest.mock("../../src/server/ws", () => ({
   WsServer: jest.fn().mockImplementation(() => ({
-    Start: jest.fn(),
+    Start: jest.fn((callback) => callback && callback()),
     Stop: jest.fn(callback => callback && callback()),
     getStatus: jest.fn(() => 200),
     getNativeServer: jest.fn(() => ({}))
@@ -54,7 +54,7 @@ jest.mock("../../src/server/ws", () => ({
 
 jest.mock("../../src/server/grpc", () => ({
   GrpcServer: jest.fn().mockImplementation(() => ({
-    Start: jest.fn(),
+    Start: jest.fn((callback) => callback && callback()),
     Stop: jest.fn(callback => callback && callback()),
     RegisterService: jest.fn(),
     getStatus: jest.fn(() => 200),
@@ -409,7 +409,9 @@ describe("NewServe function", () => {
         protocol: "https",
         trace: true,
         ext: {
-          custom: "value"
+          custom: "value",
+          keyFile: "test/temp/test-key.pem",
+          crtFile: "test/temp/test-cert.pem"
         }
       };
 
@@ -443,10 +445,17 @@ describe("NewServe function", () => {
       const protocols: KoattyProtocol[] = ["http", "https", "http2", "grpc", "ws", "wss"];
 
       protocols.forEach(protocol => {
+        const needsSSL = ["https", "http2", "wss"].includes(protocol);
         const server = NewServe(app as any, {
           hostname: "localhost",
           port: 3000,
-          protocol
+          protocol,
+          ...(needsSSL && {
+            ext: {
+              keyFile: "test/temp/test-key.pem",
+              crtFile: "test/temp/test-cert.pem"
+            }
+          })
         });
 
         expect(server.options.protocol).toBe(protocol);
@@ -459,6 +468,8 @@ describe("NewServe function", () => {
         port: 3000,
         protocol: "https",
         ext: {
+          keyFile: "test/temp/test-key.pem",
+          crtFile: "test/temp/test-cert.pem",
           key: "ssl-key-content",
           cert: "ssl-cert-content",
           protoFile: "service.proto",
