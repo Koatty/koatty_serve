@@ -444,28 +444,31 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
       protocol: this.options.protocol
     });
 
-    // 添加错误事件监听器，确保启动错误能够向上抛出
+    // 添加错误事件监听器，必须在 listen 之前注册
+    const errorHandler = (error: Error) => {
+      this.logger.error('Server startup error', { traceId }, error);
+      // 使用 setImmediate 而不是 nextTick，确保错误处理在当前事件循环完成后执行
+      setImmediate(() => {
+        throw error;
+      });
+    };
+
     // 检查server是否支持once方法（避免测试中的mock对象问题）
     if (typeof this.server.once === 'function') {
-      this.server.once('error', (error: Error) => {
-        this.logger.error('Server startup error', { traceId }, error);
-        // 使用 process.nextTick 确保错误能在下一个事件循环中被捕获
-        // 这样可以触发 process 的 uncaughtException 事件
-        process.nextTick(() => {
-          throw error;
-        });
-      });
+      this.server.once('error', errorHandler);
     }
 
     this.server.listen(this.options.port, this.options.hostname, () => {
-      // Remove the error handler added for listen errors
-      if (typeof this.server.removeAllListeners === 'function') {
-        this.server.removeAllListeners('error');
+      // 启动成功，移除启动阶段的错误处理器
+      if (typeof this.server.removeListener === 'function') {
+        this.server.removeListener('error', errorHandler);
       }
+      
+      // 添加运行时错误处理器
       if (typeof this.server.on === 'function') {
         this.server.on('error', (error: Error) => {
           this.logger.error('Server runtime error', { traceId }, error); 
-          // Don't exit on runtime errors
+          // 运行时错误不退出进程
         });
       }
       

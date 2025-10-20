@@ -503,9 +503,8 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
     this.server.bindAsync(bindAddress, credentials, (err, port) => {
       if (err) {
         this.logger.error('Server startup error', { traceId }, err);
-        // 使用 process.nextTick 确保错误能在下一个事件循环中被捕获
-        // 这样可以触发 process 的 uncaughtException 事件
-        process.nextTick(() => {
+        // 使用 setImmediate 而不是 nextTick，确保错误处理在当前事件循环完成后执行
+        setImmediate(() => {
           throw err;
         });
         return;

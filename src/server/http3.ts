@@ -655,9 +655,8 @@ export class Http3Server extends BaseServer<Http3ServerOptions> {
     // Http3ServerAdapter API: listen(callback) - async
     this.server.listen(startCallback).catch((error: Error) => {
       this.logger.error('Failed to start HTTP/3 server', { traceId }, error);
-      // 使用 process.nextTick 确保错误能在下一个事件循环中被捕获
-      // 这样可以触发 process 的 uncaughtException 事件
-      process.nextTick(() => {
+      // 使用 setImmediate 而不是 nextTick，确保错误处理在当前事件循环完成后执行
+      setImmediate(() => {
         throw error;
       });
     });
