@@ -455,14 +455,14 @@ export class Http2Server extends BaseServer<Http2ServerOptions> {
     }
 
     this.server.listen(this.options.port, this.options.hostname, () => {
-      // 监听成功后，移除错误监听器并添加运行时错误监听器
+      // Remove the error handler added for listen errors
       if (typeof this.server.removeAllListeners === 'function') {
         this.server.removeAllListeners('error');
       }
       if (typeof this.server.on === 'function') {
         this.server.on('error', (error: Error) => {
-          this.logger.error('Server runtime error', { traceId }, error);
-          // 不抛出，避免进程崩溃
+          this.logger.error('Server runtime error', { traceId }, error); 
+          // Don't exit on runtime errors
         });
       }
       
