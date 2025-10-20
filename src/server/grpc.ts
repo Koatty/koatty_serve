@@ -512,7 +512,7 @@ export class GrpcServer extends BaseServer<GrpcServerOptions> {
       if (typeof (this.server as any).on === 'function') {
         (this.server as any).on('error', (error: Error) => {
           this.logger.error('Server runtime error', { traceId }, error);
-          // 不抛出，避免进程崩溃
+          // Don't exit on runtime errors
         });
       }
       
