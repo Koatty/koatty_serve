@@ -546,8 +546,11 @@ export class WsServer extends BaseServer<WebSocketServerOptions> {
     if (typeof this.httpServer.once === 'function') {
       this.httpServer.once('error', (error: Error) => {
         this.logger.error('Server startup error', { traceId }, error);
-        // 抛出错误以便上层捕获
-        throw error;
+        // 使用 process.nextTick 确保错误能在下一个事件循环中被捕获
+        // 这样可以触发 process 的 uncaughtException 事件
+        process.nextTick(() => {
+          throw error;
+        });
       });
     }
 
