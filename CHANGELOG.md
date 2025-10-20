@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0-13](https://github.com/koatty/koatty_serve/compare/v2.9.0-12...v2.9.0-13) (2025-10-20)
+
+
+### Features
+
+* translate Chinese comments to English ([c14075d](https://github.com/koatty/koatty_serve/commit/c14075d7f4ee63907db43bae7bb87125274d3a3e))
+
 ## [2.9.0-12](https://github.com/koatty/koatty_serve/compare/v2.9.0-11...v2.9.0-12) (2025-10-19)
 
 ## [2.9.0-11](https://github.com/koatty/koatty_serve/compare/v2.9.0-10...v2.9.0-11) (2025-10-19)
