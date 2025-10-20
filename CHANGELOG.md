@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [2.9.0-14](https://github.com/koatty/koatty_serve/compare/v2.9.0-13...v2.9.0-14) (2025-10-20)
+
+
+### Bug Fixes
+
+* **server:** improve error handling in server startup ([15f5a65](https://github.com/koatty/koatty_serve/commit/15f5a65e9eb30a3eb0bb90b7bb3127b89600bd32))
+
 ## [2.9.0-13](https://github.com/koatty/koatty_serve/compare/v2.9.0-12...v2.9.0-13) (2025-10-20)
 
 
